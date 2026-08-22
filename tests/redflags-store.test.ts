@@ -1,6 +1,7 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { provision, openWithPassphrase } from '../src/main/db/provision';
 import { rulebookPath } from '../src/main/paths';
 import { newId } from '../src/main/db/ids';
@@ -291,22 +292,35 @@ describe('upgrading an older database', () => {
   test('an upgraded database ends up identical to a fresh one', () => {
     // Otherwise a chamber running since last year slowly drifts away
     // from a chamber installed today, and only one of them gets tested.
+    //
+    // The old database is made by wiping a fresh one back to the
+    // baseline schema and setting the version to 1 - which is exactly
+    // what a version 1 installation was. Done generically, so this
+    // still works when there are ten migrations rather than two.
     const fresh = tempDir();
     const freshDb = provision(fresh.dir, 'passphrase', 'demo').db;
     const freshSchema = freshDb.prepare(`SELECT type, name, sql FROM sqlite_master ORDER BY type, name`).all();
+    const latest = latestSchemaVersion();
     freshDb.close();
 
     const old = tempDir();
     const oldDb = provision(old.dir, 'passphrase', 'demo').db;
-    // Rewind: drop what migration 2 added and put the version back.
-    oldDb.exec('DROP TRIGGER rf_eval_is_append_only_no_update');
-    oldDb.exec('DROP TRIGGER rf_eval_is_append_only_no_delete');
-    oldDb.exec('DROP TABLE red_flag_evaluation');
+    oldDb.pragma('foreign_keys = OFF');
+    for (const kind of ['trigger', 'index', 'view', 'table'] as const) {
+      const objects = oldDb.prepare(
+        `SELECT name FROM sqlite_master WHERE type = ? AND name NOT LIKE 'sqlite_%'`).all(kind) as Array<{ name: string }>;
+      for (const object of objects) oldDb.exec(`DROP ${kind.toUpperCase()} IF EXISTS "${object.name}"`);
+    }
+    oldDb.exec(readFileSync(join(__dirname, '..', '..', 'src', 'main', 'db', 'schema.sql'), 'utf8'));
     oldDb.exec('PRAGMA user_version = 1');
-    assert.deepEqual(migrate(oldDb), [2]);
+    oldDb.pragma('foreign_keys = ON');
+
+    const applied = migrate(oldDb);
     const migratedSchema = oldDb.prepare(`SELECT type, name, sql FROM sqlite_master ORDER BY type, name`).all();
     oldDb.close();
 
+    assert.deepEqual(applied, Array.from({ length: latest - 1 }, (_, i) => i + 2),
+      'every migration after the baseline should have run');
     assert.deepEqual(migratedSchema, freshSchema);
     fresh.cleanup(); old.cleanup();
   });

@@ -18,6 +18,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result } from '../shared/ipc';
 import type { RecallCard } from '../shared/recall';
+import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 
 contextBridge.exposeInMainWorld('chamberRecall', {
   status: (): Promise<Result<{ status: InstallationStatus }>> =>
@@ -36,4 +37,14 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('redflags:acknowledge', eventId),
   recallCard: (): Promise<Result<{ card: RecallCard | null }>> =>
     ipcRenderer.invoke('recall:card'),
+  patientSearch: (query: string): Promise<Result<{ results: PatientSearchResult[] }>> =>
+    ipcRenderer.invoke('patients:search', query),
+  patientRegister: (input: RegisterPatientInput): Promise<Result<{ id: string }>> =>
+    ipcRenderer.invoke('patients:register', input),
+  patientMergePreview: (survivingId: string, duplicateId: string): Promise<Result<{ preview: MergePreview }>> =>
+    ipcRenderer.invoke('patients:mergePreview', survivingId, duplicateId),
+  patientMerge: (survivingId: string, duplicateId: string, note: string | null): Promise<Result<{ visitsMoved: number }>> =>
+    ipcRenderer.invoke('patients:merge', survivingId, duplicateId, note),
+  patientUndoMerge: (duplicateId: string): Promise<Result<{ visitsMoved: number }>> =>
+    ipcRenderer.invoke('patients:undoMerge', duplicateId),
 });

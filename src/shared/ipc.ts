@@ -74,4 +74,9 @@ export const CHANNELS = {
   redFlagSample: 'redflags:sample',
   redFlagAcknowledge: 'redflags:acknowledge',
   recallCard: 'recall:card',
+  patientSearch: 'patients:search',
+  patientRegister: 'patients:register',
+  patientMergePreview: 'patients:mergePreview',
+  patientMerge: 'patients:merge',
+  patientUndoMerge: 'patients:undoMerge',
 } as const;

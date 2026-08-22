@@ -6,6 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseUnreadableError } from '../../shared/errors';
 import { nowIso } from './clock';
+import { searchablePhone } from './names';
 
 export type Db = Database.Database;
 
@@ -110,6 +111,21 @@ export function applySchema(db: Db): void {
 }
 
 /**
+ * Some changes need more than sql. A new searchable column has to be
+ * filled in from the rows already there, and the rule for filling it
+ * in lives in TypeScript. These run inside the same transaction as the
+ * migration that needs them.
+ */
+const DATA_FIXUPS: Record<number, (db: Db) => void> = {
+  3: (db) => {
+    const rows = db.prepare('SELECT id, phone FROM patient WHERE phone IS NOT NULL').all() as
+      Array<{ id: string; phone: string }>;
+    const update = db.prepare('UPDATE patient SET search_phone = ? WHERE id = ?');
+    for (const row of rows) update.run(searchablePhone(row.phone), row.id);
+  },
+};
+
+/**
  * Brings a database up to the current schema. Each migration runs in
  * its own transaction, so an interrupted upgrade leaves the database at
  * a version it can still be opened at rather than half-changed.
@@ -120,6 +136,7 @@ export function migrate(db: Db): number[] {
     db.exec('BEGIN');
     try {
       db.exec(migration.sql);
+      DATA_FIXUPS[migration.version]?.(db);
       db.exec(`PRAGMA user_version = ${migration.version}`);
       db.exec('COMMIT');
     } catch (cause) {

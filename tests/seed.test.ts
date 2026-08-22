@@ -219,3 +219,47 @@ describe('the same seed value always produces the same data', () => {
     assert.equal(names[0], names[1]);
   });
 });
+
+describe('the practice data is realistic enough to judge screens against', () => {
+  test('names are varied, so accidental collisions do not swamp deliberate duplicates', () => {
+    // An earlier generator drew from a list of sixteen whole names, and
+    // seventeen different patients ended up with the identical full
+    // name. The search screen and the merge tool were then impossible
+    // to assess: every result looked like a duplicate.
+    const t = tempDir();
+    const db = provision(t.dir, 'passphrase', 'demo').db;
+    seedDatabase(db, { patientCount: 300, randomSeed: 4242 });
+
+    const worst = db.prepare(
+      `SELECT count(*) AS n FROM patient GROUP BY full_name_bn ORDER BY n DESC LIMIT 1`).get() as { n: number };
+    assert.ok(worst.n <= 6, `${worst.n} patients share one name, which makes the search screen unreadable`);
+
+    const distinct = db.prepare('SELECT count(DISTINCT full_name_bn) AS n FROM patient').get() as { n: number };
+    assert.ok(distinct.n > 150, `only ${distinct.n} distinct names among 300 patients`);
+
+    db.close(); t.cleanup();
+  });
+});
+
+describe('the deliberate duplicates are usable for testing the merge tool', () => {
+  test('a duplicate is visibly different from the record it duplicates', () => {
+    // A duplicate that differs only by an invisible trailing space
+    // proves nothing about the merge tool, and looks like a rendering
+    // fault rather than a data problem.
+    const t = tempDir();
+    const db = provision(t.dir, 'passphrase', 'demo').db;
+    seedDatabase(db, { patientCount: 200, randomSeed: 99 });
+
+    const pairs = db.prepare(`
+      SELECT a.full_name_en AS one, b.full_name_en AS two
+      FROM patient a JOIN patient b ON a.full_name_bn = b.full_name_bn AND a.id < b.id
+      WHERE a.full_name_en != b.full_name_en`).all() as Array<{ one: string; two: string }>;
+    assert.ok(pairs.length > 0, 'no differently-spelled duplicate pairs exist at all');
+
+    for (const pair of pairs) {
+      assert.notEqual(pair.one.trim(), pair.two.trim(),
+        `"${pair.one}" and "${pair.two}" differ only by whitespace, which nobody can see on screen`);
+    }
+    db.close(); t.cleanup();
+  });
+});

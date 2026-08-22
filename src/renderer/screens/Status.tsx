@@ -3,6 +3,7 @@ import { api, unwrap, type Failure } from '../api';
 import { FailureNotice } from '../Failure';
 import { RedFlagAlert } from './RedFlagAlert';
 import { RecallCardScreen } from './RecallCard';
+import { PatientSearch } from './PatientSearch';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView } from '../../shared/ipc';
 import type { RecallCard } from '../../shared/recall';
 
@@ -36,6 +37,7 @@ export function Status() {
   const [failure, setFailure] = useState<Failure | null>(null);
   const [previewing, setPreviewing] = useState<RedFlagAlertView | null>(null);
   const [card, setCard] = useState<RecallCard | null>(null);
+  const [findingPatient, setFindingPatient] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -81,6 +83,7 @@ export function Status() {
   }
 
   if (card !== null) return <RecallCardScreen card={card} onClose={() => setCard(null)} />;
+  if (findingPatient) return <PatientSearch onClose={() => setFindingPatient(false)} />;
 
   return (
     <div className="page">
@@ -102,6 +105,15 @@ export function Status() {
           right now in today's session. Nothing on it is wired yet.
         </p>
         <button onClick={openRecallCard}>Open the Recall Card</button>
+      </div>
+
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Patients</h2>
+        <p>
+          Milestone 4: search by phone or name, register someone new, and put duplicate records
+          together. The practice database contains deliberate duplicates to try it on.
+        </p>
+        <button onClick={() => setFindingPatient(true)}>Find a patient</button>
       </div>
 
       <h2>What is in the database</h2>

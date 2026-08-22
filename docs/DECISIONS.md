@@ -293,6 +293,107 @@ what a temperature looks like will ever notice.
 
 ---
 
+## Milestone 4: search, registration, merging
+
+### 23. Temperature: the unit is stated, never guessed
+
+You asked for Fahrenheit entry with automatic conversion. It converts
+automatically, but only once the person has said which scale they used.
+
+Working the scale out from the number is tempting and wrong:
+
+    38  is a fever in Celsius and impossible in Fahrenheit
+    99  is normal in Fahrenheit and impossible in Celsius
+    40  is a high fever in Celsius and hypothermia in Fahrenheit
+
+A rule that gets it right ninety-nine times and silently wrong once has put
+a wrong temperature into a patient's record, and it will look entirely
+plausible there for ever. That is the same failure as the Fahrenheit numbers
+that ended up in the Celsius column of the practice data.
+
+So: a °C / °F switch beside the box, the converted value shown back before
+saving, and everything stored in Celsius in one column. When a number looks
+like the other scale the software asks — "99 °C is not a possible body
+temperature. Did you mean 99 °F, which is 37.2 °C?" — and then stores
+whatever the person decides. It asks; it never corrects and never blocks.
+
+Built and tested now; it appears on screen at milestone 9 with the rest of
+vitals entry.
+
+### 24. Search never chooses for you
+
+There is no function anywhere in this project that returns a single patient
+for a search term. Even when exactly one person matches, the result is a
+list of one and somebody picks them. If such a function existed, something
+would eventually call it, and attaching a visit to the wrong record fuses
+two people's histories silently.
+
+There is also no phonetic matching, no fuzzy distance, and no cleverness of
+any kind — Unicode normalisation and substring matching only, exactly as
+your brief specifies. "Md. Rafiq" does not find "Mohammad Rafiq". That looks
+like a limitation and is a deliberate one: a confident wrong first result at
+a busy desk is far worse than making the assistant type another letter.
+
+Phone numbers are the exception where cleverness is safe, because it is
+arithmetic rather than judgement. 01712345678, 01712-345678, +8801712345678
+and 0171 234 5678 all reduce to the same digits and find the same patient,
+and so do just the last few digits.
+
+### 25. A merged record stays, and stays findable
+
+The duplicate is never deleted. It keeps its own name and phone number, is
+still returned by search, and is marked with what it was merged into.
+
+This matters more than it looks. The duplicate usually exists precisely
+because it holds a different phone number - a son's handset, a number given
+on a different evening. Hiding it would make the patient unfindable by the
+very thing they say at the desk.
+
+Nothing is combined either. The surviving record keeps its own details
+exactly as they were; the software does not invent a merged version of two
+people's details.
+
+### 26. The merge tool has an undo, and that is not scope creep
+
+Merging two records that really are one person is routine. Merging two
+DIFFERENT people fuses two histories, and the doctor then reads somebody
+else's blood pressure as though it were this patient's.
+
+Your brief says the front desk must be able to fix duplicates without
+telephoning anybody. The same sentence has to cover the mistake, or the
+first wrong merge is exactly the phone call it was meant to prevent.
+
+So every merge records the id of every visit and attachment that moved, and
+undoing moves back precisely those and nothing else — not everything the
+surviving record happens to have by then. There is a test for that specific
+distinction, because it is the difference between an undo and a second
+accident.
+
+### 27. Two bugs in the practice data, both worth naming
+
+**Seventeen patients shared one name.** The generator drew from a list of
+sixteen complete names, so in a chamber of 312 there were seventeen people
+called "রুবেল মিয়া". The search screen and the merge tool were impossible to
+judge against that: every result looked like a duplicate and the deliberate
+ones were invisible among the accidents. Names are now built from a given
+name and a family name, giving a few hundred combinations. Collisions still
+happen — a real chamber does see several men called Md. Rafiq — but four at
+worst rather than seventeen.
+
+**The seed collided with itself over serial numbers.** The historical
+generator could place a visit on today's date in the same chamber that
+today's session was numbering from 1, and the two fought over the same
+serial. The database refused the write and rolled the entire seed back,
+which is the unique constraint doing exactly its job. Fixed twice over:
+history now stops yesterday, and today's session continues from whatever
+serial has already been issued rather than assuming it starts empty.
+
+Both were found by looking at real generated data rather than by a test, and
+both are recorded here because "the practice data is misleading" is a
+failure that quietly wastes your time when you review a screen.
+
+---
+
 ## A bug worth recording, because the symptom is the point
 
 The first time the application ran end to end, it showed "Starting…" and
@@ -463,3 +564,25 @@ The fix is small: store the message text on the event when it fires, so the
 record keeps the words the assistant saw. I would do it at milestone 6, when
 alerts start being raised for real rather than by the practice data. Say if
 you would rather I did it sooner.
+
+### J. Nothing is attributed to a person yet, and the rule says it must be
+
+Your brief is explicit: every clinical field records who entered it, and
+attribution is never optional. The database enforces that — those columns
+are NOT NULL and no row can be written without them.
+
+But there is no sign-in yet. It arrives with the setup wizard at milestone
+9, which is where you placed it. Until then everything done through the
+interface is recorded against a role with no named person: front desk, but
+not *which* front desk.
+
+That is fine while the only data is practice data. It stops being fine the
+moment a real patient is entered. So, concretely: **do not let anyone use
+this for real patients before milestone 9 is done**, even if the earlier
+screens look finished enough to try. Records created before then would carry
+a role and no name, and that cannot be repaired afterwards — there is
+nothing to look the answer up from.
+
+If you want to start the pilot earlier than milestone 9, tell me and I will
+move the sign-in forward. It is a small piece of work in the wrong order
+rather than a hard problem.

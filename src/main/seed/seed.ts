@@ -30,14 +30,40 @@
 import type { Db } from '../db/open';
 import { setMeta, dataMode } from '../db/open';
 import { newId } from '../db/ids';
-import { normaliseName, normalisePhone } from '../db/names';
+import { normaliseName, searchablePhone } from '../db/names';
 import { recordAudit } from '../db/audit';
 import { recordUsage } from '../db/usage';
 import { SeedRefusedError } from '../../shared/errors';
 import type { Rulebook } from '../redflags/rulebook';
 import { screenIntake } from '../redflags/store';
-import { GIVEN_MALE, GIVEN_FEMALE, AREAS } from './names';
+import { MALE_GIVEN, MALE_FAMILY, FEMALE_GIVEN, FEMALE_FAMILY, AREAS } from './names';
 import * as V from './demo-vocabulary';
+
+/**
+ * How a second registration of the same person drifts.
+ *
+ * These are the real ways a Bangladeshi name gets written differently
+ * by two people on two evenings. The duplicate has to LOOK different on
+ * screen, or the merge tool cannot be judged: a duplicate that differs
+ * only by an invisible trailing space proves nothing.
+ */
+const RESPELLINGS: Array<[RegExp, string]> = [
+  [/Mohammad/, 'Md.'], [/Hossain/, 'Hosen'], [/Akter/, 'Aktar'], [/Begum/, 'Begom'],
+  [/Rahman/, 'Rehman'], [/Chowdhury/, 'Choudhury'], [/Uddin/, 'Uddeen'], [/Khatun/, 'Khatoon'],
+  [/Yasmin/, 'Jasmin'], [/Siddika/, 'Siddiqa'], [/Nasrin/, 'Nasreen'], [/Shafiqul/, 'Shafikul'],
+  [/Islam/, 'Islaam'], [/Sarkar/, 'Sorkar'], [/Hasan/, 'Hassan'], [/Ayesha/, 'Aisha'],
+  [/Taslima/, 'Taslema'], [/Jesmin/, 'Jesmine'], [/Rubel/, 'Rubal'], [/Mia/, 'Miah'],
+];
+
+function respell(englishName: string): string {
+  for (const [pattern, replacement] of RESPELLINGS) {
+    if (pattern.test(englishName)) return englishName.replace(pattern, replacement);
+  }
+  // Nothing matched: registered by given name only, which is the other
+  // common way a second record of the same person appears.
+  const parts = englishName.trim().split(/\s+/);
+  return parts.length > 1 ? parts[0]! : `${englishName} (2)`;
+}
 
 /** Small deterministic random number generator (mulberry32). */
 function makeRandom(seed: number) {
@@ -200,15 +226,17 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
     const sharedPhonePool: string[] = [];
 
     const insertPatient = db.prepare(
-      `INSERT INTO patient (id, full_name_bn, full_name_en, search_name_bn, search_name_en, phone,
+      `INSERT INTO patient (id, full_name_bn, full_name_en, search_name_bn, search_name_en, phone, search_phone,
          dob, approx_age_years, approx_age_recorded_on, sex, address_free_text,
          created_at, created_by, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
 
     for (let i = 0; i < patientCount; i++) {
       const sex: 'male' | 'female' = chance(rng, 0.48) ? 'male' : 'female';
-      const name = sex === 'male' ? pick(rng, GIVEN_MALE) : pick(rng, GIVEN_FEMALE);
+      const given = pick(rng, sex === 'male' ? MALE_GIVEN : FEMALE_GIVEN);
+      const family = pick(rng, sex === 'male' ? MALE_FAMILY : FEMALE_FAMILY);
+      const name = { bn: `${given.bn} ${family.bn}`, en: `${given.en} ${family.en}` };
       const area = pick(rng, AREAS);
       const age = intBetween(rng, 2, 84);
 
@@ -234,7 +262,7 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
       const id = newId();
       insertPatient.run(
         id, name.bn, name.en, normaliseName(name.bn), normaliseName(name.en),
-        phone, dob, knowsDob ? null : age, knowsDob ? null : createdAt.slice(0, 10),
+        phone, searchablePhone(phone), dob, knowsDob ? null : age, knowsDob ? null : createdAt.slice(0, 10),
         sex, area.bn, createdAt, pick(rng, frontDesk).id, createdAt,
       );
       recordAudit(db, { actor: system, action: 'patient_created', entity: 'patient', entityId: id, details: { source: 'seed' } });
@@ -250,14 +278,16 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
       const original = pick(rng, patients);
       const row = db.prepare('SELECT * FROM patient WHERE id = ?').get(original.id) as Record<string, unknown>;
       const enName = String(row.full_name_en ?? '');
-      // A plausible re-spelling, the way a second front desk entry drifts.
-      const respelled = enName.replace(/Mohammad/, 'Md.').replace(/Hossain/, 'Hosen').replace(/Akter/, 'Aktar').replace(/Begum/, 'Begom');
+      const respelled = respell(enName);
       const id = newId();
       const createdAt = isoAt(new Date(startDate.getTime() + rng() * (now.getTime() - startDate.getTime())), 11, 0);
+      const duplicatePhone = chance(rng, 0.5)
+        ? (row.phone as string | null)
+        : `01${intBetween(rng, 3, 9)}${String(intBetween(rng, 10000000, 99999999)).padStart(8, '0')}`;
       insertPatient.run(
-        id, row.full_name_bn, respelled === enName ? `${enName} ` : respelled,
+        id, row.full_name_bn, respelled,
         normaliseName(String(row.full_name_bn ?? '')), normaliseName(respelled),
-        chance(rng, 0.5) ? row.phone : `01${intBetween(rng, 3, 9)}${String(intBetween(rng, 10000000, 99999999)).padStart(8, '0')}`,
+        duplicatePhone, searchablePhone(duplicatePhone),
         row.dob, row.approx_age_years, row.approx_age_recorded_on, row.sex, row.address_free_text,
         createdAt, pick(rng, frontDesk).id, createdAt,
       );
@@ -274,7 +304,11 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
     // what the register actually has to guarantee.
     interface PlannedVisit { patient: P; chamberId: string; day: Date; }
     const planned: PlannedVisit[] = [];
-    const spanMs = now.getTime() - startDate.getTime();
+    // The history stops yesterday. Today's session is generated
+    // separately below, and two generators writing into the same
+    // clinic day would fight over the serial numbers.
+    const historyEnds = new Date(now.getTime() - 24 * 3600 * 1000);
+    const spanMs = historyEnds.getTime() - startDate.getTime();
 
     for (const p of patients) {
       const visitCount = intBetween(rng, 1, 8);
@@ -467,8 +501,15 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
     const todayDate = dateOnly(now);
     const todaysChamber = chambers[0]!.id;
 
+    // Continue from any serial already issued in this chamber today,
+    // rather than assuming today's list starts empty. A register that
+    // reuses a serial is a register nobody can trust.
+    const serialsAlreadyToday = (db.prepare(
+      'SELECT COALESCE(max(serial_no), 0) AS n FROM visit WHERE chamber_id = ? AND visit_date = ?',
+    ).get(todaysChamber, todayDate) as { n: number }).n;
+
     todaysPatients.forEach((p, index) => {
-      const serial = index + 1;
+      const serial = serialsAlreadyToday + index + 1;
       // Six already seen, one with the doctor now, the rest waiting.
       const status = index < 6 ? 'done' : index === 6 ? 'in_chamber' : 'waiting';
       const arrivedAt = isoAt(now, 17, Math.min(59, index * 3 + intBetween(rng, 0, 2)));

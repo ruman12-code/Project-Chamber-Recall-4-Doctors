@@ -16,6 +16,10 @@ import { rulebookPath } from './paths';
 import { buildRecallCard, currentVisitId } from './recall/card';
 import { localDate } from './db/clock';
 import type { RecallCard } from '../shared/recall';
+import { searchPatients } from './patients/search';
+import { registerPatient } from './patients/register';
+import { previewMerge, mergePatients, undoMerge } from './patients/merge';
+import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 
 let db: Db | null = null;
 let installDir = '';
@@ -155,6 +159,38 @@ function registerHandlers(): void {
    * is in the chamber, the first patient still waiting today is used
    * instead, so the card can be looked at during the build.
    */
+  /**
+   * Milestone 4 has no sign-in yet, so patient actions are recorded
+   * against the front desk role with no named person. From milestone 9
+   * this becomes whoever is signed in.
+   */
+  const actor = { id: null, role: 'front_desk' as const };
+
+  handle<{ results: PatientSearchResult[] }>(CHANNELS.patientSearch, (query: string) => {
+    if (db === null) throw new Error('a patient search was made before the database was unlocked');
+    return { results: searchPatients(db, query) };
+  });
+
+  handle<{ id: string }>(CHANNELS.patientRegister, (input: RegisterPatientInput) => {
+    if (db === null) throw new Error('a patient was registered before the database was unlocked');
+    return { id: registerPatient(db, input, actor) };
+  });
+
+  handle<{ preview: MergePreview }>(CHANNELS.patientMergePreview, (survivingId: string, duplicateId: string) => {
+    if (db === null) throw new Error('a merge was previewed before the database was unlocked');
+    return { preview: previewMerge(db, survivingId, duplicateId) };
+  });
+
+  handle<{ visitsMoved: number }>(CHANNELS.patientMerge, (survivingId: string, duplicateId: string, note: string | null) => {
+    if (db === null) throw new Error('a merge was made before the database was unlocked');
+    return { visitsMoved: mergePatients(db, survivingId, duplicateId, actor, note).visitsMoved };
+  });
+
+  handle<{ visitsMoved: number }>(CHANNELS.patientUndoMerge, (duplicateId: string) => {
+    if (db === null) throw new Error('a merge was undone before the database was unlocked');
+    return { visitsMoved: undoMerge(db, duplicateId, actor).visitsMoved };
+  });
+
   handle<{ card: RecallCard | null }>(CHANNELS.recallCard, () => {
     if (db === null) throw new Error('the recall card was requested before the database was unlocked');
     const today = localDate();

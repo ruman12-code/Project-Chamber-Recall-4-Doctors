@@ -1,5 +1,6 @@
 import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result } from '../shared/ipc';
 import type { RecallCard } from '../shared/recall';
+import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -10,6 +11,11 @@ interface Api {
   redFlagSample(): Promise<Result<{ alert: RedFlagAlertView | null }>>;
   redFlagAcknowledge(eventId: string): Promise<Result<Record<string, never>>>;
   recallCard(): Promise<Result<{ card: RecallCard | null }>>;
+  patientSearch(query: string): Promise<Result<{ results: PatientSearchResult[] }>>;
+  patientRegister(input: RegisterPatientInput): Promise<Result<{ id: string }>>;
+  patientMergePreview(survivingId: string, duplicateId: string): Promise<Result<{ preview: MergePreview }>>;
+  patientMerge(survivingId: string, duplicateId: string, note: string | null): Promise<Result<{ visitsMoved: number }>>;
+  patientUndoMerge(duplicateId: string): Promise<Result<{ visitsMoved: number }>>;
 }
 
 declare global {
@@ -39,6 +45,11 @@ export const api: Api = {
   redFlagSample: () => call((a) => a.redFlagSample()),
   redFlagAcknowledge: (eventId) => call((a) => a.redFlagAcknowledge(eventId)),
   recallCard: () => call((a) => a.recallCard()),
+  patientSearch: (query) => call((a) => a.patientSearch(query)),
+  patientRegister: (input) => call((a) => a.patientRegister(input)),
+  patientMergePreview: (s, d) => call((a) => a.patientMergePreview(s, d)),
+  patientMerge: (s, d, note) => call((a) => a.patientMerge(s, d, note)),
+  patientUndoMerge: (d) => call((a) => a.patientUndoMerge(d)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

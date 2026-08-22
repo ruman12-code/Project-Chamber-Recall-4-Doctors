@@ -3,9 +3,9 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 3 of 13.** Foundations, the safety layer, and the
-Recall Card as a static mockup. There is no register, no intake and no
-prescription printing yet.
+**Status: milestone 4 of 13.** Foundations, the safety layer, the Recall
+Card as a static mockup, and patient search, registration and merging.
+There is no serial register, no intake and no prescription printing yet.
 
 ---
 
@@ -26,8 +26,12 @@ prescription printing yet.
 - A practice database: 312 invented patients, 1,469 visits across two
   chambers over four years, real rule evaluations, and a session running
   today with people waiting and one patient in the chamber.
-- 191 tests covering key custody, the database layer, the practice data,
-  the rule evaluator, the refuse-to-run guard and the Recall Card.
+- **Patient search, registration and the merge tool.** Search by phone or
+  name in either script, register someone new, and put duplicate records
+  together — with an undo that puts back exactly what moved.
+- 250 tests covering key custody, the database layer, the practice data,
+  the rule evaluator, the refuse-to-run guard, the Recall Card, patient
+  matching, the merge tool and temperature entry.
 
 ## Running it
 
@@ -57,6 +61,8 @@ src/main/keystore/        where the encryption key lives, and why
 src/main/db/              opening, migrating, audit log, usage log
 src/main/redflags/        the safety layer: rules, evaluator, guard
 src/main/recall/          assembling the Recall Card
+src/main/patients/        search, registration, merging
+src/main/vitals/          temperature entry in either scale
 config/red_flags.yaml     the rules template, written for a doctor to edit
 src/main/seed/            the practice data generator
 src/main/index.ts         the application process
