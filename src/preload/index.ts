@@ -17,6 +17,7 @@
 // no require of a project file survives into the compiled output.
 import { contextBridge, ipcRenderer } from 'electron';
 import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result } from '../shared/ipc';
+import type { RecallCard } from '../shared/recall';
 
 contextBridge.exposeInMainWorld('chamberRecall', {
   status: (): Promise<Result<{ status: InstallationStatus }>> =>
@@ -33,4 +34,6 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('redflags:sample'),
   redFlagAcknowledge: (eventId: string): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('redflags:acknowledge', eventId),
+  recallCard: (): Promise<Result<{ card: RecallCard | null }>> =>
+    ipcRenderer.invoke('recall:card'),
 });

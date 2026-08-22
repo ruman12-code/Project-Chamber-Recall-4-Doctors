@@ -129,3 +129,186 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .pill { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 2px 12px; font-size: 13px; margin-right: 8px; }
 .pill.bad { border-color: var(--alarm); color: var(--alarm); background: var(--alarm-bg); }
 .pill.ok { border-color: #1d6b2f; color: #1d6b2f; background: #eaf6ec; }
+
+/* ===============================================================
+   THE RECALL CARD
+   ===============================================================
+   One screen at 1366x768, no scrolling. Everything below exists to
+   keep that promise while staying readable across a desk.
+
+   The type scale is deliberately steep rather than even. The red
+   flag, the name, the last diagnosis and the outstanding tests are
+   large; everything else is small. A card where all the text is a
+   comfortable size is a card the doctor has to read rather than
+   glance at, and twenty seconds is the whole budget.
+
+   Labels on this screen are in English. Patient content appears in
+   whatever script it was entered in, which for a Bangladeshi chamber
+   is usually Bangla. The patient-facing view is the other way round:
+   it is Bangla, because it is turned towards the patient.
+   =============================================================== */
+.recall {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 10px; overflow: hidden; background: var(--page);
+}
+.rc-body { flex: 1; display: grid; grid-template-columns: 29fr 41fr 30fr; gap: 8px; min-height: 0; }
+.rc-col { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+
+.panel {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
+  padding: 7px 10px 8px; min-height: 0; display: flex; flex-direction: column;
+}
+.panel h3 {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted);
+  margin: 0 0 5px; font-weight: 700; display: flex; justify-content: space-between; align-items: baseline;
+}
+.panel h3 .note { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.panel-scroll { overflow-y: auto; min-height: 0; }
+.panel.grow { flex: 1; }
+
+/* 1 - the red flag. Nothing above it, nothing beside it. */
+.rc-flag {
+  background: var(--alarm); color: #fff; border-radius: 6px;
+  padding: 9px 14px; display: flex; align-items: center; gap: 16px;
+}
+.rc-flag .word { font-size: 21px; font-weight: 800; letter-spacing: 0.5px; white-space: nowrap; }
+.rc-flag .msg { font-size: 16px; font-weight: 600; line-height: 1.25; }
+.rc-flag .ack { margin-left: auto; font-size: 11.5px; opacity: 0.9; text-align: right; white-space: nowrap; }
+
+/* Screening gaps. Amber, not red: this is missing information, which
+   is not the same as a warning, and must not look like one. */
+.rc-gap {
+  background: var(--demo-bg); border: 1px solid #d9a441; color: #6b4708;
+  border-radius: 6px; padding: 7px 12px; font-size: 13px; line-height: 1.35;
+}
+.rc-gap b { font-weight: 800; }
+
+/* 2 - who this is. */
+.rc-id { display: flex; align-items: baseline; gap: 14px; padding: 0 4px; }
+.rc-id .name { font-size: 25px; font-weight: 800; line-height: 1.1; }
+.rc-id .name-alt { font-size: 15px; color: var(--muted); font-weight: 600; }
+.rc-id .facts { font-size: 15px; font-weight: 600; }
+.rc-id .right { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); }
+.rc-id button { margin: 0; padding: 7px 14px; font-size: 13px; }
+
+/* 3 - today's intake, walled off from the clinical record. */
+.panel.intake { background: #fbf8f1; border-color: #d9c9a3; }
+.intake-stamp {
+  background: #8a5a00; color: #fff; border-radius: 4px; padding: 3px 7px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+  display: inline-block; margin-bottom: 5px;
+}
+.intake-who { font-size: 11px; color: #6b4708; margin: 0 0 7px; }
+.q { margin-bottom: 7px; }
+.q .k { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; color: #8a7448; font-weight: 700; }
+.q .a { font-size: 14px; line-height: 1.35; }
+.q .a.quote { font-size: 15px; font-weight: 600; }
+.q .a.skipped { color: var(--muted); font-style: italic; font-size: 12.5px; }
+.rc-actions { margin-top: auto; padding-top: 7px; border-top: 1px dashed #d9c9a3; }
+.rc-actions button { margin: 0 6px 0 0; padding: 7px 14px; font-size: 13px; }
+
+/* 5 - the last visit. The dominant block on the screen. */
+.panel.last { border: 2px solid var(--ink); }
+.last-when { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+.last-row { display: flex; gap: 8px; font-size: 13px; line-height: 1.35; margin-bottom: 4px; }
+.last-row .k { flex: none; width: 74px; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--muted); font-weight: 700; padding-top: 3px; }
+.last-row .v { flex: 1; }
+.last-row .v.dx { font-size: 16px; font-weight: 700; line-height: 1.25; }
+.unconfirmed { color: var(--alarm); font-weight: 700; font-size: 11px; }
+
+/* 6 - ordered and never came back. */
+.panel.outstanding { border: 2px solid #b8791a; background: #fffaf0; }
+.panel.outstanding h3 { color: #8a5a00; }
+.osi { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; border-bottom: 1px solid #efe0c6; }
+.osi:last-child { border-bottom: none; }
+.osi .t { font-size: 14.5px; font-weight: 700; flex: 1; line-height: 1.25; }
+.osi .d { font-size: 12px; color: #8a5a00; font-weight: 700; white-space: nowrap; }
+.osi .c { font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+
+/* 4 - vitals, with the previous two beside them. */
+table.vitals { font-size: 12.5px; }
+table.vitals th, table.vitals td { padding: 2px 5px; border-bottom: 1px solid #eceef1; }
+table.vitals th { font-size: 9.5px; }
+table.vitals td.now { font-weight: 800; font-size: 14px; }
+table.vitals td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.vitals .dim { color: var(--muted); }
+
+/* 7 - the trends. */
+.spark { margin-bottom: 3px; }
+.spark-head { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); font-weight: 700; }
+.spark-head span { text-transform: none; letter-spacing: 0; font-weight: 600; opacity: 0.75; margin-left: 5px; }
+.spark-empty { font-size: 11.5px; color: var(--muted); font-style: italic; padding: 10px 0; }
+.spark-label { font-size: 13px; font-weight: 800; fill: var(--ink); }
+
+/* 8, 9 - recurring diagnoses and current medicines. */
+.dx-line { display: flex; gap: 7px; font-size: 12.5px; padding: 2px 0; line-height: 1.3; }
+.dx-line .n { flex: none; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.med-line { font-size: 12.5px; padding: 2px 0; line-height: 1.3; }
+.med-line b { font-weight: 700; }
+.med-line span { color: var(--muted); }
+
+/* 10 - every visit, one line each. */
+.rc-timeline { flex: none; }
+.tl-row { display: flex; gap: 10px; font-size: 12px; padding: 2px 0; border-bottom: 1px solid #f0f1f3; line-height: 1.3; }
+.tl-row .d { flex: none; width: 78px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tl-row .c { flex: none; width: 92px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-row .x { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-row .y { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+
+.mock-note {
+  font-size: 11px; color: var(--muted); text-align: center; padding: 2px 0 0;
+}
+
+/* ---------------------------------------------------------------
+   PATIENT VIEW
+   The screen is physically turned towards the patient, so it is in
+   Bangla and everything is large. It shows the shape of their own
+   illness over time and nothing else: no diagnosis text, no
+   medicines, no notes written about them.
+   --------------------------------------------------------------- */
+.pv { position: fixed; inset: 0; background: #fff; padding: 26px 40px; overflow: hidden; display: flex; flex-direction: column; }
+.pv h1 { font-size: 32px; margin: 0 0 2px; }
+.pv .sub { font-size: 18px; color: var(--muted); margin: 0 0 18px; }
+.pv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; flex: 1; min-height: 0; }
+.pv-visits { overflow-y: auto; min-height: 0; }
+.pv-visit { display: flex; gap: 14px; font-size: 20px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.pv-visit .d { font-weight: 700; width: 130px; flex: none; font-variant-numeric: tabular-nums; }
+.pv h2 { font-size: 19px; margin: 0 0 10px; }
+.pv .spark-head { font-size: 14px; }
+.pv .spark { margin-bottom: 16px; }
+.pv button { font-size: 19px; padding: 14px 30px; }
+.pv-foot { margin-top: 16px; display: flex; align-items: center; gap: 20px; }
+
+/* Layout corrections after looking at the first render at 1366x768. */
+.rc-foot { flex: none; height: 132px; display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
+.rc-foot .panel { min-height: 0; }
+.q.pinned { flex: none; margin-bottom: 5px; }
+.q.pinned.heard {
+  border-top: 1px dashed #d9c9a3; padding-top: 6px; margin-top: 5px; margin-bottom: 0;
+}
+.panel.intake .panel-scroll { flex: 1; }
+table.vitals th, table.vitals td { padding: 1px 5px; }
+.rc-flag { padding: 7px 14px; }
+.rc-gap { padding: 6px 12px; font-size: 12.5px; }
+.rc-id .name { font-size: 23px; }
+
+/* The two narrow panels along the bottom need room for their headings. */
+.rc-foot { grid-template-columns: 2.6fr 1.3fr 1.3fr; }
+.panel h3 { flex-wrap: wrap; gap: 2px 8px; }
+.panel h3 .note { flex: none; }
+.dx-line { font-size: 12px; }
+.med-line { font-size: 12px; }
+
+/* One red flag banner however many rules fired, with a hard ceiling on
+   its height so it can never push the rest of the card off screen. */
+.rc-flag { align-items: flex-start; }
+.rc-flag .word { padding-top: 1px; }
+.rc-flag .msgs { flex: 1; max-height: 74px; overflow-y: auto; }
+.rc-flag .msg { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.rc-flag .msg + .msg { margin-top: 3px; padding-top: 3px; border-top: 1px solid rgba(255, 255, 255, 0.3); }
+.rc-flag .msg .ref { font-size: 10.5px; opacity: 0.75; font-weight: 600; margin-left: 8px; white-space: nowrap; }
+.rc-flag .ack { padding-top: 2px; }
+.rc-flag .msgs.many .msg { font-size: 13px; line-height: 1.25; }
+.rc-flag .msgs.many .msg .ref { font-size: 10px; }

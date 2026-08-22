@@ -1,4 +1,5 @@
 import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result } from '../shared/ipc';
+import type { RecallCard } from '../shared/recall';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -8,6 +9,7 @@ interface Api {
   redFlagStatus(): Promise<Result<{ status: RedFlagStatus }>>;
   redFlagSample(): Promise<Result<{ alert: RedFlagAlertView | null }>>;
   redFlagAcknowledge(eventId: string): Promise<Result<Record<string, never>>>;
+  recallCard(): Promise<Result<{ card: RecallCard | null }>>;
 }
 
 declare global {
@@ -36,6 +38,7 @@ export const api: Api = {
   redFlagStatus: () => call((a) => a.redFlagStatus()),
   redFlagSample: () => call((a) => a.redFlagSample()),
   redFlagAcknowledge: (eventId) => call((a) => a.redFlagAcknowledge(eventId)),
+  recallCard: () => call((a) => a.recallCard()),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

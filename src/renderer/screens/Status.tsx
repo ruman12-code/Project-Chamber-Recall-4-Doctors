@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { api, unwrap, type Failure } from '../api';
 import { FailureNotice } from '../Failure';
 import { RedFlagAlert } from './RedFlagAlert';
+import { RecallCardScreen } from './RecallCard';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView } from '../../shared/ipc';
+import type { RecallCard } from '../../shared/recall';
 
 const LABELS: Record<string, string> = {
   patient: 'Patients',
@@ -33,6 +35,7 @@ export function Status() {
   const [summary, setSummary] = useState<DatabaseSummary | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [previewing, setPreviewing] = useState<RedFlagAlertView | null>(null);
+  const [card, setCard] = useState<RecallCard | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -41,6 +44,20 @@ export function Status() {
       setSummary(value!.summary);
     })();
   }, []);
+
+  async function openRecallCard() {
+    const { value, failure } = unwrap(await api.recallCard());
+    if (failure) { setFailure(failure); return; }
+    if (value!.card === null) {
+      setFailure({
+        userMessage: 'There is nobody in the queue today to show a card for.',
+        whatToDo: 'Rebuild the practice database with "npm run seed", which creates a session for today.',
+        technical: 'recall:card returned null',
+      });
+      return;
+    }
+    setCard(value!.card);
+  }
 
   async function showRealAlert() {
     const { value, failure } = unwrap(await api.redFlagSample());
@@ -63,6 +80,8 @@ export function Status() {
     return <RedFlagAlert alert={previewing} onAcknowledged={() => setPreviewing(null)} />;
   }
 
+  if (card !== null) return <RecallCardScreen card={card} onClose={() => setCard(null)} />;
+
   return (
     <div className="page">
       {summary.dataMode === 'demo' && (
@@ -75,6 +94,15 @@ export function Status() {
       <p className="subtitle">
         Milestone 1: encrypted database, full schema, roles, append-only audit log, and seeded history.
       </p>
+
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>The Recall Card</h2>
+        <p>
+          Milestone 3, shown against the practice database: the patient who is with the doctor
+          right now in today's session. Nothing on it is wired yet.
+        </p>
+        <button onClick={openRecallCard}>Open the Recall Card</button>
+      </div>
 
       <h2>What is in the database</h2>
       <div className="grid">

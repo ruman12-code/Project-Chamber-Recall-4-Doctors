@@ -3,8 +3,9 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 2 of 13.** Foundations and the safety layer. There is
-no register, no intake, no Recall Card and no prescription printing yet.
+**Status: milestone 3 of 13.** Foundations, the safety layer, and the
+Recall Card as a static mockup. There is no register, no intake and no
+prescription printing yet.
 
 ---
 
@@ -20,11 +21,13 @@ no register, no intake, no Recall Card and no prescription printing yet.
 - **The red flag layer.** Screening rules in a file a doctor edits by hand,
   a deterministic evaluator, and a guard that refuses to open a real
   patient database until a clinician has approved the rules.
-- A practice database: 312 invented patients, 1,451 visits across two
-  chambers over four years, with vitals series, outstanding investigations,
-  deliberate duplicates, and 4,160 real rule evaluations.
-- 167 tests covering key custody, the database layer, the practice data,
-  the rule evaluator and the refuse-to-run guard.
+- **The Recall Card**, as a static mockup on the practice database. One
+  screen at 1366x768 with no scrolling, plus the patient-facing view.
+- A practice database: 312 invented patients, 1,469 visits across two
+  chambers over four years, real rule evaluations, and a session running
+  today with people waiting and one patient in the chamber.
+- 191 tests covering key custody, the database layer, the practice data,
+  the rule evaluator, the refuse-to-run guard and the Recall Card.
 
 ## Running it
 
@@ -53,6 +56,7 @@ src/main/db/migrations/   every change to it since
 src/main/keystore/        where the encryption key lives, and why
 src/main/db/              opening, migrating, audit log, usage log
 src/main/redflags/        the safety layer: rules, evaluator, guard
+src/main/recall/          assembling the Recall Card
 config/red_flags.yaml     the rules template, written for a doctor to edit
 src/main/seed/            the practice data generator
 src/main/index.ts         the application process

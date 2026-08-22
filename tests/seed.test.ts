@@ -28,10 +28,42 @@ describe('synthetic practice data', () => {
     assert.ok(yearsCovered > 3.5, `history spans only ${yearsCovered.toFixed(1)} years`);
   });
 
-  test('every patient has between one and eight visits', () => {
-    const rows = db.prepare('SELECT patient_id, count(*) AS n FROM visit GROUP BY patient_id').all() as Array<{ n: number }>;
-    assert.ok(rows.every((r) => r.n >= 1 && r.n <= 8));
+  test('every patient has between one and eight visits in the history', () => {
+    // Today's session is counted separately: a patient who already had
+    // eight visits and comes in again today has nine, which is correct.
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = db.prepare('SELECT patient_id, count(*) AS n FROM visit WHERE visit_date != ? GROUP BY patient_id')
+      .all(today) as Array<{ n: number }>;
+    assert.ok(rows.every((r) => r.n >= 1 && r.n <= 8), 'a patient has more historical visits than the seed should produce');
     assert.equal(rows.length, result.patients);
+  });
+
+  test('there is a session running today, with people waiting and one in the chamber', () => {
+    // Without this, the Recall Card and the queue have nothing to show:
+    // every seeded visit would be in the past.
+    const today = new Date().toISOString().slice(0, 10);
+    const byStatus = db.prepare(`SELECT status, count(*) AS n FROM visit WHERE visit_date = ? GROUP BY status`)
+      .all(today) as Array<{ status: string; n: number }>;
+    const counts = Object.fromEntries(byStatus.map((r) => [r.status, r.n]));
+    assert.equal(counts['in_chamber'], 1, 'exactly one patient is with the doctor');
+    assert.ok((counts['waiting'] ?? 0) > 0, 'somebody is waiting');
+    assert.ok((counts['done'] ?? 0) > 0, 'somebody has already been seen');
+  });
+
+  test('one patient today has no intake at all, so the unscreened case is visible', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const row = db.prepare(`SELECT count(*) AS n FROM visit v
+      WHERE v.visit_date = ? AND NOT EXISTS (SELECT 1 FROM intake i WHERE i.visit_id = v.id)`)
+      .get(today) as { n: number };
+    assert.ok(row.n >= 1);
+  });
+
+  test('the patient in the chamber has history worth recalling', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const row = db.prepare(`SELECT count(*) AS n FROM visit
+      WHERE patient_id = (SELECT patient_id FROM visit WHERE visit_date = ? AND status = 'in_chamber')`)
+      .get(today) as { n: number };
+    assert.ok(row.n >= 5, `the patient in the chamber has only ${row.n} visits, which makes a poor Recall Card`);
   });
 
   test('serial numbers run 1..n within each chamber on each day, with no gaps or repeats', () => {

@@ -210,6 +210,89 @@ been later.
 
 ---
 
+## Milestone 3: the Recall Card
+
+### 17. Real test names, placeholder diagnoses and medicines
+
+You supplied the investigations and told me to fill in the rest, so the
+practice data now names real tests: X-ray chest PA view, Urine R/E, CBC with
+ESR, CRP, CT scan, Dengue NS1, and fourteen more common ones. The
+outstanding-investigations block reads properly as a result, which matters,
+because it is the highest-value item on the screen.
+
+Diagnoses and medicines are still placeholders, because you have not given
+me those and I will not write them. Naming a test that was ordered is not a
+diagnosis and not a prescription; the other two are. After the briefing with
+your cousin, send me his twenty most-written diagnoses and most-prescribed
+medicines and the card will read entirely like his chamber. It is one file:
+`src/main/seed/demo-vocabulary.ts`.
+
+### 18. Consent: my recommendation, since you asked for it
+
+Recorded **once per patient, with a version**. Each visit records which
+consent was in force rather than asking again. If the consent wording ever
+changes, the version changes and the patient is asked once more.
+
+This avoids asking a returning patient eight times over four years while
+keeping a complete audit trail, and it handles the case your original model
+could not: knowing *which* consent someone actually agreed to. I will make
+that schema change immediately before milestone 7, which is still before any
+consent code exists.
+
+### 19. English on the doctor's screen, Bangla on the patient's
+
+Labels on the Recall Card are in English; patient content appears in
+whatever script it was entered in, which is usually Bangla. The
+patient-facing view is the other way round - it is in Bangla, because it is
+physically turned towards the patient.
+
+Printing every label in both languages on the Recall Card would cost roughly
+a third of a screen that has to fit in one screen. If your cousin or a
+future assistant would rather have the doctor's screen in Bangla, that is a
+setting rather than a rewrite - say so and I will make it one.
+
+### 20. Blood pressure is drawn as one measurement, not two
+
+Systolic and diastolic are the top and bottom of the same thing. Giving them
+competing colours turns a 44-pixel-tall chart into a puzzle. It is drawn as
+a shaded band with two thin edges, in one colour, which reads as "blood
+pressure" at a glance from across a desk. Only the most recent value is
+labelled; a number on every point is noise at that size, and the recent
+figures are in the vitals table beside it.
+
+### 21. Two layout failures that only real data exposed
+
+Both were found by rendering the card against the practice database rather
+than against a hand-picked example, which is the reason for building it that
+way.
+
+**"What are you most worried about" was below the fold.** The intake panel
+scrolled, and the two questions this entire front-desk interface exists to
+ask had scrolled out of sight. The complaint is now pinned at the top of
+that panel and those two questions are pinned at the bottom; only the
+middle questions scroll.
+
+**Three red flags pushed the vitals off the screen.** Each firing rule had
+its own full-width banner. Three fired at once, ate a fifth of the screen,
+and cut off the vitals table and the blood-sugar trend - on precisely the
+patient whose card most needed to survive intact. It is now one banner
+however many rules fire, with a hard ceiling on its height, and the text
+shrinks rather than scrolling a warning out of sight.
+
+### 22. A data bug worth naming: temperatures were in the wrong units
+
+The practice data was generating body temperatures between 97.5 and 100.7
+into a column called `temperature_c`. Those are Fahrenheit numbers in a
+Celsius field. Nothing crashed and no test caught it - it only became
+obvious when the vitals table was on screen with "TEMP °C 99.8" in it.
+
+Fixed. The reason it is written down here rather than quietly corrected: it
+is exactly the class of error that survives in clinical software, because
+the value is plausible, the column accepts it, and only a person who knows
+what a temperature looks like will ever notice.
+
+---
+
 ## A bug worth recording, because the symptom is the point
 
 The first time the application ran end to end, it showed "Starting…" and
@@ -333,3 +416,50 @@ text has changed while its version has not, by remembering the fingerprint
 of each rule. That is real protection but it would block you mid-edit while
 you are working on the file. I have not built it. Say the word if you want
 it.
+
+---
+
+## Answer to question F: the wording, for you to edit
+
+You asked me to suggest it. Two states, both currently on the card and both
+in amber rather than red, because missing information is a gap and not a
+warning, and must not look like one:
+
+**When some questions were skipped:**
+
+> **Screening incomplete.** Not answered at the front desk: Where,
+> Allergies. Red flag rules needing these could not be checked — ask
+> directly.
+
+**When nobody took an intake at all:**
+
+> **No screening was done.** Nobody asked this patient any questions at the
+> front desk, so no red flag rule has been checked for them. Take the
+> history yourself.
+
+Two things I would defend if your cousin pushes back on them. The first is
+naming the specific questions rather than saying "some questions were
+skipped" - the doctor then knows exactly what to ask instead of having to
+re-take the whole history. The second is "ask directly" and "take the
+history yourself": the sentence should end with an instruction, not with a
+statement of fact, because a doctor reading this in twenty seconds needs to
+know what to do about it.
+
+Both are one-line edits in `src/renderer/screens/RecallCard.tsx` after the
+briefing.
+
+### I. New question: the alert's words are not saved with the alert
+
+A fired red flag records which rule fired and in which version, but not the
+sentence the assistant was actually shown. The card looks that text up from
+the rules file as it stands now.
+
+So if a rule is reworded or deleted without its version being increased, an
+old alert loses the words that went with it, and the card says "this rule is
+no longer in the rules file as this version" instead. That is honest but it
+is not good enough for a record that may be looked at after a complaint.
+
+The fix is small: store the message text on the event when it fires, so the
+record keeps the words the assistant saw. I would do it at milestone 6, when
+alerts start being raised for real rather than by the practice data. Say if
+you would rather I did it sooner.

@@ -118,10 +118,35 @@ export const PLACEHOLDER_DRUGS = [
   { drug_name: 'PLACEHOLDER SYRUP 6', strength: '100 ml' },
 ];
 
-export const PLACEHOLDER_TESTS = [
-  'PLACEHOLDER TEST 1 — blood',
-  'PLACEHOLDER TEST 2 — imaging',
-  'PLACEHOLDER TEST 3 — urine',
-  'PLACEHOLDER TEST 4 — blood',
-  'PLACEHOLDER TEST 5 — imaging',
+// Investigations. These are REAL test names, supplied by the doctor and
+// extended with the common ones a chamber orders, at his instruction.
+//
+// Note the difference from the two lists above: naming a test that was
+// ordered is not a diagnosis and not a prescription. These are the
+// names as they are written on a Bangladeshi chamber slip.
+export const INVESTIGATIONS = [
+  'X-ray chest PA view',
+  'Urine R/E',
+  'CBC with ESR',
+  'CRP',
+  'CT scan',
+  'Dengue NS1 antigen',
+  'Dengue IgG / IgM',
+  'RBS',
+  'FBS and 2 hours ABF',
+  'HbA1c',
+  'Serum creatinine',
+  'Serum electrolytes',
+  'Lipid profile',
+  'SGPT',
+  'TSH',
+  'Ultrasonogram of whole abdomen',
+  'ECG',
+  'Stool R/E',
+  'Widal test',
+  'X-ray K.U.B.',
 ];
+
+// Kept as a name the code can still refer to. Unlike diagnoses and
+// medicines, this list no longer holds placeholders.
+export const PLACEHOLDER_TESTS = INVESTIGATIONS;

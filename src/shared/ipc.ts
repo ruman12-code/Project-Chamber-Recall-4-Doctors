@@ -73,4 +73,5 @@ export const CHANNELS = {
   redFlagStatus: 'redflags:status',
   redFlagSample: 'redflags:sample',
   redFlagAcknowledge: 'redflags:acknowledge',
+  recallCard: 'recall:card',
 } as const;

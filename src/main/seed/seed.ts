@@ -385,7 +385,7 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
             chance(rng, 0.92) ? Math.round(ph.systolic0 + ph.systolicPerYear * yearsIn + (rng() * 10 - 5)) : null,
             chance(rng, 0.92) ? Math.round(ph.diastolic0 + ph.diastolicPerYear * yearsIn + (rng() * 6 - 3)) : null,
             chance(rng, 0.7) ? Math.round(ph.pulse0 + (rng() * 12 - 6)) : null,
-            chance(rng, 0.4) ? round1(97.5 + rng() * 3.2) : null,
+            chance(rng, 0.4) ? round1(36.4 + rng() * 2.6) : null,
             chance(rng, 0.65) ? round1(ph.weight0 + ph.weightPerYear * yearsIn + (rng() * 1.2 - 0.6)) : null,
             chance(rng, 0.25) ? intBetween(rng, 140, 178) : null,
             chance(rng, 0.45) ? round1(ph.sugar0 + ph.sugarPerYear * yearsIn + (rng() * 1.5 - 0.75)) : null,
@@ -445,6 +445,114 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
         }
       }
     }
+
+    // ---------------- today's session ----------------
+    // The history above is all in the past, which is not enough: the
+    // Recall Card, the queue and the intake screens all need a chamber
+    // that is running RIGHT NOW - people waiting, one patient in with
+    // the doctor, a few already seen.
+    //
+    // Patients with the most history come first, because a Recall Card
+    // is only worth looking at when there is something to recall.
+    const historyCount = new Map<string, number>();
+    for (const v of planned) historyCount.set(v.patient.id, (historyCount.get(v.patient.id) ?? 0) + 1);
+
+    const returning = [...patients]
+      .filter((p) => (historyCount.get(p.id) ?? 0) >= 4)
+      .sort((a, b) => (historyCount.get(b.id) ?? 0) - (historyCount.get(a.id) ?? 0))
+      .slice(0, 14);
+    const firstTimers = patients.filter((p) => (historyCount.get(p.id) ?? 0) <= 1).slice(0, 4);
+    const todaysPatients = [...returning, ...firstTimers];
+
+    const todayDate = dateOnly(now);
+    const todaysChamber = chambers[0]!.id;
+
+    todaysPatients.forEach((p, index) => {
+      const serial = index + 1;
+      // Six already seen, one with the doctor now, the rest waiting.
+      const status = index < 6 ? 'done' : index === 6 ? 'in_chamber' : 'waiting';
+      const arrivedAt = isoAt(now, 17, Math.min(59, index * 3 + intBetween(rng, 0, 2)));
+      const seenAt = status === 'waiting' ? null : isoAt(now, 17 + Math.floor((index * 7) / 60), (index * 7) % 60);
+      const visitId = newId();
+      const desk = pick(rng, frontDesk);
+
+      insVisit.run(visitId, p.id, todaysChamber, todayDate, serial, arrivedAt, seenAt, status, arrivedAt, desk.id, arrivedAt);
+      recordAudit(db, { actor: system, action: 'visit_created', entity: 'visit', entityId: visitId, details: { serial_no: serial, source: 'seed', session: 'today' } });
+      recordUsage(db, { eventType: 'visit_registered', actorId: desk.id, visitId, timestamp: arrivedAt, durationMs: Math.round(16000 + rng() * 20000) });
+      result.visits++;
+
+      // Most, not all, have an intake. One waiting patient deliberately
+      // has none at all, so the "nobody screened this patient" case is
+      // visible on the doctor's screen.
+      const noIntakeAtAll = index === todaysPatients.length - 1;
+      if (!noIntakeAtAll) {
+        const intakeId = newId();
+        const startedAt = isoAt(now, 17, Math.min(59, index * 3 + 2));
+        const durationMs = Math.round((55000 + rng() * 150000) * desk.speed);
+        insIntake.run(intakeId, visitId, desk.id, startedAt,
+          new Date(new Date(startedAt).getTime() + durationMs).toISOString(),
+          0, chance(rng, 0.35) ? 1 : 0, 'consent-v1', startedAt,
+          chance(rng, 0.62) ? 'research-consent-v1' : null, chance(rng, 0.62) ? startedAt : null,
+          startedAt, startedAt);
+
+        const complaint = pick(rng, V.COMPLAINTS);
+        const answers: Array<[string, string | null, string | null]> = [
+          ['presenting_complaint', null, complaint.bn],
+          ['body_region', pick(rng, V.BODY_REGIONS), null],
+          ['duration', pick(rng, V.DURATIONS).bn, null],
+          ['severity', pick(rng, ['mild', 'moderate', 'severe']), null],
+          ['medicines_already_taken', null, pick(rng, V.SELF_MEDICATION_ANSWERS).bn],
+          ['known_conditions', null, chance(rng, 0.4) ? 'PLACEHOLDER — known conditions as reported' : null],
+          ['allergies', null, chance(rng, 0.12) ? 'PLACEHOLDER — allergy as reported' : null],
+          ['most_worried_about', null, pick(rng, V.WORRIES).bn],
+          ['hoping_for', null, pick(rng, V.HOPES).bn],
+        ];
+        for (const [key, value, free] of answers) {
+          const skipped = chance(rng, desk.skip);
+          insAnswer.run(newId(), intakeId, key, skipped ? null : value, skipped ? null : free, skipped ? 1 : 0, startedAt, startedAt);
+        }
+        recordUsage(db, { eventType: 'intake_completed', actorId: desk.id, visitId, timestamp: startedAt, durationMs });
+        result.intakes++;
+      }
+
+      // Vitals for everyone the doctor has already reached.
+      if (status !== 'waiting') {
+        const ph = p.phys;
+        const recorder = chance(rng, 0.6) ? assistant : doctor;
+        insVitals.run(newId(), visitId, recorder.id, seenAt ?? arrivedAt,
+          Math.round(ph.systolic0 + ph.systolicPerYear * years + (rng() * 10 - 5)),
+          Math.round(ph.diastolic0 + ph.diastolicPerYear * years + (rng() * 6 - 3)),
+          Math.round(ph.pulse0 + (rng() * 12 - 6)),
+          chance(rng, 0.4) ? round1(36.4 + rng() * 2.6) : null,
+          round1(ph.weight0 + ph.weightPerYear * years + (rng() * 1.2 - 0.6)),
+          chance(rng, 0.25) ? intBetween(rng, 140, 178) : null,
+          chance(rng, 0.55) ? round1(ph.sugar0 + ph.sugarPerYear * years + (rng() * 1.5 - 0.75)) : null,
+          chance(rng, 0.3) ? intBetween(rng, 94, 99) : null,
+          null, seenAt ?? arrivedAt, seenAt ?? arrivedAt);
+        result.vitals++;
+      }
+
+      // Only the patients already seen have an encounter. The patient
+      // in the chamber right now does not: that is exactly the moment
+      // the Recall Card exists for.
+      if (status === 'done') {
+        const encId = newId();
+        insEnc.run(encId, visitId, pick(rng, V.COMPLAINTS).en,
+          'PLACEHOLDER — examination findings recorded by the clinician',
+          pick(rng, V.PLACEHOLDER_DIAGNOSES),
+          chance(rng, 0.6) ? 'PLACEHOLDER — decision and advice recorded by the clinician' : null,
+          chance(rng, 0.55) ? pick(rng, [7, 14, 15, 30, 30, 90]) : null,
+          doctor.id, doctor.id, seenAt, seenAt ?? arrivedAt, seenAt ?? arrivedAt);
+        result.encounters++;
+        for (let m = 0, n = intBetween(rng, 1, 3); m < n; m++) {
+          const drug = pick(rng, V.PLACEHOLDER_DRUGS);
+          insMed.run(newId(), encId, drug.drug_name, drug.strength, pick(rng, ['1 tab', '2 tabs', '1 tsf']),
+            pick(rng, ['1+0+1', '1+1+1', '0+0+1']), pick(rng, [5, 7, 10, 14]),
+            null, m, seenAt ?? arrivedAt, seenAt ?? arrivedAt);
+          result.medications++;
+        }
+      }
+    });
 
     setMeta(db, 'data_mode', 'demo');
     setMeta(db, 'seeded_at', new Date().toISOString());

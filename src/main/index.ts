@@ -13,6 +13,9 @@ import { recentAudit } from './db/audit';
 import { loadRulebookFromDisk, acknowledgeRedFlag } from './redflags/store';
 import { blocksLiveUse } from './redflags/guard';
 import { rulebookPath } from './paths';
+import { buildRecallCard, currentVisitId } from './recall/card';
+import { localDate } from './db/clock';
+import type { RecallCard } from '../shared/recall';
 
 let db: Db | null = null;
 let installDir = '';
@@ -145,6 +148,25 @@ function registerHandlers(): void {
         messageEn: rule?.message.en ?? '(this rule is no longer in the rules file)',
       },
     };
+  });
+
+  /**
+   * The Recall Card for whoever is with the doctor right now. If nobody
+   * is in the chamber, the first patient still waiting today is used
+   * instead, so the card can be looked at during the build.
+   */
+  handle<{ card: RecallCard | null }>(CHANNELS.recallCard, () => {
+    if (db === null) throw new Error('the recall card was requested before the database was unlocked');
+    const today = localDate();
+    let visitId = currentVisitId(db, today);
+    if (visitId === null) {
+      const row = db.prepare(
+        `SELECT id FROM visit WHERE visit_date = ? AND deleted_at IS NULL ORDER BY serial_no LIMIT 1`,
+      ).get(today) as { id: string } | undefined;
+      visitId = row?.id ?? null;
+    }
+    const { rulebook } = loadRulebookFromDisk(installDir);
+    return { card: visitId === null ? null : buildRecallCard(db, visitId, new Date(), rulebook) };
   });
 
   handle<Record<string, never>>(CHANNELS.redFlagAcknowledge, (eventId: string) => {
