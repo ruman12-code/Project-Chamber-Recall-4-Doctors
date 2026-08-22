@@ -2,7 +2,7 @@
 // Opening the encrypted database.
 // ===================================================================
 import Database from 'better-sqlite3-multiple-ciphers';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseUnreadableError } from '../../shared/errors';
 import { nowIso } from './clock';
@@ -12,6 +12,39 @@ export type Db = Database.Database;
 /** Where schema.sql sits once the project is compiled into out/. */
 function schemaPath(): string {
   return join(__dirname, 'schema.sql');
+}
+
+function migrationsDir(): string {
+  return join(__dirname, 'migrations');
+}
+
+/**
+ * How the data model is defined:
+ *
+ *   schema.sql          the baseline, version 1
+ *   migrations/NNN-*.sql  one file per change after that
+ *
+ * A brand new database gets the baseline and then every migration, in
+ * order. An existing database gets only the migrations it has not seen.
+ * Both paths run the SAME sql, so a database created today and one
+ * created a year ago end up structurally identical - and there is a
+ * test that proves it rather than assuming it.
+ */
+function pendingMigrations(from: number): Array<{ version: number; name: string; sql: string }> {
+  return readdirSync(migrationsDir())
+    .filter((f) => f.endsWith('.sql'))
+    .map((name) => {
+      const match = /^(\d+)-/.exec(name);
+      if (match === null) throw new Error(`migration file '${name}' does not start with a number`);
+      return { version: Number(match[1]), name, sql: readFileSync(join(migrationsDir(), name), 'utf8') };
+    })
+    .filter((m) => m.version > from)
+    .sort((a, b) => a.version - b.version);
+}
+
+export function latestSchemaVersion(): number {
+  const all = pendingMigrations(0);
+  return all.length === 0 ? 1 : all[all.length - 1]!.version;
 }
 
 /**
@@ -73,6 +106,29 @@ export function applySchema(db: Db): void {
     db.exec('ROLLBACK');
     throw cause;
   }
+  migrate(db);
+}
+
+/**
+ * Brings a database up to the current schema. Each migration runs in
+ * its own transaction, so an interrupted upgrade leaves the database at
+ * a version it can still be opened at rather than half-changed.
+ */
+export function migrate(db: Db): number[] {
+  const applied: number[] = [];
+  for (const migration of pendingMigrations(schemaVersion(db))) {
+    db.exec('BEGIN');
+    try {
+      db.exec(migration.sql);
+      db.exec(`PRAGMA user_version = ${migration.version}`);
+      db.exec('COMMIT');
+    } catch (cause) {
+      db.exec('ROLLBACK');
+      throw new Error(`migration ${migration.name} failed and was rolled back: ${String(cause)}`);
+    }
+    applied.push(migration.version);
+  }
+  return applied;
 }
 
 export function schemaVersion(db: Db): number {

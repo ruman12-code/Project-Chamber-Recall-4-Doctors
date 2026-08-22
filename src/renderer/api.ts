@@ -1,10 +1,13 @@
-import type { InstallationStatus, DatabaseSummary, Result } from '../shared/ipc';
+import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result } from '../shared/ipc';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
   create(passphrase: string, mode: 'demo' | 'live'): Promise<Result<{ recoveryKey: string }>>;
   unlock(passphrase: string): Promise<Result<Record<string, never>>>;
   summary(): Promise<Result<{ summary: DatabaseSummary }>>;
+  redFlagStatus(): Promise<Result<{ status: RedFlagStatus }>>;
+  redFlagSample(): Promise<Result<{ alert: RedFlagAlertView | null }>>;
+  redFlagAcknowledge(eventId: string): Promise<Result<Record<string, never>>>;
 }
 
 declare global {
@@ -30,6 +33,9 @@ export const api: Api = {
   create: (p, m) => call((a) => a.create(p, m)),
   unlock: (p) => call((a) => a.unlock(p)),
   summary: () => call((a) => a.summary()),
+  redFlagStatus: () => call((a) => a.redFlagStatus()),
+  redFlagSample: () => call((a) => a.redFlagSample()),
+  redFlagAcknowledge: (eventId) => call((a) => a.redFlagAcknowledge(eventId)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

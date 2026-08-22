@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api, unwrap, type Failure } from '../api';
 import { FailureNotice } from '../Failure';
-import type { DatabaseSummary } from '../../shared/ipc';
+import { RedFlagAlert } from './RedFlagAlert';
+import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView } from '../../shared/ipc';
 
 const LABELS: Record<string, string> = {
   patient: 'Patients',
@@ -15,6 +16,7 @@ const LABELS: Record<string, string> = {
   medication: 'Medication lines',
   investigation: 'Investigations',
   investigations_outstanding: 'Investigations with no result yet',
+  red_flag_evaluation: 'Rule evaluations recorded',
   attachment: 'Attachments',
   app_user: 'Users',
   audit_log: 'Audit entries',
@@ -30,6 +32,7 @@ const LABELS: Record<string, string> = {
 export function Status() {
   const [summary, setSummary] = useState<DatabaseSummary | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
+  const [previewing, setPreviewing] = useState<RedFlagAlertView | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -39,8 +42,26 @@ export function Status() {
     })();
   }, []);
 
+  async function showRealAlert() {
+    const { value, failure } = unwrap(await api.redFlagSample());
+    if (failure) { setFailure(failure); return; }
+    if (value!.alert === null) {
+      setFailure({
+        userMessage: 'There is no unacknowledged alert in this database to show.',
+        whatToDo: 'Rebuild the practice database with "npm run seed" to get fresh ones.',
+        technical: 'redflags:sample returned null',
+      });
+      return;
+    }
+    setPreviewing(value!.alert);
+  }
+
   if (failure) return <div className="page"><FailureNotice failure={failure} /></div>;
   if (summary === null) return <div className="page"><p className="muted">Reading the records…</p></div>;
+
+  if (previewing !== null) {
+    return <RedFlagAlert alert={previewing} onAcknowledged={() => setPreviewing(null)} />;
+  }
 
   return (
     <div className="page">
@@ -64,6 +85,8 @@ export function Status() {
           </div>
         ))}
       </div>
+
+      <RedFlagSection status={summary.redFlags} onShowAlert={showRealAlert} />
 
       <h2>Most recent audit entries</h2>
       <p className="muted">
@@ -93,5 +116,66 @@ export function Status() {
         {summary.seededAt && ` · practice data added ${new Date(summary.seededAt).toLocaleString()}`}
       </p>
     </div>
+  );
+}
+
+function RedFlagSection({ status, onShowAlert }: { status: RedFlagStatus; onShowAlert: () => void }) {
+  const usable = status.blocksLiveUse.length === 0;
+
+  return (
+    <>
+      <h2>Red flag rules</h2>
+      <div className="card">
+        <p>
+          <span className={usable ? 'pill ok' : 'pill bad'}>
+            {usable ? 'approved for real patients' : 'not usable for real patients'}
+          </span>
+          <span className="pill">{status.ruleCount} rules</span>
+          {status.placeholderCount > 0 && <span className="pill bad">{status.placeholderCount} placeholder</span>}
+          {status.checksum !== null && <span className="pill">file {status.checksum}</span>}
+        </p>
+
+        {!usable && (
+          <>
+            <p>
+              This is a practice database, so it runs anyway. A real one would not open at all
+              until every point below was fixed.
+            </p>
+            <ol>
+              {status.blocksLiveUse.map((block, i) => (
+                <li key={i}><span className="r">{block.reason}</span> {block.whatToDo}</li>
+              ))}
+            </ol>
+          </>
+        )}
+
+        {status.problems.length > 0 && (
+          <ol>
+            {status.problems.map((problem, i) => (
+              <li key={i}>
+                <div className="problem-line">
+                  {problem.line === null ? problem.where : `line ${problem.line} · ${problem.where}`}
+                </div>
+                <div className="r">{problem.problem}</div>
+                <div>{problem.whatToDo}</div>
+              </li>
+            ))}
+          </ol>
+        )}
+
+        <p className="muted">
+          The rules are in <span className="problem-line">{status.path}</span>. Edit that file in any
+          text editor; it is never overwritten by reinstalling the software.
+        </p>
+
+        <button className="secondary" onClick={onShowAlert}>
+          Show a real alert as the assistant sees it
+        </button>
+        <p className="muted">
+          This takes a genuine alert out of this database, produced by running these rules over
+          a patient's answers. Acknowledging it records the acknowledgement for real.
+        </p>
+      </div>
+    </>
   );
 }

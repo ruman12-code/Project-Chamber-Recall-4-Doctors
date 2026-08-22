@@ -9,11 +9,45 @@ export interface InstallationStatus {
   dataMode: 'demo' | 'live' | null;
 }
 
+export interface RulebookProblemView {
+  line: number | null;
+  where: string;
+  problem: string;
+  whatToDo: string;
+}
+
+export interface RedFlagStatus {
+  /** Where the doctor edits the rules. */
+  path: string;
+  loaded: boolean;
+  ruleCount: number;
+  approvedCount: number;
+  placeholderCount: number;
+  approvedBy: string;
+  approvedOn: string;
+  checksum: string | null;
+  problems: RulebookProblemView[];
+  /** Empty means these rules may be used for real patients. */
+  blocksLiveUse: Array<{ reason: string; whatToDo: string }>;
+}
+
+/** One alert, as the assistant sees it on the tablet. */
+export interface RedFlagAlertView {
+  eventId: string;
+  ruleId: string;
+  ruleVersion: string;
+  messageBn: string;
+  messageEn: string;
+  patientName: string | null;
+  serialNo: number | null;
+}
+
 export interface DatabaseSummary {
   dataMode: 'demo' | 'live';
   createdAt: string | null;
   seededAt: string | null;
   counts: Record<string, number>;
+  redFlags: RedFlagStatus;
   recentAudit: Array<{
     id: number; actor_role: string; action: string; entity: string;
     entity_id: string | null; timestamp: string;
@@ -36,4 +70,7 @@ export const CHANNELS = {
   create: 'installation:create',
   unlock: 'installation:unlock',
   summary: 'database:summary',
+  redFlagStatus: 'redflags:status',
+  redFlagSample: 'redflags:sample',
+  redFlagAcknowledge: 'redflags:acknowledge',
 } as const;

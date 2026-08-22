@@ -8,6 +8,7 @@
 import { rmSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { provision, isProvisioned } from '../db/provision';
+import { loadRulebookFromDisk } from '../redflags/store';
 import { seedDatabase } from './seed';
 
 function arg(name: string, fallback: string): string {
@@ -36,7 +37,17 @@ function main(): void {
   const started = Date.now();
   const { db, recoveryKey } = provision(dir, passphrase, 'demo');
 
-  const result = seedDatabase(db, { patientCount, onProgress: (m) => console.log(`  ${m}`) });
+  // provision() has just put the rules template in the data folder.
+  // The practice data is screened with those rules, through exactly the
+  // code a real intake uses.
+  const { rulebook, problems } = loadRulebookFromDisk(dir);
+  if (rulebook === null) {
+    console.error('\nThe red flag rules file could not be read, so the practice data cannot be screened:\n');
+    for (const p of problems) console.error(`  line ${p.line ?? '?'}: ${p.problem}\n    ${p.whatToDo}`);
+    process.exit(1);
+  }
+
+  const result = seedDatabase(db, { patientCount, rulebook, onProgress: (m) => console.log(`  ${m}`) });
   db.close();
 
   const seconds = ((Date.now() - started) / 1000).toFixed(1);
@@ -44,6 +55,8 @@ function main(): void {
   for (const [key, value] of Object.entries(result)) {
     console.log(`  ${key.padEnd(26)} ${value}`);
   }
+  console.log(`\n  rules file                 ${rulebook.sourcePath}`);
+  console.log(`  rules loaded               ${rulebook.rules.length} (all placeholders)`);
   console.log(`\n  passphrase                 ${passphrase}`);
   console.log(`  recovery key               ${recoveryKey}`);
   console.log(`\nThis database is marked demo. It can never be used for real patients.\n`);

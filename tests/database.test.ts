@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { provision, openWithPassphrase, openWithRecoveryKey, isProvisioned } from '../src/main/db/provision';
 import { dbPath, keystorePath } from '../src/main/paths';
-import { schemaVersion, dataMode, getMeta, type Db } from '../src/main/db/open';
+import { schemaVersion, latestSchemaVersion, dataMode, getMeta, type Db } from '../src/main/db/open';
 import { recordAudit, recentAudit } from '../src/main/db/audit';
 import { newId } from '../src/main/db/ids';
 import { nowIso } from '../src/main/db/clock';
@@ -47,8 +47,8 @@ describe('provisioning a new installation', () => {
     assert.equal(isProvisioned(dir), true);
   });
 
-  test('applies the schema at version 1', () => {
-    assert.equal(schemaVersion(db), 1);
+  test('applies the current schema', () => {
+    assert.equal(schemaVersion(db), latestSchemaVersion());
   });
 
   test('starts in demo mode unless told otherwise', () => {
@@ -67,7 +67,7 @@ describe('provisioning a new installation', () => {
 
   test('the recovery key printed at setup really opens it', () => {
     const reopened = openWithRecoveryKey(dir, recoveryKey);
-    assert.equal(schemaVersion(reopened), 1);
+    assert.equal(schemaVersion(reopened), latestSchemaVersion());
     reopened.close();
   });
 });

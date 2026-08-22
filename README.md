@@ -3,8 +3,8 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 1 of 13.** Foundations only. There is no register, no
-intake, no Recall Card and no prescription printing yet.
+**Status: milestone 2 of 13.** Foundations and the safety layer. There is
+no register, no intake, no Recall Card and no prescription printing yet.
 
 ---
 
@@ -17,10 +17,14 @@ intake, no Recall Card and no prescription printing yet.
 - The three roles, and the rules about who may enter what.
 - An audit log the database itself refuses to let anything edit or delete.
 - Usage logging, which the pilot report will be built from.
+- **The red flag layer.** Screening rules in a file a doctor edits by hand,
+  a deterministic evaluator, and a guard that refuses to open a real
+  patient database until a clinician has approved the rules.
 - A practice database: 312 invented patients, 1,451 visits across two
-  chambers over four years, with vitals series, outstanding investigations
-  and deliberate duplicates.
-- 78 tests covering key custody, the database layer, and the practice data.
+  chambers over four years, with vitals series, outstanding investigations,
+  deliberate duplicates, and 4,160 real rule evaluations.
+- 167 tests covering key custody, the database layer, the practice data,
+  the rule evaluator and the refuse-to-run guard.
 
 ## Running it
 
@@ -44,15 +48,42 @@ offers to set up a fresh installation.
 ## Where things live
 
 ```
-src/main/db/schema.sql    the whole data model, commented. Read this first.
+src/main/db/schema.sql    the data model, commented. Read this first.
+src/main/db/migrations/   every change to it since
 src/main/keystore/        where the encryption key lives, and why
 src/main/db/              opening, migrating, audit log, usage log
+src/main/redflags/        the safety layer: rules, evaluator, guard
+config/red_flags.yaml     the rules template, written for a doctor to edit
 src/main/seed/            the practice data generator
 src/main/index.ts         the application process
 src/renderer/             the screens
 tests/                    what is proven, in plain language
 docs/DECISIONS.md         every judgement call made, and the open questions
 ```
+
+## The red flag layer
+
+The rules live in `red_flags.yaml`, in the data folder beside the database,
+so the doctor edits them himself and reinstalling the software never
+overwrites them. The copy in `config/` is only the template used on first
+run.
+
+**The software refuses to open a real patient database until those rules
+have been approved by a clinician.** Not a warning: it will not proceed.
+The rules shipped with the software are placeholders and are rejected.
+
+Three properties the rest of the project depends on:
+
+- **A typo cannot produce a rule that silently never fires.** A misspelled
+  keyword or a question that does not exist rejects the whole file with a
+  line number, rather than loading a rule that can never match.
+- **A skipped question never quietly means "no".** A rule that lacks the
+  answers it needs is recorded as `could_not_check`, and the screening is
+  reported as incomplete. Skipping questions cannot switch off the safety
+  layer without leaving a trace.
+- **Every evaluation is recorded, not only the ones that fired.** Explaining
+  why a patient was *not* moved up the queue needs the rules that did not
+  fire as much as the one that did.
 
 ## Two things worth knowing before you touch anything
 

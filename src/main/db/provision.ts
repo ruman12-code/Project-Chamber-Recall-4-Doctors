@@ -7,6 +7,7 @@ import { openEncrypted, applySchema, isEmptyDatabase, setMeta, type Db, type Dat
 import { createKeystore, parseKeystore, unlockWithPassphrase, unlockWithRecoveryKey } from '../keystore/keystore';
 import { recordAudit } from './audit';
 import { dbPath, keystorePath } from '../paths';
+import { installRulebookTemplateIfMissing } from '../redflags/store';
 import { KeystoreMissingError } from '../../shared/errors';
 
 /** True when this folder already holds an installation. */
@@ -61,6 +62,19 @@ export function provision(dir: string, passphrase: string, mode: DataMode): Prov
     entityId: 'data_mode',
     details: { data_mode: mode },
   });
+
+  // Put the red flag rules template beside the database. It is only
+  // ever written when absent: reinstalling the software must never
+  // overwrite rules a clinician has approved.
+  if (installRulebookTemplateIfMissing(dir)) {
+    recordAudit(db, {
+      actor: { id: null, role: 'system' },
+      action: 'rulebook_template_installed',
+      entity: 'red_flag_rulebook',
+      entityId: null,
+      details: { note: 'placeholder rules; a doctor must replace them before live use' },
+    });
+  }
 
   return { db, recoveryKey };
 }

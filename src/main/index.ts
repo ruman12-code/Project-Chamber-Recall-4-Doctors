@@ -3,12 +3,16 @@
 // ===================================================================
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'node:path';
-import { CHANNELS, type InstallationStatus, type DatabaseSummary, type Result } from '../shared/ipc';
+import { CHANNELS, type InstallationStatus, type DatabaseSummary, type RedFlagStatus,
+  type RedFlagAlertView, type Result } from '../shared/ipc';
 import { ChamberRecallError } from '../shared/errors';
 import { dataDir, dbPath } from './paths';
 import { provision, openWithPassphrase, isProvisioned } from './db/provision';
 import { dataMode, getMeta, type Db } from './db/open';
 import { recentAudit } from './db/audit';
+import { loadRulebookFromDisk, acknowledgeRedFlag } from './redflags/store';
+import { blocksLiveUse } from './redflags/guard';
+import { rulebookPath } from './paths';
 
 let db: Db | null = null;
 let installDir = '';
@@ -43,6 +47,28 @@ function handle<T extends object>(channel: string, fn: (...args: never[]) => T):
   });
 }
 
+/**
+ * Reads the rules file and reports on it. Read fresh every time rather
+ * than cached: the doctor edits this file with a text editor while the
+ * application is open, and a cached copy would tell him his corrections
+ * had no effect.
+ */
+function readRedFlagStatus(): RedFlagStatus {
+  const { rulebook, problems } = loadRulebookFromDisk(installDir);
+  return {
+    path: rulebookPath(installDir),
+    loaded: rulebook !== null,
+    ruleCount: rulebook?.rules.length ?? 0,
+    approvedCount: rulebook?.rules.filter((r) => r.status === 'approved').length ?? 0,
+    placeholderCount: rulebook?.rules.filter((r) => r.status !== 'approved').length ?? 0,
+    approvedBy: rulebook?.approvedBy ?? '',
+    approvedOn: rulebook?.approvedOn ?? '',
+    checksum: rulebook?.checksum ?? null,
+    problems,
+    blocksLiveUse: blocksLiveUse(rulebook, problems),
+  };
+}
+
 function registerHandlers(): void {
   handle<{ status: InstallationStatus }>(CHANNELS.status, () => ({
     status: {
@@ -74,6 +100,8 @@ function registerHandlers(): void {
     }
     counts['investigations_outstanding'] =
       (db.prepare('SELECT count(*) AS n FROM investigation WHERE result_date IS NULL').get() as { n: number }).n;
+    counts['red_flag_evaluation'] =
+      (db.prepare('SELECT count(*) AS n FROM red_flag_evaluation').get() as { n: number }).n;
 
     return {
       summary: {
@@ -81,9 +109,51 @@ function registerHandlers(): void {
         createdAt: getMeta(db, 'created_at'),
         seededAt: getMeta(db, 'seeded_at'),
         counts,
+        redFlags: readRedFlagStatus(),
         recentAudit: recentAudit(db, 25).map(({ details_json, actor_id, ...rest }) => rest),
       },
     };
+  });
+
+  handle<{ status: RedFlagStatus }>(CHANNELS.redFlagStatus, () => ({ status: readRedFlagStatus() }));
+
+  /**
+   * One real alert out of the database, so the warning the assistant
+   * sees can be looked at before the tablet interface exists. It is a
+   * real row produced by the real rules, not a mock-up.
+   */
+  handle<{ alert: RedFlagAlertView | null }>(CHANNELS.redFlagSample, () => {
+    if (db === null) throw new Error('an alert was requested before the database was unlocked');
+    const { rulebook } = loadRulebookFromDisk(installDir);
+    const row = db.prepare(
+      `SELECT e.id AS eventId, e.rule_id AS ruleId, e.rule_version AS ruleVersion,
+              COALESCE(p.full_name_bn, p.full_name_en) AS patientName, v.serial_no AS serialNo
+       FROM red_flag_event e
+       JOIN intake i  ON i.id = e.intake_id
+       JOIN visit v   ON v.id = i.visit_id
+       JOIN patient p ON p.id = v.patient_id
+       WHERE e.acknowledged_at IS NULL
+       ORDER BY e.fired_at DESC LIMIT 1`,
+    ).get() as { eventId: string; ruleId: string; ruleVersion: string; patientName: string | null; serialNo: number | null } | undefined;
+
+    if (row === undefined) return { alert: null };
+    const rule = rulebook?.rules.find((r) => r.id === row.ruleId);
+    return {
+      alert: {
+        ...row,
+        messageBn: rule?.message.bn ?? '(this rule is no longer in the rules file)',
+        messageEn: rule?.message.en ?? '(this rule is no longer in the rules file)',
+      },
+    };
+  });
+
+  handle<Record<string, never>>(CHANNELS.redFlagAcknowledge, (eventId: string) => {
+    if (db === null) throw new Error('an alert was acknowledged before the database was unlocked');
+    // Milestone 2 has no sign-in yet, so the acknowledgement is
+    // recorded against the front desk role with no named person. From
+    // milestone 9 this becomes the assistant who is signed in.
+    acknowledgeRedFlag(db, eventId, { id: null, role: 'front_desk' });
+    return {} as Record<string, never>;
   });
 }
 

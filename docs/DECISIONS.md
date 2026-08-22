@@ -125,6 +125,91 @@ averages assistants together look perfectly reasonable.
 
 ---
 
+## Milestone 2: the safety layer
+
+### 10. Rules are checked strictly, and a doubtful file is rejected whole
+
+The rules file is the one file a doctor edits without a programmer, so the
+most likely fault is a typo. The dangerous kind is a typo that leaves a rule
+looking perfectly fine and unable to ever fire: `equal:` instead of
+`equals:`, or a question name spelled `severty`.
+
+The loader rejects the whole file when it sees either, and says which line
+and what to fix. It refuses rather than loading the rules it *could*
+understand, because a partly-loaded rulebook is a safety layer with an
+invisible hole in it. A file that will not load blocks live use entirely.
+
+### 11. A skipped question is a third answer, not a "no"
+
+Every intake question can be skipped, so rules frequently run without what
+they need. There are three outcomes, not two: matched, did not match, and
+could not be checked.
+
+If a skipped question were treated as "no", then skipping questions would
+quietly switch off the screening, and nothing would record that it had
+happened. That is a de-escalation by accident. So "could not be checked" is
+recorded against the rule, the missing questions are named, and the
+screening is reported as incomplete.
+
+The logic follows from that. In an `all:`, one part definitely false settles
+it - the rule could not have fired whatever the missing answer was, so
+nothing is reported as incomplete. In an `any:`, one part definitely true
+settles it the same way. Only a genuinely undecidable rule is reported.
+
+### 12. Every evaluation is written down, not only the alerts
+
+The brief asked for this and the reason deserves stating: to explain why a
+patient was *not* moved up the queue, knowing that no alert fired is not
+enough. You need to know which rules ran, in which version, and what each
+one decided. A new table records all of it, append-only like the audit log.
+
+Each row also carries a fingerprint of the whole rules file. Rule versions
+depend on the doctor remembering to increase them; the fingerprint does not.
+
+### 13. The alert says nothing about how serious anything is
+
+The full-screen warning appears on a tablet at a front desk. The patient and
+whoever came with them can read it from across the desk. So it carries no
+score, no level, no rating, and no word like urgent or critical - only the
+instruction to see the doctor now rather than wait, which is true and not
+frightening, plus the message the physician wrote for that rule.
+
+Bangla and English are both always on screen, larger and first in Bangla.
+Neither is behind a language toggle: there is no time to switch languages in
+the moment this screen exists for.
+
+### 14. Acknowledging on the tablet does not clear the doctor's alert
+
+The assistant taps to confirm they have read the warning, and that is
+recorded with their identity, the time and the rule version. It clears the
+tablet so the queue can move on. It does not clear the doctor's screen: that
+alert is derived from who is still waiting, so it stays until the patient
+has actually been seen. It cannot be dismissed, only outlived.
+
+The first acknowledgement is the one kept, and is never overwritten.
+
+### 15. An intake is screened repeatedly, and that must not duplicate alerts
+
+The tablet will re-screen after every answer, so a warning appears as early
+as possible rather than at the end of the questions. That means a matching
+rule matches again on every later answer. The alert is raised once and keeps
+its identity; a rule whose version the doctor has increased counts as a new
+rule and can fire again. Every one of those re-screenings is still recorded.
+
+### 16. Changes to the data model now go through migrations
+
+Adding the evaluation table needed a schema change, and there will be more.
+`schema.sql` is the baseline and each later change is a numbered file in
+`src/main/db/migrations/`. A new database gets the baseline and then every
+migration; an existing one gets only what it has not seen. Both run the same
+sql, and a test proves a migrated database ends up byte-identical to a fresh
+one rather than assuming it.
+
+Doing this now was cheap because no real data exists yet. It would not have
+been later.
+
+---
+
 ## A bug worth recording, because the symptom is the point
 
 The first time the application ran end to end, it showed "Starting…" and
@@ -206,3 +291,45 @@ blanks where a doctor expects numbers.
 I think leniency is right — an assistant blocked by a mandatory field
 abandons the tool — but it is your clinical call whether age and sex should
 be the two exceptions that must be filled in before a serial is issued.
+
+### F. Incomplete screening is common, and the doctor's screen has to say something
+
+In the practice database, 649 of 1,040 intakes had at least one rule that
+could not be checked because a question was skipped. That number depends on
+placeholder rules and will change completely once you write real ones, but
+the mechanism is real and it will not go to zero: assistants under queue
+pressure skip questions, and that is allowed by design.
+
+So the Recall Card has to say something. My proposal for milestone 8 is a
+line near the red flag block reading "screening incomplete - these questions
+were not answered", listing them, so you know what you are missing before
+you start asking. I would rather not decide the wording without you. It is
+also worth deciding whether an incomplete screening should be visible in the
+queue *before* the patient reaches you, rather than only on their card.
+
+### G. A patient with no intake at all is currently screened by nothing
+
+If the assistant never starts the intake - a rush, a patient who does not
+want to answer - then no rules run, no evaluations are recorded, and nothing
+anywhere says that this patient was never screened. The register still works
+and the patient still gets a serial, which is correct. But the absence is
+invisible.
+
+I think the queue and the Recall Card should show "no screening was done"
+for such a patient, as plainly as they show an alert. That is more
+information for you, never less, so it does not breach the escalate-only
+rule. Confirm and I will build it into milestones 5 and 8.
+
+### H. Rule versions depend on you remembering to increase them
+
+If you change what a rule does and leave `version: 1`, old records and new
+records both point at "version 1" while meaning different things. I have
+covered this partly: every evaluation also stores a fingerprint of the whole
+file, so the exact rulebook can always be identified even when the version
+number lied.
+
+A stricter option exists: the software could refuse to load a rule whose
+text has changed while its version has not, by remembering the fingerprint
+of each rule. That is real protection but it would block you mid-edit while
+you are working on the file. I have not built it. Say the word if you want
+it.

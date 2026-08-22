@@ -1,0 +1,179 @@
+# =====================================================================
+# RED FLAG RULES
+# =====================================================================
+# THIS FILE IS NOT FINISHED. The software will refuse to be used for
+# real patients until a doctor has replaced everything below and marked
+# it approved. That refusal is deliberate. Nobody should be able to put
+# screening rules in front of patients that no clinician has approved.
+#
+# ---------------------------------------------------------------------
+# WHAT THIS FILE DOES
+# ---------------------------------------------------------------------
+# The front desk asks a patient a few questions while they wait. After
+# each answer, the software checks the answers against the rules below.
+#
+# If a rule matches, the tablet stops and shows a full-screen message
+# telling the assistant to tell the doctor NOW rather than let the
+# patient wait in the queue. The assistant must tap to confirm they have
+# read it, and that confirmation is recorded with their name, the time,
+# and which version of which rule fired.
+#
+# The ONLY thing a rule can do is move someone UP the queue. There is no
+# rule that can send anyone home, no rule that can lower anyone's
+# priority, and no rule that can say what is wrong with them. A rule
+# that fires when it should not have costs the chamber a few minutes. A
+# rule that fails to fire can cost a life. Write them accordingly:
+# when in doubt, fire.
+#
+# ---------------------------------------------------------------------
+# HOW TO WRITE A RULE
+# ---------------------------------------------------------------------
+# Each rule needs an id, a version, a status, a message, and a "when".
+#
+#   id       a short name, lowercase with underscores. Never reuse an id
+#            for a different rule - old records refer to it by name.
+#   version  start at 1. INCREASE IT BY ONE every time you change what
+#            the rule does. Old records keep pointing at the old
+#            version, so a decision made last year can still be
+#            explained against the rule as it stood that day.
+#   status   "placeholder" or "approved". The software refuses to run
+#            for real patients while any rule is still "placeholder".
+#   message  what the assistant sees, in Bangla and in English. Write it
+#            as an instruction to the assistant. Do not write the reason
+#            you are worried - the patient and the people beside them
+#            can see this screen.
+#   when     the condition. See below.
+#
+# ---------------------------------------------------------------------
+# WHAT YOU CAN PUT IN "when"
+# ---------------------------------------------------------------------
+# You can ask about an answer the patient gave:
+#
+#   - question: severity          exactly this answer
+#     equals: severe
+#
+#   - question: body_region       any one of these answers
+#     in: [chest, abdomen]
+#
+#   - question: presenting_complaint    these words appear anywhere in
+#     contains_any: ["রক্ত", "blood"]   what the patient said
+#
+#   - question: allergies         the question was answered at all
+#     answered: true
+#
+# You can ask about the patient themselves:
+#
+#   - patient: age_years
+#     at_least: 50
+#
+#   - patient: age_years
+#     at_most: 5
+#
+#   - patient: sex
+#     equals: female
+#
+# And you can combine them:
+#
+#   all:        every one of these must be true
+#     - ...
+#     - ...
+#
+#   any:        at least one of these must be true
+#     - ...
+#     - ...
+#
+# ---------------------------------------------------------------------
+# WHAT HAPPENS IF THE PATIENT SKIPPED THE QUESTION
+# ---------------------------------------------------------------------
+# Every question can be skipped, so a rule may not have enough
+# information to decide. When that happens the software does NOT quietly
+# treat it as "no". It records that the rule could not be checked, and
+# the doctor's screen says the screening was incomplete and which
+# questions are missing. An unanswered question is never allowed to
+# silently cancel a warning.
+#
+# ---------------------------------------------------------------------
+# THE QUESTIONS YOU CAN REFER TO
+# ---------------------------------------------------------------------
+#   presenting_complaint       free text, the patient's own words
+#   body_region                head, chest, abdomen, back, arm, leg,
+#                              skin, throat, whole_body
+#   duration                   free text
+#   severity                   mild, moderate, severe
+#   medicines_already_taken    free text
+#   known_conditions           free text
+#   allergies                  free text
+#   most_worried_about         free text
+#   hoping_for                 free text
+#
+# =====================================================================
+
+# Who approved this file, and when. Both must be filled in before the
+# software will run for real patients.
+approved_by: ""
+approved_on: ""
+
+rules:
+
+  # -------------------------------------------------------------------
+  # EVERY RULE BELOW IS A PLACEHOLDER AND MUST BE REPLACED BY THE
+  # SUPERVISING PHYSICIAN.
+  #
+  # They are here to show the syntax and to let the rest of the software
+  # be tested. The conditions in them are NOT clinical advice and were
+  # not written by a clinician. Delete them and write your own.
+  # -------------------------------------------------------------------
+
+  - id: placeholder_single_answer
+    version: 1
+    status: placeholder
+    message:
+      bn: "PLACEHOLDER — MUST BE REPLACED BY THE SUPERVISING PHYSICIAN"
+      en: "PLACEHOLDER — MUST BE REPLACED BY THE SUPERVISING PHYSICIAN"
+    # Shows the simplest possible rule: one answer, one value.
+    when:
+      question: severity
+      equals: severe
+
+  - id: placeholder_two_answers_together
+    version: 1
+    status: placeholder
+    message:
+      bn: "PLACEHOLDER — MUST BE REPLACED BY THE SUPERVISING PHYSICIAN"
+      en: "PLACEHOLDER — MUST BE REPLACED BY THE SUPERVISING PHYSICIAN"
+    # Shows "all": every line has to be true.
+    when:
+      all:
+        - question: body_region
+          in: [chest]
+        - question: severity
+          in: [moderate, severe]
+
+  - id: placeholder_words_in_free_text
+    version: 1
+    status: placeholder
+    message:
+      bn: "PLACEHOLDER — MUST BE REPLACED BY THE SUPERVISING PHYSICIAN"
+      en: "PLACEHOLDER — MUST BE REPLACED BY THE SUPERVISING PHYSICIAN"
+    # Shows matching words inside what the patient said, in either
+    # script. Matching ignores capital letters.
+    when:
+      question: presenting_complaint
+      contains_any: ["placeholder_word_one", "placeholder_word_two"]
+
+  - id: placeholder_with_patient_age
+    version: 1
+    status: placeholder
+    message:
+      bn: "PLACEHOLDER — MUST BE REPLACED BY THE SUPERVISING PHYSICIAN"
+      en: "PLACEHOLDER — MUST BE REPLACED BY THE SUPERVISING PHYSICIAN"
+    # Shows "any" and a fact about the patient rather than an answer.
+    when:
+      all:
+        - any:
+            - patient: age_years
+              at_least: 65
+            - patient: age_years
+              at_most: 2
+        - question: severity
+          equals: severe

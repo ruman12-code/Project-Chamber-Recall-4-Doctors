@@ -34,6 +34,8 @@ import { normaliseName, normalisePhone } from '../db/names';
 import { recordAudit } from '../db/audit';
 import { recordUsage } from '../db/usage';
 import { SeedRefusedError } from '../../shared/errors';
+import type { Rulebook } from '../redflags/rulebook';
+import { screenIntake } from '../redflags/store';
 import { GIVEN_MALE, GIVEN_FEMALE, AREAS } from './names';
 import * as V from './demo-vocabulary';
 
@@ -71,6 +73,13 @@ export interface SeedOptions {
   /** How far back the history runs. The spec asks for four years. */
   years?: number;
   onProgress?: (message: string) => void;
+  /**
+   * When given, every seeded intake is screened with the REAL rule
+   * evaluator, exactly as a live intake would be. Nothing is faked:
+   * the alerts in the practice database are produced by running the
+   * rules file over the practice answers.
+   */
+  rulebook?: Rulebook | null;
 }
 
 export interface SeedResult {
@@ -86,6 +95,9 @@ export interface SeedResult {
   intakes: number;
   duplicatePairs: number;
   sharedPhoneGroups: number;
+  ruleEvaluations: number;
+  redFlagsFired: number;
+  screeningsIncomplete: number;
 }
 
 /**
@@ -147,6 +159,7 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
     chambers: 0, users: 0, patients: 0, visits: 0, encounters: 0, vitals: 0,
     medications: 0, investigations: 0, outstandingInvestigations: 0, intakes: 0,
     duplicatePairs: 0, sharedPhoneGroups: 0,
+    ruleEvaluations: 0, redFlagsFired: 0, screeningsIncomplete: 0,
   };
 
   const insertAll = db.transaction(() => {
@@ -440,6 +453,26 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
   });
 
   insertAll();
+  report(`${result.visits} visits`);
+
+  // Screening runs after everything is inserted, as a separate pass,
+  // using the same code path a real intake goes through. This is also
+  // the first time the evaluator is exercised at realistic volume.
+  if (options.rulebook != null) {
+    const system = { id: null, role: 'system' as const };
+    const intakes = db.prepare(
+      `SELECT i.id AS intakeId, i.started_at AS startedAt FROM intake i ORDER BY i.started_at`,
+    ).all() as Array<{ intakeId: string; startedAt: string }>;
+
+    for (const intake of intakes) {
+      const outcome = screenIntake(db, options.rulebook, intake.intakeId, system, intake.startedAt);
+      result.ruleEvaluations += outcome.results.length;
+      result.redFlagsFired += outcome.firedFlags.length;
+      if (outcome.screeningIncomplete) result.screeningsIncomplete += 1;
+    }
+    report(`${result.ruleEvaluations} rule evaluations`);
+  }
+
   report('done');
   return result;
 }

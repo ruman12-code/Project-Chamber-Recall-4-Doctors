@@ -15,10 +15,21 @@ export function dataDir(fallback: string): string {
 
 export const DB_FILENAME = 'chamber-recall.db';
 export const KEYSTORE_FILENAME = 'keystore.json';
+/**
+ * The red flag rules live in the data folder, not inside the
+ * application, because this is the one file the doctor edits himself.
+ * Keeping it beside the database means it is backed up with the
+ * records, and means reinstalling the software never overwrites rules a
+ * clinician approved.
+ */
+export const RULEBOOK_FILENAME = 'red_flags.yaml';
 
 export function dbPath(dir: string): string {
   return join(dir, DB_FILENAME);
 }
 export function keystorePath(dir: string): string {
   return join(dir, KEYSTORE_FILENAME);
+}
+export function rulebookPath(dir: string): string {
+  return join(dir, RULEBOOK_FILENAME);
 }
