@@ -1,0 +1,189 @@
+import { test, describe, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { provision } from '../src/main/db/provision';
+import { setMeta, type Db } from '../src/main/db/open';
+import { seedDatabase } from '../src/main/seed/seed';
+import { SeedRefusedError } from '../src/shared/errors';
+import { tempDir } from './helpers';
+
+describe('synthetic practice data', () => {
+  let db: Db;
+  let cleanup: () => void;
+  let result: ReturnType<typeof seedDatabase>;
+
+  before(() => {
+    const t = tempDir();
+    cleanup = t.cleanup;
+    db = provision(t.dir, 'practice', 'demo').db;
+    // 120 rather than 300 so the test suite stays quick. The shape of
+    // the data is what is being checked, not the volume.
+    result = seedDatabase(db, { patientCount: 120, randomSeed: 12345 });
+  });
+  after(() => { db.close(); cleanup(); });
+
+  test('produces two chambers and four years of history', () => {
+    assert.equal(result.chambers, 2);
+    const span = db.prepare('SELECT min(visit_date) AS first, max(visit_date) AS last FROM visit').get() as { first: string; last: string };
+    const yearsCovered = (new Date(span.last).getTime() - new Date(span.first).getTime()) / (365.25 * 24 * 3600 * 1000);
+    assert.ok(yearsCovered > 3.5, `history spans only ${yearsCovered.toFixed(1)} years`);
+  });
+
+  test('every patient has between one and eight visits', () => {
+    const rows = db.prepare('SELECT patient_id, count(*) AS n FROM visit GROUP BY patient_id').all() as Array<{ n: number }>;
+    assert.ok(rows.every((r) => r.n >= 1 && r.n <= 8));
+    assert.equal(rows.length, result.patients);
+  });
+
+  test('serial numbers run 1..n within each chamber on each day, with no gaps or repeats', () => {
+    // This is the property the paper register guarantees, so the
+    // database has to guarantee it too.
+    const days = db.prepare(`SELECT chamber_id, visit_date, count(*) AS n, count(DISTINCT serial_no) AS distinct_serials,
+                                    min(serial_no) AS lo, max(serial_no) AS hi
+                             FROM visit GROUP BY chamber_id, visit_date`).all() as Array<{ n: number; distinct_serials: number; lo: number; hi: number }>;
+    assert.ok(days.length > 0);
+    for (const d of days) {
+      assert.equal(d.distinct_serials, d.n, 'a serial was issued twice on one day');
+      assert.equal(d.lo, 1, 'serials do not start at 1');
+      assert.equal(d.hi, d.n, 'there is a gap in the serials');
+    }
+  });
+
+  describe('the awkward cases the software has to survive are present', () => {
+    test('some patients share a phone number with a relative', () => {
+      const shared = db.prepare(`SELECT phone, count(*) AS n FROM patient WHERE phone IS NOT NULL GROUP BY phone HAVING n > 1`).all();
+      assert.ok(shared.length > 0, 'no shared handsets, so patient search cannot be tested honestly');
+    });
+
+    test('some patients have no phone number at all', () => {
+      const row = db.prepare('SELECT count(*) AS n FROM patient WHERE phone IS NULL').get() as { n: number };
+      assert.ok(row.n > 0);
+    });
+
+    test('duplicate patient records exist for the merge tool to be tested against', () => {
+      assert.ok(result.duplicatePairs >= 4);
+    });
+
+    test('some ages are approximate, and carry the date they were taken', () => {
+      const approx = db.prepare('SELECT count(*) AS n FROM patient WHERE approx_age_years IS NOT NULL').get() as { n: number };
+      const orphaned = db.prepare('SELECT count(*) AS n FROM patient WHERE approx_age_years IS NOT NULL AND approx_age_recorded_on IS NULL').get() as { n: number };
+      assert.ok(approx.n > 0);
+      assert.equal(orphaned.n, 0);
+    });
+
+    test('there are investigations ordered with no result recorded', () => {
+      // The highest-value block on the Recall Card needs real ones.
+      const row = db.prepare('SELECT count(*) AS n FROM investigation WHERE result_date IS NULL').get() as { n: number };
+      assert.ok(row.n > 0);
+      assert.equal(row.n, result.outstandingInvestigations);
+    });
+
+    test('some intakes were abandoned partway, which is an acceptable outcome', () => {
+      const row = db.prepare('SELECT count(*) AS n FROM intake WHERE completed_at IS NULL').get() as { n: number };
+      assert.ok(row.n > 0);
+    });
+
+    test('some questions were skipped, and a skip is recorded as a fact', () => {
+      const skipped = db.prepare('SELECT count(*) AS n FROM intake_answer WHERE was_skipped = 1').get() as { n: number };
+      assert.ok(skipped.n > 0, 'nothing was skipped, so skip reporting cannot be tested');
+    });
+
+    test('some encounters are left unconfirmed by the doctor', () => {
+      const row = db.prepare('SELECT count(*) AS n FROM encounter WHERE doctor_confirmed_at IS NULL').get() as { n: number };
+      assert.ok(row.n > 0);
+    });
+
+    test('research consent is recorded separately from clinical consent', () => {
+      const both = db.prepare(`SELECT count(*) AS n FROM intake WHERE consent_given_at IS NOT NULL AND research_consent_given_at IS NULL`).get() as { n: number };
+      assert.ok(both.n > 0, 'research consent must not be implied by clinical consent');
+    });
+
+    test('the two front desk assistants behave measurably differently', () => {
+      // If this ever becomes false, the pilot report cannot show what it
+      // exists to show, and averaging the assistants together would look
+      // perfectly reasonable.
+      const perAssistant = db.prepare(`
+        SELECT actor_id, count(*) AS n, avg(duration_ms) AS mean_ms
+        FROM usage_event WHERE event_type = 'intake_completed' GROUP BY actor_id`).all() as Array<{ n: number; mean_ms: number }>;
+      assert.equal(perAssistant.length, 2);
+      const [a, b] = perAssistant.sort((x, y) => x.mean_ms - y.mean_ms);
+      assert.ok(b!.mean_ms > a!.mean_ms * 1.4, 'the two assistants take suspiciously similar times');
+    });
+  });
+
+  test('vitals move in a trend rather than jumping around at random', () => {
+    // A sparkline drawn from random numbers looks broken, and the
+    // reviewer would be judging the chart when the fault was the data.
+    const patient = db.prepare(`
+      SELECT v.patient_id AS pid, count(*) AS n FROM vitals vi JOIN visit v ON v.id = vi.visit_id
+      WHERE vi.systolic_bp IS NOT NULL GROUP BY v.patient_id HAVING n >= 5 LIMIT 1`).get() as { pid: string } | undefined;
+    assert.ok(patient, 'no patient has enough readings to draw a trend');
+
+    const readings = db.prepare(`
+      SELECT vi.systolic_bp AS bp FROM vitals vi JOIN visit v ON v.id = vi.visit_id
+      WHERE v.patient_id = ? AND vi.systolic_bp IS NOT NULL ORDER BY v.visit_date`).all(patient!.pid) as Array<{ bp: number }>;
+
+    const steps = readings.slice(1).map((r, i) => Math.abs(r.bp - readings[i]!.bp));
+    const meanStep = steps.reduce((s, x) => s + x, 0) / steps.length;
+    assert.ok(meanStep < 25, `readings jump by ${meanStep.toFixed(0)} on average, which is noise rather than a trend`);
+  });
+
+  test('the seeding is recorded in the audit log', () => {
+    const row = db.prepare(`SELECT count(*) AS n FROM audit_log WHERE action = 'database_seeded'`).get() as { n: number };
+    assert.equal(row.n, 1);
+  });
+
+  test('no clinical placeholder text escaped into the patient-facing fields', () => {
+    // Complaints, worries and hopes are the patient's own words and
+    // must never contain my placeholder strings.
+    const leaked = db.prepare(`SELECT count(*) AS n FROM intake_answer
+      WHERE question_key IN ('presenting_complaint','most_worried_about','hoping_for')
+        AND answer_free_text LIKE 'PLACEHOLDER%'`).get() as { n: number };
+    assert.equal(leaked.n, 0);
+  });
+});
+
+describe('practice data can never reach a real patient database', () => {
+  test('seeding is refused on a database marked live', () => {
+    const t = tempDir();
+    const db = provision(t.dir, 'passphrase', 'live').db;
+    assert.throws(() => seedDatabase(db, { patientCount: 5 }), SeedRefusedError);
+    db.close(); t.cleanup();
+  });
+
+  test('seeding is refused on a database that already has patients in it', () => {
+    const t = tempDir();
+    const db = provision(t.dir, 'passphrase', 'demo').db;
+    seedDatabase(db, { patientCount: 5 });
+    assert.throws(() => seedDatabase(db, { patientCount: 5 }), SeedRefusedError);
+    db.close(); t.cleanup();
+  });
+
+  test('the refusal explains what to do instead', () => {
+    const t = tempDir();
+    const db = provision(t.dir, 'passphrase', 'demo').db;
+    setMeta(db, 'data_mode', 'live');
+    try {
+      seedDatabase(db, { patientCount: 5 });
+      assert.fail('expected a refusal');
+    } catch (error) {
+      assert.ok(error instanceof SeedRefusedError);
+      assert.match(error.whatToDo, /demo/i);
+    }
+    db.close(); t.cleanup();
+  });
+});
+
+describe('the same seed value always produces the same data', () => {
+  test('two databases seeded identically hold identical patients', () => {
+    // So that a bug seen in a demo can be reproduced exactly.
+    const names = [0, 1].map(() => {
+      const t = tempDir();
+      const db = provision(t.dir, 'passphrase', 'demo').db;
+      seedDatabase(db, { patientCount: 30, randomSeed: 777 });
+      const rows = db.prepare('SELECT full_name_en, phone FROM patient ORDER BY created_at, full_name_en').all();
+      db.close(); t.cleanup();
+      return JSON.stringify(rows);
+    });
+    assert.equal(names[0], names[1]);
+  });
+});
