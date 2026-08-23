@@ -3,10 +3,14 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 6 of 13.** Foundations, the safety layer, the Recall
+**Status: milestone 7 of 13.** Foundations, the safety layer, the Recall
 Card as a static mockup, patient search and merging, the serial register
-with its live queue, and the tablet intake. Consent (milestone 7) is not
-built yet, so the intake must not be used with real patients.
+with its live queue, the tablet intake, and consent.
+
+**Before any real patient:** the consent wording needs approving by the
+supervising physician and by a lawyer in Bangladesh, and the spoken
+recording needs making. The software refuses to take an intake until the
+first is done. See [docs/CONSENT.md](docs/CONSENT.md).
 
 ---
 
@@ -38,7 +42,10 @@ built yet, so the intake must not be used with real patients.
   screen, Bangla first, a Skip on every question, and an offline buffer
   so a dropped wifi loses nothing. The tablet checks the red flag rules
   itself, so a warning appears with no connection at all.
-- 360 tests covering key custody, the database layer, the practice data,
+- **Consent**, recorded per patient and versioned, with a separate
+  research opt-in. Refusing is one tap; agreeing is not possible until
+  the patient has actually been told, by recording or read aloud.
+- 388 tests covering key custody, the database layer, the practice data,
   the rule evaluator, the refuse-to-run guard, the Recall Card, patient
   matching, the merge tool, temperature entry, the register, the queue,
   the question engine, the network server and the offline buffer.
@@ -76,6 +83,10 @@ src/main/queue/           the serial register and the live queue
 src/main/intake/          the question file, the flow, taking an intake
 src/main/server/          the local network server and tablet pairing
 src/main/rules/           the condition language both yaml files share
+src/main/consent/         the consent wording, and what each patient decided
+config/consent.yaml       what the patient is told, written for review
+docs/CONSENT.md           what the law requires and where the software meets it
+docs/ANDROID-TABLET.md    setting up and locking down the tablet
 src/tablet/               the tablet page: intake, offline buffer
 config/questions.yaml     the intake questions, written for a doctor to edit
 src/main/vitals/          temperature entry in either scale

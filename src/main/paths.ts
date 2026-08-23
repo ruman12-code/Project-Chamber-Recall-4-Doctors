@@ -25,6 +25,9 @@ export const KEYSTORE_FILENAME = 'keystore.json';
 export const RULEBOOK_FILENAME = 'red_flags.yaml';
 /** The intake questions, edited by the doctor in the same folder. */
 export const QUESTIONS_FILENAME = 'questions.yaml';
+/** The consent wording, and the folder holding the spoken recordings. */
+export const CONSENT_FILENAME = 'consent.yaml';
+export const CONSENT_AUDIO_DIR = 'audio';
 
 export function dbPath(dir: string): string {
   return join(dir, DB_FILENAME);
@@ -37,4 +40,10 @@ export function rulebookPath(dir: string): string {
 }
 export function questionsPath(dir: string): string {
   return join(dir, QUESTIONS_FILENAME);
+}
+export function consentPath(dir: string): string {
+  return join(dir, CONSENT_FILENAME);
+}
+export function consentAudioDir(dir: string): string {
+  return join(dir, CONSENT_AUDIO_DIR);
 }

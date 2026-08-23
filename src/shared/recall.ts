@@ -94,6 +94,16 @@ export interface RecurringDiagnosis {
   lastDate: string;
 }
 
+export interface ConsentSummary {
+  careRecord: string;
+  research: string;
+  version: string | null;
+  decidedAt: string | null;
+  /** How the patient was actually told: played to them, or read aloud. */
+  method: string | null;
+  givenBy: string | null;
+}
+
 export interface RecallCard {
   patient: {
     id: string;
@@ -127,4 +137,5 @@ export interface RecallCard {
   timeline: TimelineEntry[];
   totalVisits: number;
   attachmentCount: number;
+  consent: ConsentSummary;
 }

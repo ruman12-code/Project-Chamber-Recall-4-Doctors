@@ -131,3 +131,28 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 .done .bn { font-size: 34px; font-weight: 800; }
 .done .en { font-size: 20px; color: var(--muted); }
 .btn.small { font-size: 17px; padding: 14px 18px; min-height: 56px; }
+
+/* ---------------------------------------------------------------
+   CONSENT
+   The one screen where refusing must be as easy as agreeing, and
+   easier to reach than anything else on it.
+   --------------------------------------------------------------- */
+.consent-body { display: block; overflow-y: auto; }
+.consent-points { margin: 0 0 18px; padding-left: 26px; }
+.consent-points li { font-size: 22px; line-height: 1.5; margin-bottom: 10px; }
+.consent-audio { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.big-audio { font-size: 24px; padding: 20px 34px; min-height: 74px; }
+.consent-done { font-size: 18px; font-weight: 700; color: #1d6b2f; }
+.consent-noaudio { margin-bottom: 18px; }
+.consent-who .k { font-size: 16px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+.consent-who .row { display: flex; gap: 12px; }
+.btn.chosen { border-color: var(--pick); background: var(--pick-bg); color: var(--pick); }
+.consent-foot .decline { border-color: var(--ink); }
+.consent-blocked { max-width: 720px; margin: 6vh auto; }
+
+/* The patient row: name above the details, state pill hard right.
+   These were inline spans, so the name and the age ran together and
+   the pill stretched across the row. */
+.patient .who { flex: 1; min-width: 0; display: block; }
+.patient .nm, .patient .sub { display: block; }
+.patient .state { flex: none; white-space: nowrap; }

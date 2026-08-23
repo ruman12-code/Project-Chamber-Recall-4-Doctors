@@ -9,6 +9,7 @@ import { recordAudit } from './audit';
 import { dbPath, keystorePath } from '../paths';
 import { installRulebookTemplateIfMissing } from '../redflags/store';
 import { installQuestionsTemplateIfMissing } from '../intake/store';
+import { installConsentTemplateIfMissing } from '../consent/config';
 import { KeystoreMissingError } from '../../shared/errors';
 
 /** True when this folder already holds an installation. */
@@ -76,6 +77,7 @@ export function provision(dir: string, passphrase: string, mode: DataMode): Prov
       details: { note: 'placeholder rules; a doctor must replace them before live use' },
     });
   }
+  installConsentTemplateIfMissing(dir);
   if (installQuestionsTemplateIfMissing(dir)) {
     recordAudit(db, {
       actor: { id: null, role: 'system' },
@@ -127,6 +129,7 @@ function openAndUpgrade(dir: string, dekHex: string): Db {
   // putting placeholders back would look like a recovery when it is
   // not. That one stays loud and keeps the chamber out of live use.
   installQuestionsTemplateIfMissing(dir);
+  installConsentTemplateIfMissing(dir);
 
   return db;
 }

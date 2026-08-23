@@ -20,6 +20,10 @@ import { todaysQueue, activeChamberId, chambers } from '../queue/queue';
 import { loadChamberConfig } from '../intake/store';
 import { startIntake, saveAnswers, finishIntake, intakeState, factsFor, IntakeRefusedError } from '../intake/session';
 import { screenIntake, acknowledgeRedFlag } from '../redflags/store';
+import { loadConsentConfig } from '../consent/config';
+import { consentState, recordConsent, type ConsentDecision, type ConsentGivenBy, type ConsentMethod } from '../consent/store';
+import { dataMode } from '../db/open';
+import { consentAudioDir } from '../paths';
 import { PairingDesk, deviceForToken, PairingLockedError } from './pairing';
 import { unassignedActor } from '../db/users';
 import { ChamberRecallError } from '../../shared/errors';
@@ -190,18 +194,93 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
     // ---- everything the tablet needs to work, including offline
     if (path === '/api/session') {
       const config = loadChamberConfig(dataDir);
+      const consent = loadConsentConfig(dataDir);
       const chamberId = activeChamberId(db);
       const all = chambers(db);
+      const queue = chamberId === null ? [] : todaysQueue(db, chamberId, localDate());
+
+      // Whether each patient has already answered, so a returning
+      // patient is not asked the same thing every single visit.
+      const withConsent = queue.map((entry) => ({
+        ...entry,
+        consent: consent.config === null
+          ? { careRecord: 'not_asked' as const, research: 'not_asked' as const }
+          : (() => {
+              const state = consentState(db, entry.patientId, consent.config.version);
+              return { careRecord: state.careRecord, research: state.research };
+            })(),
+      }));
+
       sendJson(response, 200, {
         device,
         chamber: { id: chamberId, name: all.find((c) => c.id === chamberId)?.name ?? null },
         visitDate: localDate(),
+        dataMode: dataMode(db),
         questionnaire: config.questions.questionnaire,
         questionProblems: config.questions.problems,
         rulebook: config.rules.rulebook,
         ruleProblems: config.rules.problems,
-        queue: chamberId === null ? [] : todaysQueue(db, chamberId, localDate()),
+        consent: consent.config,
+        consentProblems: consent.problems,
+        consentBlocksLiveUse: consent.blocksLiveUse,
+        queue: withConsent,
       });
+      return;
+    }
+
+    // The spoken consent, read by a real person. Served from the data
+    // folder so the doctor can replace the recording without anyone
+    // rebuilding the software.
+    if (path.startsWith('/api/consent/audio/')) {
+      const name = decodeURIComponent(path.slice('/api/consent/audio/'.length));
+      const target = normalize(join(consentAudioDir(dataDir), name));
+      if (!target.startsWith(normalize(consentAudioDir(dataDir))) || !existsSync(target)) {
+        sendJson(response, 404, {
+          error: 'That recording has not been made yet.',
+          whatToDo: 'Read the words on the screen aloud to the patient instead.',
+        });
+        return;
+      }
+      const body = await readFile(target);
+      response.writeHead(200, { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' });
+      response.end(body);
+      return;
+    }
+
+    /**
+     * Recording what a patient said. Sent through the tablet's buffer
+     * like everything else, so it survives a dropped connection - and
+     * it is keyed by the visit, so it replays in order ahead of the
+     * answers it has to come before.
+     */
+    if (path === '/api/consent/record') {
+      const body = (await readBody(request)) as {
+        visitId?: string; kind?: 'care_record' | 'research'; decision?: ConsentDecision;
+        givenBy?: ConsentGivenBy; givenByName?: string | null; relationship?: string | null;
+        method?: ConsentMethod; language?: 'bn' | 'en'; version?: string;
+      };
+      const visit = db.prepare('SELECT patient_id AS patientId FROM visit WHERE id = ? AND deleted_at IS NULL')
+        .get(String(body.visitId ?? '')) as { patientId: string } | undefined;
+      if (visit === undefined) {
+        sendJson(response, 400, { error: 'That patient is no longer on today\'s list.', whatToDo: 'Go back and choose the patient again.' });
+        return;
+      }
+      const consent = loadConsentConfig(dataDir);
+      recordConsent(db, {
+        patientId: visit.patientId,
+        kind: body.kind === 'research' ? 'research' : 'care_record',
+        // The version the laptop is actually holding, not one the
+        // tablet asserts: a tablet running from a stale cache must not
+        // be able to record consent against wording nobody approved.
+        version: consent.config?.version ?? String(body.version ?? ''),
+        decision: body.decision === 'declined' ? 'declined' : body.decision === 'withdrawn' ? 'withdrawn' : 'given',
+        givenBy: body.givenBy ?? 'self',
+        givenByName: body.givenByName ?? null,
+        relationship: body.relationship ?? null,
+        method: body.method ?? 'screen_only',
+        language: body.language === 'en' ? 'en' : 'bn',
+      }, actor);
+      sendJson(response, 200, { ok: true });
       return;
     }
 

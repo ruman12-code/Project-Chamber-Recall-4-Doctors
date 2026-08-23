@@ -1,0 +1,116 @@
+# =====================================================================
+# WHAT THE PATIENT IS TOLD, AND WHAT THEY ARE AGREEING TO
+# =====================================================================
+# This is the wording read out or shown to every patient before any
+# history is recorded. Edit it here and the tablet changes.
+#
+# ---------------------------------------------------------------------
+# THIS FILE IS NOT APPROVED YET
+# ---------------------------------------------------------------------
+# The software will not take an intake from a real patient until
+# approved_by and approved_on below are filled in. That is deliberate,
+# and it needs two people, not one:
+#
+#   the supervising physician - because this describes what happens to
+#   a patient's medical history, and
+#
+#   a lawyer in Bangladesh - because health information is "sensitive
+#   personal data" under the Personal Data Protection Act, and consent
+#   for it has to be explicit, specific, informed and withdrawable.
+#
+# The wording below is a draft written to meet those requirements. It
+# has not been reviewed by a lawyer. See docs/CONSENT.md for what each
+# part is there to satisfy, so whoever reviews it can see the reasoning
+# rather than guessing at it.
+#
+# ---------------------------------------------------------------------
+# THE VERSION
+# ---------------------------------------------------------------------
+# CHANGE THE VERSION whenever you change the meaning of any wording. A
+# patient's consent is recorded against the version they were actually
+# given, and changing the version asks everybody again. Fixing a typo
+# does not need a new version; changing what is being agreed to does.
+#
+# ---------------------------------------------------------------------
+# THE RECORDING
+# ---------------------------------------------------------------------
+# Many patients cannot read a screen. A consent nobody could read is not
+# informed consent, so each part names an audio file, spoken by a real
+# person, kept in the "audio" folder beside this file.
+#
+# I cannot record it: it has to be a human voice, in Bangla, reading
+# these exact words. Until it exists the tablet says so and tells the
+# assistant to read the words aloud, and the record stores which of the
+# two actually happened.
+# =====================================================================
+
+version: "care-and-research-2026-08-draft-1"
+approved_by: ""
+approved_on: ""
+
+# ---------------------------------------------------------------------
+# 1. Keeping a history. Asked first, and required before any question.
+# ---------------------------------------------------------------------
+care_record:
+  title:
+    bn: "আপনার তথ্য রাখার অনুমতি"
+    en: "Permission to keep your history"
+  audio:
+    bn: "audio/consent-care-bn.m4a"
+    en: "audio/consent-care-en.m4a"
+  points:
+    - bn: "ডাক্তার দেখানোর আগে আমরা আপনাকে কয়েকটি প্রশ্ন করব। আপনি যা বলবেন তা লিখে রাখা হবে।"
+      en: "Before you see the doctor we will ask you a few questions. What you say will be written down."
+    - bn: "এটা রাখা হয় যাতে পরের বার আপনি এলে ডাক্তার আপনার আগের কথা দেখতে পান।"
+      en: "This is kept so that next time you come, the doctor can see what happened before."
+    - bn: "তথ্য শুধু এই ল্যাপটপে থাকে, তালাবদ্ধ অবস্থায়। ইন্টারনেটে বা অন্য কোথাও যায় না।"
+      en: "It stays on this laptop only, locked. It does not go onto the internet or anywhere else."
+    - bn: "শুধু এই ডাক্তার এবং তাঁর সহকারী দেখতে পারেন। আর কেউ না।"
+      en: "Only this doctor and the assistant can see it. Nobody else."
+    - bn: "আপনি না বললেও আপনার সিরিয়াল ঠিক থাকবে এবং ডাক্তার আগের মতোই আপনাকে দেখবেন।"
+      en: "If you say no, you keep your serial number and the doctor sees you exactly the same."
+    - bn: "নাম, ফোন নম্বর আর সিরিয়াল খাতায় থাকবেই — ডাক্তার দেখাতে হলে সেটুকু লাগে।"
+      en: "Your name, phone number and serial stay in the register either way — that much is needed to see the doctor at all."
+    - bn: "যেকোনো সময় আপনার তথ্যের কপি চাইতে পারেন, বা মুছে ফেলতে বলতে পারেন। ডাক্তারকে বললেই হবে।"
+      en: "At any time you can ask for a copy of your information, or ask for it to be removed. Just tell the doctor."
+  accept:
+    bn: "হ্যাঁ, রাখতে পারেন"
+    en: "Yes, you may keep it"
+  decline:
+    bn: "না, রাখবেন না"
+    en: "No, do not keep it"
+  declined_note:
+    bn: "ঠিক আছে। কোনো প্রশ্ন করা হবে না। আপনার সিরিয়াল ঠিক আছে, ডাক্তার আপনাকে দেখবেন।"
+    en: "That is fine. No questions will be asked. Your serial stands and the doctor will see you."
+
+# ---------------------------------------------------------------------
+# 2. Research. A completely separate question with its own answer.
+#    Never bundled with the one above, and never assumed from it.
+# ---------------------------------------------------------------------
+research:
+  title:
+    bn: "গবেষণার জন্য আলাদা অনুমতি"
+    en: "A separate permission, for research"
+  audio:
+    bn: "audio/consent-research-bn.m4a"
+    en: "audio/consent-research-en.m4a"
+  points:
+    - bn: "এটা আলাদা একটা প্রশ্ন। উপরেরটার সাথে এর কোনো সম্পর্ক নেই।"
+      en: "This is a separate question. It has nothing to do with the one before."
+    - bn: "আপনার নাম, ফোন নম্বর আর ঠিকানা বাদ দিয়ে, বাকি তথ্য গবেষণার কাজে ব্যবহার করা যেতে পারে।"
+      en: "With your name, phone number and address removed, the rest could be used for research."
+    - bn: "এতে আপনাকে চেনা যাবে না।"
+      en: "You could not be identified from it."
+    - bn: "না বললে চিকিৎসায় কোনো পার্থক্য হবে না। ডাক্তারও জানবেন না আপনি কী বলেছেন।"
+      en: "Saying no changes nothing about your care. It makes no difference to how the doctor treats you."
+    - bn: "পরে মত বদলাতে পারেন। বললেই আপনার তথ্য গবেষণা থেকে বাদ যাবে।"
+      en: "You can change your mind later. Say so and your information is taken out of it."
+  accept:
+    bn: "হ্যাঁ, ব্যবহার করতে পারেন"
+    en: "Yes, that is allowed"
+  decline:
+    bn: "না"
+    en: "No"
+  declined_note:
+    bn: "ঠিক আছে। আপনার তথ্য গবেষণায় ব্যবহার হবে না।"
+    en: "That is fine. Your information will not be used for research."

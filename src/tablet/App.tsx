@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, outbox, storedToken, NeedsPairingError } from './api';
 import { Outbox, type OutboxStatus } from './outbox';
 import { Pair } from './screens/Pair';
-import { PickPatient } from './screens/PickPatient';
+import { PickPatient, type QueueEntryWithConsent } from './screens/PickPatient';
 import { Ask } from './screens/Ask';
 import { Alarm } from './screens/Alarm';
+import { Consent, type ConsentPart, type ConsentMethod, type ConsentGivenBy } from './screens/Consent';
 import { nextQuestion, expectedQuestionCount, type Questionnaire } from '../main/intake/flow';
 import { evaluateRulebook } from '../main/redflags/evaluate';
 import type { Rulebook } from '../main/redflags/types';
 import type { Facts } from '../main/rules/facts';
-import type { QueueEntry } from '../shared/queue';
+
 
 /** Fifteen minutes with nobody touching it and the screen goes back. */
 const IDLE_CLEAR_MS = 15 * 60 * 1000;
@@ -17,7 +18,24 @@ const SESSION_KEY = 'chamber-recall.session.v1';
 const DRAFT_KEY = 'chamber-recall.draft.v1';
 const LANG_KEY = 'chamber-recall.lang.v1';
 
+/**
+ * Bumped whenever the shape of what the tablet keeps changes.
+ *
+ * The tablet holds a copy of the last session so it can work with no
+ * wifi. After the laptop's software is updated that copy is the OLD
+ * shape, and code expecting a new field walks straight into it - which
+ * is exactly what happened when consent was added: every tablet with a
+ * cached session simply stopped responding when a patient was tapped.
+ *
+ * A cache from a different version is therefore ignored rather than
+ * trusted. The cost is one trip to the laptop after an update; the
+ * alternative is a tablet that looks fine and does nothing.
+ */
+const CACHE_SHAPE = 3;
+
 interface Answer { value: string | null; freeText: string | null; skipped: boolean }
+
+type ConsentStanding = 'given' | 'declined' | 'withdrawn' | 'not_asked' | 'out_of_date';
 
 interface Draft {
   visitId: string;
@@ -28,14 +46,31 @@ interface Draft {
   presented: string[];
   acknowledged: string[];
   touchedAt: number;
+  /**
+   * Where this patient is in being asked permission. Nothing is asked
+   * about their health until this reaches 'asking'.
+   */
+  stage: 'consent_care' | 'consent_research' | 'asking' | 'declined';
+}
+
+interface ConsentConfig {
+  version: string;
+  approvedBy: string;
+  approvedOn: string;
+  careRecord: ConsentPart;
+  research: ConsentPart;
 }
 
 interface CachedSession {
+  shape: number;
   questionnaire: Questionnaire | null;
   rulebook: Rulebook | null;
-  queue: QueueEntry[];
+  queue: QueueEntryWithConsent[];
   chamberName: string | null;
   visitDate: string;
+  dataMode: 'demo' | 'live';
+  consent: ConsentConfig | null;
+  consentBlocksLiveUse: Array<{ reason: string; whatToDo: string }>;
   cachedAt: string;
 }
 
@@ -51,8 +86,17 @@ function writeJson(key: string, value: unknown): void {
 
 export function App() {
   const [paired, setPaired] = useState(storedToken() !== null);
-  const [session, setSession] = useState<CachedSession | null>(() => readJson<CachedSession>(SESSION_KEY));
-  const [draft, setDraft] = useState<Draft | null>(() => readJson<Draft>(DRAFT_KEY));
+  const [session, setSession] = useState<CachedSession | null>(() => {
+    const cached = readJson<CachedSession>(SESSION_KEY);
+    return cached !== null && cached.shape === CACHE_SHAPE ? cached : null;
+  });
+  const [draft, setDraft] = useState<Draft | null>(() => {
+    const cached = readJson<Draft>(DRAFT_KEY);
+    // A half-finished intake from an older version is left alone rather
+    // than resumed into code that no longer matches it. Nothing is
+    // lost: every answer already went to the laptop or into the outbox.
+    return cached !== null && typeof cached.stage === 'string' ? cached : null;
+  });
   const [bn, setBn] = useState(() => (localStorage.getItem(LANG_KEY) ?? 'bn') === 'bn');
   const [status, setStatus] = useState<OutboxStatus>(outbox.status());
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -74,11 +118,17 @@ export function App() {
     try {
       const raw = await api.session() as unknown as {
         questionnaire: Questionnaire | null; rulebook: Rulebook | null;
-        queue: QueueEntry[]; chamber: { name: string | null }; visitDate: string;
+        queue: QueueEntryWithConsent[]; chamber: { name: string | null }; visitDate: string;
+        dataMode: 'demo' | 'live'; consent: ConsentConfig | null;
+        consentBlocksLiveUse: Array<{ reason: string; whatToDo: string }>;
       };
       const next: CachedSession = {
+        shape: CACHE_SHAPE,
         questionnaire: raw.questionnaire, rulebook: raw.rulebook, queue: raw.queue,
-        chamberName: raw.chamber.name, visitDate: raw.visitDate, cachedAt: new Date().toISOString(),
+        chamberName: raw.chamber.name, visitDate: raw.visitDate,
+        dataMode: raw.dataMode, consent: raw.consent,
+        consentBlocksLiveUse: raw.consentBlocksLiveUse ?? [],
+        cachedAt: new Date().toISOString(),
       };
       setSession(next);
       writeJson(SESSION_KEY, next);
@@ -153,8 +203,29 @@ export function App() {
   if (!paired) return <Pair onPaired={() => { setPaired(true); void refresh(); }} />;
 
   const questionnaire = session?.questionnaire ?? null;
+  const consentConfig = session?.consent ?? null;
 
-  function startWith(entry: QueueEntry) {
+  /**
+   * A live chamber does not ask anybody anything until the consent
+   * wording has been approved. A practice database runs anyway, loudly
+   * labelled, so the rest of the software can be built and shown.
+   */
+  const consentUnusable = consentConfig === null
+    || (session?.dataMode === 'live' && (session?.consentBlocksLiveUse.length ?? 0) > 0);
+
+  function startWith(entry: QueueEntryWithConsent) {
+    // Permission first, and only what still needs asking. A patient who
+    // agreed on an earlier visit is not asked again unless the wording
+    // itself has changed.
+    // Defensive: a queue entry from an older laptop has no consent on
+    // it, and the safe reading of "I do not know" is to ask.
+    const standing = entry.consent ?? { careRecord: 'not_asked', research: 'not_asked' };
+    const stage: Draft['stage'] =
+      standing.careRecord === 'given'
+        ? (standing.research === 'not_asked' || standing.research === 'out_of_date'
+            ? 'consent_research' : 'asking')
+        : 'consent_care';
+
     outbox.add('/api/intake/start', { visitId: entry.visitId });
     setDraft({
       visitId: entry.visitId,
@@ -162,8 +233,28 @@ export function App() {
       name: entry.nameBn ?? entry.nameEn ?? '',
       patient: { ageYears: entry.ageYears, sex: entry.sex },
       answers: {}, presented: [], acknowledged: [], touchedAt: Date.now(),
+      stage,
     });
     setFinished(false);
+  }
+
+  function decideConsent(
+    kind: 'care_record' | 'research', decision: 'given' | 'declined',
+    method: ConsentMethod, givenBy: ConsentGivenBy,
+  ) {
+    if (draft === null) return;
+    outbox.add('/api/consent/record', {
+      visitId: draft.visitId, kind, decision, method, givenBy,
+      language: bn ? 'bn' : 'en', version: session?.consent?.version ?? '',
+    });
+
+    if (kind === 'care_record') {
+      // Refusing to have a history kept ends it there. No questions are
+      // asked, the serial stands, and the doctor sees them as before.
+      setDraft({ ...draft, stage: decision === 'declined' ? 'declined' : 'consent_research', touchedAt: Date.now() });
+      return;
+    }
+    setDraft({ ...draft, stage: 'asking', touchedAt: Date.now() });
   }
 
   function record(questionKey: string, answer: Answer) {
@@ -244,6 +335,31 @@ export function App() {
         <div className="empty">{bn ? 'প্রশ্ন পাওয়া যায়নি।' : 'No questions could be loaded yet.'}</div>
       ) : draft === null ? (
         <PickPatient queue={session?.queue ?? []} bn={bn} onPick={startWith} />
+      ) : consentUnusable ? (
+        <div className="consent-blocked">
+          <div className="notice bad">
+            <div className="t">{bn ? 'অনুমতির লেখা এখনো অনুমোদিত হয়নি।' : 'The consent wording has not been approved yet.'}</div>
+            <div className="d">
+              {bn
+                ? 'অনুমতি ছাড়া কোনো প্রশ্ন করা যাবে না। ল্যাপটপের পর্দায় কী ঠিক করতে হবে লেখা আছে।'
+                : 'No questions can be asked without permission first. The laptop screen says what needs fixing.'}
+            </div>
+            <ul>{(session?.consentBlocksLiveUse ?? []).map((b, i) => <li key={i}>{b.reason}</li>)}</ul>
+          </div>
+          <button className="btn" onClick={clearScreen}>{bn ? '← রোগীর তালিকা' : '← Patient list'}</button>
+        </div>
+      ) : draft.stage === 'declined' ? (
+        <div className="done">
+          <div className="bn">{bn ? consentConfig?.careRecord.declinedNote.bn : consentConfig?.careRecord.declinedNote.en}</div>
+          <div className="en">{bn ? consentConfig?.careRecord.declinedNote.en : consentConfig?.careRecord.declinedNote.bn}</div>
+          <button className="btn" onClick={clearScreen}>{bn ? 'পরের রোগী' : 'Next patient'}</button>
+        </div>
+      ) : draft.stage === 'consent_care' && consentConfig !== null ? (
+        <Consent part={consentConfig.careRecord} bn={bn}
+                 onDecide={(d, m, g) => decideConsent('care_record', d, m, g)} />
+      ) : draft.stage === 'consent_research' && consentConfig !== null ? (
+        <Consent part={consentConfig.research} bn={bn}
+                 onDecide={(d, m, g) => decideConsent('research', d, m, g)} />
       ) : finished ? (
         <div className="done">
           <div className="tick">✓</div>

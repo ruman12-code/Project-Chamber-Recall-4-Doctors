@@ -26,6 +26,7 @@ import type { QueueView, VisitStatus } from '../shared/queue';
 import { startTabletServer, DEFAULT_PORT, type RunningServer } from './server/server';
 import { pairedDevices, revokeDevice } from './server/pairing';
 import { unassignedActor } from './db/users';
+import { loadConsentConfig } from './consent/config';
 import type { TabletStatus } from '../shared/ipc';
 
 let db: Db | null = null;
@@ -302,7 +303,11 @@ function registerHandlers(): void {
       visitId = row?.id ?? null;
     }
     const { rulebook } = loadRulebookFromDisk(installDir);
-    return { card: visitId === null ? null : buildRecallCard(db, visitId, new Date(), rulebook) };
+    const consent = loadConsentConfig(installDir);
+    return {
+      card: visitId === null ? null
+        : buildRecallCard(db, visitId, new Date(), rulebook, consent.config?.version ?? null),
+    };
   });
 
   handle<Record<string, never>>(CHANNELS.redFlagAcknowledge, (eventId: string) => {

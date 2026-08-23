@@ -542,6 +542,132 @@ write the exact steps for that device.
 
 ---
 
+## Milestone 7: consent
+
+The legal reasoning is in [CONSENT.md](CONSENT.md), written for you and for
+a lawyer to read together. What follows is only the design decisions.
+
+### 39. The law changed while this project was being built
+
+Bangladesh now has comprehensive data protection legislation, and it is
+recent enough that most people have not caught up with it: an Ordinance
+gazetted in November 2025, amended in February 2026, replaced by the
+Personal Data Protection Act in April 2026, with enforcement phased in to
+around May 2027.
+
+**Health information is sensitive personal data under it**, requiring
+explicit consent and heightened security. That is not a detail — it is the
+whole of what this software collects.
+
+The pilot sits inside the run-up to enforcement. That is a reason to build
+it correctly now, while there are no records to retrofit, not a reason to
+defer it.
+
+### 40. Refusing is one tap. Agreeing is not.
+
+Saying no is available the moment the screen appears, before anything has
+been played or read, and it is never behind a scroll or a checkbox. A
+refusal that costs more effort than agreement is not a free choice.
+
+Agreeing is deliberately harder: the button stays disabled until either the
+recording has played or the assistant has confirmed they read the words
+aloud. Consent from somebody shown a wall of text they cannot read is not
+informed consent, and a great many patients here cannot read it.
+
+Which of the two happened is stored on the record, so the pilot report can
+show how often each was used. If it turns out to be "screen only" most of
+the time, that is a finding about the consent process, not a statistic to
+bury.
+
+### 41. Consent is per patient and versioned, which answers question C
+
+You asked me to decide this in milestone 4 and I said I would make the
+change before milestone 7. This is it.
+
+Asking the same person at every visit is not better consent; it is a ritual
+both sides learn to tap through. Consent is recorded once per patient
+against a **version of the wording**. Change what the patient is agreeing
+to, change the version, and everybody is asked again. Each visit records
+which version was in force, so any record traces back to the exact words
+that patient agreed to.
+
+### 42. Who agreed is recorded, because it is often not the patient
+
+Patients arrive with a son, a daughter-in-law, a neighbour who does the
+talking. The tablet asks who is answering. A record that quietly treats a
+relative's agreement as the patient's own is a record that lies, and the
+doctor reading that history later has a right to know.
+
+### 43. Withdrawal means two different things, and the software says so
+
+The Act gives a right to withdraw at any time, and the two permissions are
+not the same in practice:
+
+**Research consent stops completely and at once.** The export list is built
+from who said *yes*, never from a list of who to leave out. A mistake in an
+opt-out list quietly includes somebody who refused; the same mistake here
+quietly leaves out somebody who agreed, which harms nobody.
+
+**Withdrawing consent to a care record stops anything NEW being recorded.**
+What is already there is a medical record. Destroying it is a clinical and
+legal decision for you to make and to document, not something an assistant
+does with one tap at a front desk. The request is recorded so you see it.
+
+That distinction is the one thing in this milestone I would most like a
+lawyer to look at, and it is flagged as an open point in CONSENT.md.
+
+### 44. Declining does not cost the patient their place
+
+Saying no ends the questions and nothing else. The serial stands, the doctor
+sees them exactly the same, and the consent wording says so out loud.
+
+The register entry — name, phone, serial — stays either way, and the wording
+says that too. Seeing a doctor at all requires being on the list; pretending
+otherwise would be a promise the software cannot keep. **This is a point for
+the lawyer to confirm**: the basis for that minimum record is that it is
+necessary to provide the service the patient came for, not consent.
+
+### 45. The software will not ask anybody until the wording is approved
+
+Same pattern as the red flag rules. `consent.yaml` ships with real draft
+text — so there is something to review rather than a blank page — but
+`approved_by` and `approved_on` are empty and the version says "draft".
+While any of those is true, a live chamber cannot take an intake.
+
+Two people have to sign it, not one: the physician, because it describes
+what happens to a patient's medical history, and a lawyer, because health
+data is sensitive personal data under a statute nobody has case law for yet.
+
+### 46. I cannot record the audio, and pretending otherwise would be worse
+
+The consent has to be spoken by a real person, in Bangla, reading those
+exact words. Until that file exists the tablet says so in a box the
+assistant cannot miss, tells them to read the words aloud, and records that
+this is what happened.
+
+---
+
+## Two bugs from milestone 7
+
+**The tablet crashed on the first tap after the update.** It keeps a copy of
+the last session so it can work with no wifi. After the laptop's software
+was updated that copy was the OLD shape, and code expecting the new consent
+field walked into it — every tablet with a cached session simply stopped
+responding when a patient was tapped. The cache now carries a shape number
+and a cache from a different version is ignored rather than trusted. The
+cost is one trip to the laptop after an update; the alternative is a tablet
+that looks fine and does nothing.
+
+**The patient list on the tablet was laid out wrongly the whole of milestone
+6.** Name and age ran together on one line and the status pill stretched
+across the row. I had screenshotted three tablet screens and not that one.
+That is the third time in this project a screen I did not look at was
+broken, which is a pattern rather than an accident: from here on the rule is
+that every screen a milestone touches gets looked at, not a representative
+sample of them.
+
+---
+
 ## Three bugs from milestone 6, one of which the screenshots hid
 
 **The application could not register a patient at all.** `patient.created_by`
@@ -798,24 +924,26 @@ If you want to start the pilot earlier than milestone 9, tell me and I will
 move the sign-in forward. It is a small piece of work in the wrong order
 rather than a hard problem.
 
-### K. The intake has no consent step yet, and must not be used until it does
+### K. Consent — ANSWERED, and built at milestone 7
 
-Milestone 7 is the consent flow, and by your build order that is the right
-place for it. But it means the tablet as it stands starts asking questions
-without asking permission first.
+See [CONSENT.md](CONSENT.md) for the legal reading and decisions 39-46 above
+for the design. The remaining work is not mine:
 
-So, plainly: **do not let this be used with a real patient before milestone 7
-is done.** It is not a question of the software being unfinished - it is that
-recording someone's answers without having asked them is the thing consent
-exists to prevent, and it cannot be repaired afterwards by adding the screen.
+1. The physician and a lawyer in Bangladesh read `consent.yaml` together and
+   fill in `approved_by` and `approved_on`, and change the version so it is
+   no longer marked a draft. **Until then a live chamber cannot take an
+   intake at all.**
+2. Somebody records the audio, in Bangla, reading those exact words.
+3. The lawyer gives a position on three open points, all listed in
+   CONSENT.md: erasure versus the duty to retain medical records; who may
+   consent for a patient who cannot; and the basis for the minimum register
+   entry when a patient declines.
 
-### L. Which tablet are you buying?
+### L. Android tablet — ANSWERED
 
-Locking a tablet to one app is done by the tablet's operating system, not by
-the page. On Android it is screen pinning; on an iPad it is Guided Access.
-Both are switched on once, by hand, on the device.
-
-Tell me which device the chamber will use and I will write the exact steps
-for it into the setup notes, so whoever sets it up does not have to work it
-out. Without that, the tablet will have a back button and a browser bar, and
-somebody will eventually tap out of the intake mid-patient.
+Written up as [ANDROID-TABLET.md](ANDROID-TABLET.md): which tablet to buy,
+pairing, Add to Home Screen, and turning on screen pinning with a PIN — the
+step that actually locks the tablet to the intake. Fifteen minutes, once,
+by hand. It also covers what to do if the tablet is lost, which is a
+two-step answer and the second step is telling you, because unsent answers
+on a lost tablet may be a reportable breach.

@@ -16,6 +16,7 @@
 import type { Db } from '../db/open';
 import { patientAgeYears } from '../db/age';
 import type { Rulebook } from '../redflags/rulebook';
+import { consentState } from '../consent/store';
 import type {
   RecallCard, VitalsReading, IntakeAnswerView, RedFlagView, MedicationView,
   OutstandingInvestigation, TimelineEntry, RecurringDiagnosis, ScreeningState,
@@ -53,6 +54,7 @@ export function currentVisitId(db: Db, visitDate: string): string | null {
  */
 export function buildRecallCard(
   db: Db, visitId: string, asOf: Date = new Date(), rulebook: Rulebook | null = null,
+  consentVersion: string | null = null,
 ): RecallCard {
   const visit = db.prepare(
     `SELECT v.id, v.patient_id AS patientId, v.visit_date AS visitDate, v.serial_no AS serialNo,
@@ -270,5 +272,20 @@ export function buildRecallCard(
     timeline,
     totalVisits: timeline.length,
     attachmentCount,
+    consent: (() => {
+      // Whether this patient ever agreed to any of this being kept, and
+      // how they were actually told. A doctor looking at a history has
+      // a right to know it was taken with permission.
+      const state = consentState(db, visit.patientId, consentVersion ?? '');
+      const latest = state.latest.careRecord;
+      return {
+        careRecord: state.careRecord,
+        research: state.research,
+        version: latest?.version ?? null,
+        decidedAt: latest?.decidedAt ?? null,
+        method: latest?.method ?? null,
+        givenBy: latest?.givenBy ?? null,
+      };
+    })(),
   };
 }

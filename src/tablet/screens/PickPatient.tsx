@@ -1,6 +1,15 @@
 import type { QueueEntry } from '../../shared/queue';
 
 /**
+ * The queue as the tablet sees it, with whether each patient has
+ * already been asked for permission. A returning patient who agreed
+ * last year is not asked again unless the wording has changed.
+ */
+export type QueueEntryWithConsent = QueueEntry & {
+  consent: { careRecord: string; research: string };
+};
+
+/**
  * Who is the assistant about to ask?
  *
  * Straight from today's list, biggest thing on the row being the serial
@@ -9,7 +18,7 @@ import type { QueueEntry } from '../../shared/queue';
  * one can be picked up again.
  */
 export function PickPatient(
-  { queue, onPick, bn }: { queue: QueueEntry[]; onPick: (entry: QueueEntry) => void; bn: boolean },
+  { queue, onPick, bn }: { queue: QueueEntryWithConsent[]; onPick: (entry: QueueEntryWithConsent) => void; bn: boolean },
 ) {
   const waiting = queue.filter((e) => e.status === 'waiting' || e.status === 'in_chamber');
 
@@ -36,15 +45,19 @@ export function PickPatient(
             onClick={() => onPick(entry)}
           >
             <span className="serial">{entry.serialNo}</span>
-            <span>
+            <span className="who">
               <span className="nm">{entry.nameBn ?? entry.nameEn}</span>
               <span className="sub">
                 {entry.ageYears === null ? (bn ? 'বয়স জানা নেই' : 'age not known') : `${entry.ageYears}`}
                 {entry.sex !== null && ` · ${entry.sex}`}
               </span>
             </span>
+            {entry.consent?.careRecord === 'declined' && (
+              <span className="state">{bn ? 'অনুমতি দেননি' : 'said no'}</span>
+            )}
             {entry.intakeCompleted && <span className="state done">{bn ? 'নেওয়া হয়েছে' : 'done'}</span>}
-            {!entry.intakeCompleted && entry.intakeStarted && <span className="state">{bn ? 'অসম্পূর্ণ' : 'part done'}</span>}
+            {!entry.intakeCompleted && entry.intakeStarted && entry.consent?.careRecord !== 'declined' &&
+              <span className="state">{bn ? 'অসম্পূর্ণ' : 'part done'}</span>}
           </button>
         ))}
       </div>

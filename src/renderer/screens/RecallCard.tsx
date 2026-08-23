@@ -57,6 +57,44 @@ function Answer({ answer }: { answer: IntakeAnswerView | undefined }) {
  * needs to know whether anyone actually told him, or whether this is
  * the first he is hearing of it.
  */
+/**
+ * Whether this history was taken with permission, said plainly.
+ *
+ * A doctor reading somebody's history has a right to know it was taken
+ * with their agreement, and if it was not, to know that before relying
+ * on it. Health information is sensitive personal data under the
+ * Personal Data Protection Act and this is the line that shows the
+ * permission was actually obtained.
+ */
+function ConsentLine({ consent }: { consent: Card['consent'] }) {
+  const told = consent.method === 'audio' ? 'the recording was played'
+    : consent.method === 'read_aloud' ? 'read aloud to them'
+    : consent.method === 'screen_only' ? 'shown on screen only'
+    : null;
+  const who = consent.givenBy === 'self' ? null
+    : consent.givenBy === null ? null
+    : `agreed by someone with them (${consent.givenBy.replace('_', ' ')})`;
+
+  if (consent.careRecord === 'given') {
+    return (
+      <p className="consent-line ok">
+        Permission given{consent.decidedAt !== null && ` ${consent.decidedAt.slice(0, 10)}`}
+        {told !== null && ` · ${told}`}{who !== null && ` · ${who}`}
+      </p>
+    );
+  }
+  if (consent.careRecord === 'declined') {
+    return <p className="consent-line bad">This patient asked for no history to be kept. Nothing below was recorded with permission.</p>;
+  }
+  if (consent.careRecord === 'withdrawn') {
+    return <p className="consent-line bad">This patient has withdrawn permission. Do not record anything further without asking again.</p>;
+  }
+  if (consent.careRecord === 'out_of_date') {
+    return <p className="consent-line warn">Agreed to older wording — needs asking again on this visit.</p>;
+  }
+  return <p className="consent-line warn">Permission was never asked for.</p>;
+}
+
 function acknowledgementSummary(flags: Card['today']['redFlags']): string {
   const acknowledged = flags.filter((f) => f.acknowledgedAt !== null);
   if (acknowledged.length === 0) return 'not acknowledged at the front desk';
@@ -160,6 +198,7 @@ export function RecallCardScreen({ card, onClose }: { card: Card; onClose: () =>
             <div>
               <span className="intake-stamp">Reported at front desk — not verified</span>
             </div>
+            <ConsentLine consent={card.consent} />
             <p className="intake-who">
               {today.intake === null
                 ? 'No intake was taken.'
