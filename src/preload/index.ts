@@ -20,6 +20,7 @@ import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertVi
 import type { RecallCard } from '../shared/recall';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 import type { QueueView, VisitStatus } from '../shared/queue';
+import type { TabletStatus } from '../shared/ipc';
 
 contextBridge.exposeInMainWorld('chamberRecall', {
   status: (): Promise<Result<{ status: InstallationStatus }>> =>
@@ -58,4 +59,8 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('queue:setStatus', visitId, status),
   queueMove: (visitId: string, direction: 'up' | 'down'): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('queue:move', visitId, direction),
+  tabletStatus: (): Promise<Result<{ status: TabletStatus }>> =>
+    ipcRenderer.invoke('tablet:status'),
+  tabletRevoke: (deviceId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('tablet:revoke', deviceId),
 });

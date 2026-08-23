@@ -9,6 +9,18 @@ export interface InstallationStatus {
   dataMode: 'demo' | 'live' | null;
 }
 
+export interface TabletStatus {
+  running: boolean;
+  port: number | null;
+  /** Every address on the chamber network the tablet can be pointed at. */
+  addresses: string[];
+  pairingCode: string | null;
+  pairingLocked: boolean;
+  devices: Array<{ id: string; label: string; pairedAt: string; lastSeenAt: string | null }>;
+  /** Why the server is not running, in plain language. */
+  problem: string | null;
+}
+
 export interface RulebookProblemView {
   line: number | null;
   where: string;
@@ -84,4 +96,6 @@ export const CHANNELS = {
   queueRegisterArrival: 'queue:registerArrival',
   queueSetStatus: 'queue:setStatus',
   queueMove: 'queue:move',
+  tabletStatus: 'tablet:status',
+  tabletRevoke: 'tablet:revoke',
 } as const;

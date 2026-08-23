@@ -9,7 +9,7 @@ import { nowIso } from '../db/clock';
 import { recordAudit, type Actor } from '../db/audit';
 import { patientAgeYears } from '../db/age';
 import { rulebookPath } from '../paths';
-import { loadRulebook, type LoadOutcome, type Rulebook } from './rulebook';
+import { loadRulebook, KNOWN_QUESTION_KEYS, type LoadOutcome, type Rulebook } from './rulebook';
 import { evaluateRulebook, type Facts, type RulebookResult } from './evaluate';
 
 /** The template shipped with the application, used on first run only. */
@@ -29,7 +29,7 @@ export function installRulebookTemplateIfMissing(dir: string): boolean {
   return true;
 }
 
-export function loadRulebookFromDisk(dir: string): LoadOutcome {
+export function loadRulebookFromDisk(dir: string, questionKeys?: readonly string[]): LoadOutcome {
   const path = rulebookPath(dir);
   if (!existsSync(path)) {
     return {
@@ -42,7 +42,7 @@ export function loadRulebookFromDisk(dir: string): LoadOutcome {
       }],
     };
   }
-  return loadRulebook(readFileSync(path, 'utf8'), path);
+  return loadRulebook(readFileSync(path, 'utf8'), path, questionKeys ?? KNOWN_QUESTION_KEYS);
 }
 
 /** Gathers everything the rules are allowed to look at for one intake. */

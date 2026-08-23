@@ -348,3 +348,37 @@ describe('merging two records that are the same person', () => {
     assert.equal(patientById(db, keep)!.visitCount, 3);
   });
 });
+
+describe('the application can actually write, not just read', () => {
+  // This is here because of a real bug: the running program used an
+  // actor with no id, and patient.created_by is NOT NULL, so
+  // registering anybody from the front desk screen failed on the
+  // constraint. Searching worked, so screenshots of the search screen
+  // looked fine and nothing caught it.
+  //
+  // Every test that stands in for the application now uses the same
+  // actor the application uses.
+  test('registering with the actor the program itself uses succeeds', async () => {
+    const { unassignedActor } = await import('../src/main/db/users');
+    const c = newChamber();
+    const actor = unassignedActor('front_desk');
+
+    const id = registerPatient(c.db, {
+      fullNameBn: 'নতুন রোগী', fullNameEn: 'New Patient', phone: '01700000001',
+      dob: null, approxAgeYears: 33, sex: 'male', addressFreeText: null,
+    }, actor);
+
+    assert.ok(patientById(c.db, id));
+    const row = c.db.prepare('SELECT created_by FROM patient WHERE id = ?').get(id) as { created_by: string };
+    assert.equal(row.created_by, 'unassigned-front-desk');
+    c.db.close(); c.cleanup();
+  });
+
+  test('and the name it records says plainly that nobody was signed in', () => {
+    const c = newChamber();
+    const row = c.db.prepare(`SELECT display_name AS n FROM app_user WHERE id = 'unassigned-front-desk'`)
+      .get() as { n: string };
+    assert.match(row.n, /before sign-in/i);
+    c.db.close(); c.cleanup();
+  });
+});

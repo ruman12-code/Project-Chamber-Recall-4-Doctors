@@ -18,10 +18,11 @@ for (const file of readdirSync(join(srcDb, 'migrations'))) {
   n += 1;
 }
 
-// The red flag rules template ships with the application and is copied
-// into the doctor's data folder the first time it runs.
+// The two files a doctor edits by hand ship with the application and
+// are copied into the data folder the first time it runs.
 mkdirSync(join(__dirname, '..', 'out', 'config'), { recursive: true });
-copyFileSync(join(__dirname, '..', 'config', 'red_flags.yaml'),
-             join(__dirname, '..', 'out', 'config', 'red_flags.yaml'));
+for (const file of ['red_flags.yaml', 'questions.yaml']) {
+  copyFileSync(join(__dirname, '..', 'config', file), join(__dirname, '..', 'out', 'config', file));
+}
 
-console.log(`copied schema.sql, ${n} migration(s), red_flags.yaml`);
+console.log(`copied schema.sql, ${n} migration(s), red_flags.yaml, questions.yaml`);

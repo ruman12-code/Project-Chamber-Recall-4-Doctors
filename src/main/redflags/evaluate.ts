@@ -25,22 +25,11 @@
 // So unknown propagates: a rule that could not be checked is recorded
 // as could_not_check, and the doctor's screen says the screening was
 // incomplete and names the questions that were missing.
-import type { Condition, Rule, Rulebook } from './rulebook';
+import type { Rule, Rulebook } from './types';
+import type { Condition } from '../rules/conditions';
+import { normalise, answerText, type Truth, type Facts, type AnswerFact } from '../rules/facts';
 
-export type Truth = 'true' | 'false' | 'unknown';
-
-export interface AnswerFact {
-  /** The coded answer, e.g. 'severe'. Null for a free-text question. */
-  value: string | null;
-  freeText: string | null;
-  skipped: boolean;
-}
-
-export interface Facts {
-  /** Only questions that were actually presented appear here. */
-  answers: Record<string, AnswerFact | undefined>;
-  patient: { ageYears: number | null; sex: string | null };
-}
+export type { Truth, Facts, AnswerFact };
 
 export type Outcome = 'fired' | 'did_not_fire' | 'could_not_check';
 
@@ -61,20 +50,7 @@ export interface RulebookResult {
   missingQuestions: string[];
 }
 
-/** Same normalisation everywhere: NFC, lowercase, collapsed spaces. */
-function normalise(text: string): string {
-  return text.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
-/** The text a comparison looks at: the coded answer, else the free text. */
-function answerText(fact: AnswerFact): string | null {
-  const raw = fact.value ?? fact.freeText;
-  if (raw === null) return null;
-  const text = normalise(raw);
-  return text === '' ? null : text;
-}
-
-function evaluateCondition(condition: Condition, facts: Facts, unknownQuestions: Set<string>): Truth {
+export function evaluateCondition(condition: Condition, facts: Facts, unknownQuestions: Set<string>): Truth {
   switch (condition.kind) {
     case 'all': {
       // False wins over unknown: if one part is definitely false, the

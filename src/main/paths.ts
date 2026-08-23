@@ -23,6 +23,8 @@ export const KEYSTORE_FILENAME = 'keystore.json';
  * clinician approved.
  */
 export const RULEBOOK_FILENAME = 'red_flags.yaml';
+/** The intake questions, edited by the doctor in the same folder. */
+export const QUESTIONS_FILENAME = 'questions.yaml';
 
 export function dbPath(dir: string): string {
   return join(dir, DB_FILENAME);
@@ -32,4 +34,7 @@ export function keystorePath(dir: string): string {
 }
 export function rulebookPath(dir: string): string {
   return join(dir, RULEBOOK_FILENAME);
+}
+export function questionsPath(dir: string): string {
+  return join(dir, QUESTIONS_FILENAME);
 }

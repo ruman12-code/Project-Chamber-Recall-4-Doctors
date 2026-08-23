@@ -16,13 +16,19 @@
 //      object this project can contain.
 import { createHash } from 'node:crypto';
 import { parseDocument, type Document } from 'yaml';
+import { parseCondition, type Condition } from '../rules/conditions';
+import { KNOWN_PATIENT_FACTS } from '../rules/facts';
+
+export type { Condition };
+export { KNOWN_PATIENT_FACTS };
 
 /**
- * The questions a rule may refer to.
+ * The questions a rule is allowed to refer to now come from
+ * questions.yaml - the same file the tablet asks from - and are passed
+ * in by the caller. Because both come from one file they cannot drift
+ * apart, which is what the comment here used to warn about.
  *
- * MUST STAY IN STEP with the intake question file built in milestone 6.
- * A rule naming a question outside this list is rejected, because such
- * a rule can never match anything.
+ * This list is the fallback used when no question file is supplied.
  */
 export const KNOWN_QUESTION_KEYS = [
   'presenting_complaint',
@@ -36,37 +42,8 @@ export const KNOWN_QUESTION_KEYS = [
   'hoping_for',
 ] as const;
 
-export const KNOWN_PATIENT_FACTS = ['age_years', 'sex'] as const;
-
-export type Condition =
-  | { kind: 'all'; of: Condition[] }
-  | { kind: 'any'; of: Condition[] }
-  | { kind: 'answer_equals'; question: string; value: string }
-  | { kind: 'answer_in'; question: string; values: string[] }
-  | { kind: 'answer_contains'; question: string; needles: string[] }
-  | { kind: 'answered'; question: string; expected: boolean }
-  | { kind: 'age_at_least'; years: number }
-  | { kind: 'age_at_most'; years: number }
-  | { kind: 'sex_equals'; value: string };
-
-export interface Rule {
-  id: string;
-  version: string;
-  status: 'placeholder' | 'approved';
-  message: { bn: string; en: string };
-  when: Condition;
-  /** Every question this rule can ask about. Used for reporting. */
-  questionsUsed: string[];
-}
-
-export interface Rulebook {
-  approvedBy: string;
-  approvedOn: string;
-  rules: Rule[];
-  /** Fingerprint of the file exactly as it was read. */
-  checksum: string;
-  sourcePath: string;
-}
+import type { Rule, Rulebook } from './types';
+export type { Rule, Rulebook };
 
 export interface RulebookProblem {
   /** 1-based line in the rules file, when it can be located. */
@@ -96,11 +73,9 @@ function lineOfPath(doc: Document, source: string, path: Array<string | number>)
   }
 }
 
-const CONDITION_KEYS = new Set([
-  'all', 'any', 'question', 'equals', 'in', 'contains_any', 'answered', 'patient', 'at_least', 'at_most',
-]);
-
-export function loadRulebook(source: string, sourcePath: string): LoadOutcome {
+export function loadRulebook(
+  source: string, sourcePath: string, questionKeys: readonly string[] = KNOWN_QUESTION_KEYS,
+): LoadOutcome {
   const problems: RulebookProblem[] = [];
   const doc = parseDocument(source);
 
@@ -195,7 +170,7 @@ export function loadRulebook(source: string, sourcePath: string): LoadOutcome {
       add(at('when'), name, 'This rule has no condition, so there is nothing for it to check.',
         'Add a "when:" section describing when this rule should fire.');
     } else {
-      when = parseCondition(rule.when, ['rules', index, 'when'], name, add, questionsUsed);
+      when = parseCondition(rule.when, ['rules', index, 'when'], name, add, questionKeys, questionsUsed);
     }
 
     if (typeof rule.id === 'string' && when !== null && typeof rule.version === 'number' &&
@@ -231,100 +206,4 @@ export function loadRulebook(source: string, sourcePath: string): LoadOutcome {
     },
     problems: [],
   };
-}
-
-type AddProblem = (path: Array<string | number>, where: string, problem: string, whatToDo: string) => void;
-
-function parseCondition(
-  raw: unknown, path: Array<string | number>, ruleName: string, add: AddProblem, questionsUsed: string[],
-): Condition | null {
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
-    add(path, ruleName, 'This condition is not written correctly.',
-      'A condition is either a question and what to compare it to, or an "all:" or "any:" list.');
-    return null;
-  }
-  const node = raw as Record<string, unknown>;
-  const keys = Object.keys(node);
-
-  // Reject anything unrecognised outright. A misspelled key would
-  // otherwise leave a rule that can never fire, and nothing would say so.
-  const unknown = keys.filter((k) => !CONDITION_KEYS.has(k));
-  if (unknown.length > 0) {
-    add(path, ruleName, `"${unknown[0]}" is not something a condition can use.`,
-      `Conditions can use: ${[...CONDITION_KEYS].join(', ')}. Check the spelling against the notes at the top of the file.`);
-    return null;
-  }
-
-  // ---- all / any
-  for (const combinator of ['all', 'any'] as const) {
-    if (node[combinator] !== undefined) {
-      const list = node[combinator];
-      if (!Array.isArray(list) || list.length === 0) {
-        add([...path, combinator], ruleName, `"${combinator}" must be a list with at least one condition under it.`,
-          'Each line under it starts with a dash and a space.');
-        return null;
-      }
-      const parts = list.map((child, i) => parseCondition(child, [...path, combinator, i], ruleName, add, questionsUsed));
-      if (parts.some((p) => p === null)) return null;
-      return { kind: combinator, of: parts as Condition[] };
-    }
-  }
-
-  // ---- patient facts
-  if (node.patient !== undefined) {
-    const fact = node.patient;
-    if (fact === 'age_years') {
-      if (typeof node.at_least === 'number') return { kind: 'age_at_least', years: node.at_least };
-      if (typeof node.at_most === 'number') return { kind: 'age_at_most', years: node.at_most };
-      add(path, ruleName, 'An age condition needs "at_least:" or "at_most:" with a number.',
-        'For example: patient: age_years, then on the next line at_least: 50');
-      return null;
-    }
-    if (fact === 'sex') {
-      if (typeof node.equals === 'string') return { kind: 'sex_equals', value: node.equals.toLowerCase() };
-      add(path, ruleName, 'A sex condition needs "equals:" with male, female or other.', 'For example: equals: female');
-      return null;
-    }
-    add([...path, 'patient'], ruleName, `"${String(fact)}" is not something known about a patient.`,
-      `You can use: ${KNOWN_PATIENT_FACTS.join(', ')}.`);
-    return null;
-  }
-
-  // ---- answers
-  if (typeof node.question !== 'string') {
-    add(path, ruleName, 'This condition does not say which question it is about.',
-      'Add a "question:" line naming one of the intake questions.');
-    return null;
-  }
-  const question = node.question;
-  if (!(KNOWN_QUESTION_KEYS as readonly string[]).includes(question)) {
-    add([...path, 'question'], ruleName, `There is no intake question called "${question}".`,
-      `A rule about a question that does not exist can never fire. The questions available are: ${KNOWN_QUESTION_KEYS.join(', ')}.`);
-    return null;
-  }
-  questionsUsed.push(question);
-
-  if (typeof node.equals === 'string') return { kind: 'answer_equals', question, value: node.equals };
-  if (Array.isArray(node.in)) {
-    const values = node.in.filter((v): v is string => typeof v === 'string');
-    if (values.length !== node.in.length || values.length === 0) {
-      add([...path, 'in'], ruleName, '"in:" must be a list of answers written as text.', 'For example: in: [chest, abdomen]');
-      return null;
-    }
-    return { kind: 'answer_in', question, values };
-  }
-  if (Array.isArray(node.contains_any)) {
-    const needles = node.contains_any.filter((v): v is string => typeof v === 'string' && v.trim() !== '');
-    if (needles.length !== node.contains_any.length || needles.length === 0) {
-      add([...path, 'contains_any'], ruleName, '"contains_any:" must be a list of words or phrases.',
-        'For example: contains_any: ["blood", "রক্ত"]');
-      return null;
-    }
-    return { kind: 'answer_contains', question, needles };
-  }
-  if (typeof node.answered === 'boolean') return { kind: 'answered', question, expected: node.answered };
-
-  add(path, ruleName, `The condition about "${question}" does not say what to compare it to.`,
-    'Add one of: equals, in, contains_any, or answered.');
-  return null;
 }

@@ -449,6 +449,133 @@ coming back - so the answer is a question, not a refusal.
 
 ---
 
+## Milestone 6: the tablet intake
+
+### 32. The two hand-edited files now share one language, and one list
+
+`red_flags.yaml` and `questions.yaml` use the same wording for conditions,
+because a doctor should learn one small language rather than two, and because
+the part of this system that decides things should be written once and tested
+once.
+
+More importantly, the rules are now checked against the questions that
+actually exist. In milestone 2 the rule loader held its own list of question
+names with a comment warning that it MUST stay in step with a question file
+that did not exist yet. It now reads the real one, so a rule about a question
+nobody asks is rejected instead of sitting there unable to fire, and the two
+cannot drift apart.
+
+### 33. Private questions are refused at the front desk, not merely discouraged
+
+Your brief lists the questions that must not be asked where other patients
+can hear: menstruation, pregnancy, sexual health, mental health, alcohol and
+drugs, trouble at home. The software refuses to load a question keyed to any
+of those, and says where the question does belong.
+
+It also *warns*, without refusing, when a question's wording looks private
+under an innocent key - "Are you pregnant?" filed as `q17`. A warning rather
+than a refusal because matching words is a guess, and refusing on a guess
+would eventually block a legitimate question with no way round it.
+
+This is the one place the software overrules a doctor, so it should be said
+plainly: it is not a judgement about whether those questions matter. They
+matter enormously, which is exactly why asking them in a waiting room gets an
+answer that is a lie.
+
+### 34. The tablet checks the rules itself, and the laptop still decides
+
+If red flags were only evaluated on the laptop, a dropped wifi would switch
+off the safety layer silently - the worst possible failure in this system.
+
+So the tablet holds its own copy of the rules and runs the same evaluator, in
+the same code, and the warning appears instantly whether or not there is a
+connection. When the answers reach the laptop it re-evaluates and writes down
+what IT decided. If the two ever disagreed, the laptop's record stands and
+the assistant was still shown a warning - an extra warning being the only
+direction this system is allowed to err in.
+
+### 35. Everything the tablet sends is keyed by the visit, never by the intake
+
+The tablet may be offline from the very first question, so it cannot know an
+intake id. Starting an intake is idempotent, so the laptop works it out on
+arrival - including when the first thing it ever hears about a patient is an
+answer. That is what lets the whole buffer be replayed in order without any
+entry needing to know what happened on the laptop.
+
+Acknowledging a red flag works the same way: by which rule fired, not by an
+alert id the tablet may never have seen.
+
+### 36. The tablet has to be paired, and why that is not paranoia
+
+The tablet reaches the laptop over the chamber's wifi. So does everything
+else on that wifi. Without pairing, any phone in the waiting room could read
+the day's list of patients and every answer given at the desk.
+
+The laptop shows a six-character code; the tablet is given it once and holds
+a long random token afterwards. Only a hash of the token is stored. The code
+changes every time the program starts and again after each pairing, and after
+a handful of wrong guesses pairing locks until the program is restarted -
+because a code short enough to type is short enough to guess.
+
+### 37. "Clear after fifteen minutes" clears the screen, not the answers
+
+Your brief asks for un-submitted intakes to be discarded after fifteen
+minutes idle. What is discarded is what is ON SCREEN: the tablet returns to
+the patient list so the next patient never sees the last one's answers.
+
+What was already answered is kept. It is on the laptop, or in the buffer
+waiting to go, and the intake is marked unfinished - which the doctor's
+screen already reports honestly. Throwing away what a patient actually said,
+because an assistant was called away, would be the one thing this project
+refuses to do.
+
+### 38. Kiosk mode is only as good as the tablet allows, and I will not pretend otherwise
+
+The page fills the screen, offers no way out of the flow, and has no links
+anywhere. That is the limit of what a web page can do.
+
+Genuinely locking a tablet to one app is done by the tablet's own operating
+system - screen pinning on Android, Guided Access on an iPad - and has to be
+switched on there, once, by hand. Nothing I write in the page can substitute
+for it. See open question L: tell me which tablet you are buying and I will
+write the exact steps for that device.
+
+---
+
+## Three bugs from milestone 6, one of which the screenshots hid
+
+**The application could not register a patient at all.** `patient.created_by`
+is NOT NULL, and the running program was passing an actor with no id - so
+every write from the front desk screen would have failed on the constraint.
+It was found by a server test doing exactly what that screen does.
+
+Everything I had shown you of milestone 4 was a *reading* screen. Search
+worked, the merge preview worked, the screenshots looked right, and the one
+path that writes was broken. The lesson I am taking from it: a screenshot of
+a screen that reads proves nothing about the screen that writes, and tests
+standing in for the application must use the same actor the application uses.
+They now do.
+
+The fix was not to relax the constraint. There are now real rows named
+"Front desk (before sign-in was set up)", so records made before milestone 9
+have a genuine author to point at and that author tells the truth about
+itself.
+
+**The server reported the wrong port.** Asked for "any free port" it returned
+the number it had been asked for rather than the one it got, sending the
+tablet to an address that could not exist.
+
+**An older installation had no question file.** The template was written only
+when creating a new installation, so an existing chamber opened with the
+tablet having nothing at all to ask - the same shape as the migration bug in
+milestone 5. Opening now writes it if it is missing, and only if it is
+missing, so a doctor's own edits are never overwritten. The red flag rules
+are deliberately NOT treated this way: a missing rules file means the safety
+layer is gone, and quietly putting placeholders back would look like a
+recovery when it is not.
+
+---
+
 ## Two more bugs worth recording
 
 **Opening a database never upgraded it.** Creating a new installation ran the
@@ -670,3 +797,25 @@ nothing to look the answer up from.
 If you want to start the pilot earlier than milestone 9, tell me and I will
 move the sign-in forward. It is a small piece of work in the wrong order
 rather than a hard problem.
+
+### K. The intake has no consent step yet, and must not be used until it does
+
+Milestone 7 is the consent flow, and by your build order that is the right
+place for it. But it means the tablet as it stands starts asking questions
+without asking permission first.
+
+So, plainly: **do not let this be used with a real patient before milestone 7
+is done.** It is not a question of the software being unfinished - it is that
+recording someone's answers without having asked them is the thing consent
+exists to prevent, and it cannot be repaired afterwards by adding the screen.
+
+### L. Which tablet are you buying?
+
+Locking a tablet to one app is done by the tablet's operating system, not by
+the page. On Android it is screen pinning; on an iPad it is Guided Access.
+Both are switched on once, by hand, on the device.
+
+Tell me which device the chamber will use and I will write the exact steps
+for it into the setup notes, so whoever sets it up does not have to work it
+out. Without that, the tablet will have a back button and a browser bar, and
+somebody will eventually tap out of the intake mid-patient.

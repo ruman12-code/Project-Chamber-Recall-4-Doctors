@@ -8,6 +8,7 @@ import { createKeystore, parseKeystore, unlockWithPassphrase, unlockWithRecovery
 import { recordAudit } from './audit';
 import { dbPath, keystorePath } from '../paths';
 import { installRulebookTemplateIfMissing } from '../redflags/store';
+import { installQuestionsTemplateIfMissing } from '../intake/store';
 import { KeystoreMissingError } from '../../shared/errors';
 
 /** True when this folder already holds an installation. */
@@ -75,6 +76,15 @@ export function provision(dir: string, passphrase: string, mode: DataMode): Prov
       details: { note: 'placeholder rules; a doctor must replace them before live use' },
     });
   }
+  if (installQuestionsTemplateIfMissing(dir)) {
+    recordAudit(db, {
+      actor: { id: null, role: 'system' },
+      action: 'questions_template_installed',
+      entity: 'intake_questions',
+      entityId: null,
+      details: { note: 'the intake questions as shipped; the doctor may edit them' },
+    });
+  }
 
   return { db, recoveryKey };
 }
@@ -105,6 +115,19 @@ function openAndUpgrade(dir: string, dekHex: string): Db {
     db.close();
     throw cause;
   }
+
+  // An installation made before the question file existed has no
+  // questions.yaml, and the tablet then has nothing to ask - which is
+  // how this was found. Writing it only when it is ABSENT means a
+  // doctor's own edits can never be overwritten.
+  //
+  // The red flag rules are deliberately NOT treated this way. A missing
+  // question file is an inconvenience the shipped default can fix; a
+  // missing rules file means the safety layer is gone, and quietly
+  // putting placeholders back would look like a recovery when it is
+  // not. That one stays loud and keeps the chamber out of live use.
+  installQuestionsTemplateIfMissing(dir);
+
   return db;
 }
 

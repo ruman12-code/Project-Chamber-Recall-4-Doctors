@@ -3,10 +3,10 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 5 of 13.** Foundations, the safety layer, the Recall
-Card as a static mockup, patient search and merging, and the serial
-register with its live queue. There is no intake and no prescription
-printing yet.
+**Status: milestone 6 of 13.** Foundations, the safety layer, the Recall
+Card as a static mockup, patient search and merging, the serial register
+with its live queue, and the tablet intake. Consent (milestone 7) is not
+built yet, so the intake must not be used with real patients.
 
 ---
 
@@ -34,9 +34,14 @@ printing yet.
   number, see who is waiting and for how long, change who is seen next,
   and print today's list. A flagged patient is held at the front of the
   queue and there is no control anywhere that moves them back.
-- 296 tests covering key custody, the database layer, the practice data,
+- **The tablet intake.** Questions from a file the doctor edits, one per
+  screen, Bangla first, a Skip on every question, and an offline buffer
+  so a dropped wifi loses nothing. The tablet checks the red flag rules
+  itself, so a warning appears with no connection at all.
+- 360 tests covering key custody, the database layer, the practice data,
   the rule evaluator, the refuse-to-run guard, the Recall Card, patient
-  matching, the merge tool, temperature entry, the register and the queue.
+  matching, the merge tool, temperature entry, the register, the queue,
+  the question engine, the network server and the offline buffer.
 
 ## Running it
 
@@ -68,6 +73,11 @@ src/main/redflags/        the safety layer: rules, evaluator, guard
 src/main/recall/          assembling the Recall Card
 src/main/patients/        search, registration, merging
 src/main/queue/           the serial register and the live queue
+src/main/intake/          the question file, the flow, taking an intake
+src/main/server/          the local network server and tablet pairing
+src/main/rules/           the condition language both yaml files share
+src/tablet/               the tablet page: intake, offline buffer
+config/questions.yaml     the intake questions, written for a doctor to edit
 src/main/vitals/          temperature entry in either scale
 config/red_flags.yaml     the rules template, written for a doctor to edit
 src/main/seed/            the practice data generator
@@ -100,6 +110,32 @@ Three properties the rest of the project depends on:
 - **Every evaluation is recorded, not only the ones that fired.** Explaining
   why a patient was *not* moved up the queue needs the rules that did not
   fire as much as the one that did.
+
+## The tablet
+
+The laptop serves a page on the chamber's own network; the tablet is a
+browser pointed at it. There is no internet at any point — it works with
+the router unplugged from the outside line.
+
+```
+npm start                 # the laptop; it prints the address to use
+```
+
+The laptop screen shows the address and a short pairing code. The tablet
+is given the code once and holds a token afterwards. **Nothing on the
+network can read the waiting list or the questions without pairing.**
+
+Two properties the front desk depends on:
+
+- **A dropped wifi loses nothing.** Everything the assistant does goes
+  into a buffer on the tablet first and is sent in the background, oldest
+  first. It survives the page being reloaded and the tablet being
+  switched off. Every route it uses can be called twice with the same
+  thing and change nothing.
+- **A warning still appears with no connection.** The tablet holds its
+  own copy of the rules and checks them itself. The laptop re-checks on
+  arrival and its record is the one that counts; the tablet's copy only
+  decides how soon the assistant sees the screen.
 
 ## Two things worth knowing before you touch anything
 

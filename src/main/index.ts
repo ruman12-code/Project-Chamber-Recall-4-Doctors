@@ -23,9 +23,41 @@ import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '..
 import { registerArrival, setVisitStatus } from './queue/register';
 import { todaysQueue, moveInQueue, activeChamberId, setActiveChamber, chambers } from './queue/queue';
 import type { QueueView, VisitStatus } from '../shared/queue';
+import { startTabletServer, DEFAULT_PORT, type RunningServer } from './server/server';
+import { pairedDevices, revokeDevice } from './server/pairing';
+import { unassignedActor } from './db/users';
+import type { TabletStatus } from '../shared/ipc';
 
 let db: Db | null = null;
 let installDir = '';
+let tabletServer: RunningServer | null = null;
+let tabletProblem: string | null = null;
+
+/**
+ * The tablet cannot be served until the records are unlocked, because
+ * everything it asks for comes out of the encrypted database. So the
+ * server starts the moment the doctor opens the records, and stops when
+ * the program closes.
+ */
+async function startTabletServing(): Promise<void> {
+  if (tabletServer !== null || db === null) return;
+  try {
+    tabletServer = await startTabletServer({
+      db,
+      dataDir: installDir,
+      webRoot: join(__dirname, '..', '..', 'tablet'),
+      port: DEFAULT_PORT,
+    });
+    tabletProblem = null;
+    console.log(`Tablet server on port ${tabletServer.port}: ${tabletServer.addresses.join(', ')}`);
+  } catch (error) {
+    const message = String((error as NodeJS.ErrnoException)?.code === 'EADDRINUSE'
+      ? `Something else on this laptop is already using port ${DEFAULT_PORT}, so the tablet cannot connect.`
+      : (error as Error)?.message ?? error);
+    tabletProblem = message;
+    console.error('[tablet server] could not start:', error);
+  }
+}
 
 /**
  * Every handler goes through here.
@@ -97,6 +129,7 @@ function registerHandlers(): void {
 
   handle<Record<string, never>>(CHANNELS.unlock, (passphrase: string) => {
     db = openWithPassphrase(installDir, passphrase);
+    void startTabletServing();
     return {} as Record<string, never>;
   });
 
@@ -163,11 +196,33 @@ function registerHandlers(): void {
    * instead, so the card can be looked at during the build.
    */
   /**
-   * Milestone 4 has no sign-in yet, so patient actions are recorded
-   * against the front desk role with no named person. From milestone 9
-   * this becomes whoever is signed in.
+   * Nobody signs in until the setup wizard at milestone 9, so actions
+   * are recorded against a row that says exactly that: "Front desk
+   * (before sign-in was set up)". The record therefore has a real
+   * author to point at, and that author tells the truth about itself.
    */
-  const actor = { id: null, role: 'front_desk' as const };
+  const actor = unassignedActor('front_desk');
+
+  handle<{ status: TabletStatus }>(CHANNELS.tabletStatus, () => {
+    if (db === null) throw new Error('the tablet status was requested before the database was unlocked');
+    return {
+      status: {
+        running: tabletServer !== null,
+        port: tabletServer?.port ?? null,
+        addresses: tabletServer?.addresses ?? [],
+        pairingCode: tabletServer?.pairingCode ?? null,
+        pairingLocked: tabletServer?.pairingLocked ?? false,
+        devices: pairedDevices(db),
+        problem: tabletProblem,
+      },
+    };
+  });
+
+  handle<Record<string, never>>(CHANNELS.tabletRevoke, (deviceId: string) => {
+    if (db === null) throw new Error('a tablet was revoked before the database was unlocked');
+    revokeDevice(db, deviceId);
+    return {} as Record<string, never>;
+  });
 
   handle<{ view: QueueView }>(CHANNELS.queueToday, () => {
     if (db === null) throw new Error('the queue was requested before the database was unlocked');
@@ -255,7 +310,7 @@ function registerHandlers(): void {
     // Milestone 2 has no sign-in yet, so the acknowledgement is
     // recorded against the front desk role with no named person. From
     // milestone 9 this becomes the assistant who is signed in.
-    acknowledgeRedFlag(db, eventId, { id: null, role: 'front_desk' });
+    acknowledgeRedFlag(db, eventId, actor);
     return {} as Record<string, never>;
   });
 }
@@ -292,7 +347,11 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  db?.close();
-  db = null;
-  app.quit();
+  void (async () => {
+    await tabletServer?.close();
+    tabletServer = null;
+    db?.close();
+    db = null;
+    app.quit();
+  })();
 });

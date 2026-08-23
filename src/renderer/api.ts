@@ -2,6 +2,7 @@ import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertVi
 import type { RecallCard } from '../shared/recall';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 import type { QueueView, VisitStatus } from '../shared/queue';
+import type { TabletStatus } from '../shared/ipc';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -22,6 +23,8 @@ interface Api {
   queueRegisterArrival(patientId: string, allowSecondVisitToday: boolean): Promise<Result<{ serialNo: number; alreadyOnListVisitId: string | null }>>;
   queueSetStatus(visitId: string, status: VisitStatus): Promise<Result<Record<string, never>>>;
   queueMove(visitId: string, direction: 'up' | 'down'): Promise<Result<Record<string, never>>>;
+  tabletStatus(): Promise<Result<{ status: TabletStatus }>>;
+  tabletRevoke(deviceId: string): Promise<Result<Record<string, never>>>;
 }
 
 declare global {
@@ -61,6 +64,8 @@ export const api: Api = {
   queueRegisterArrival: (id, allow) => call((a) => a.queueRegisterArrival(id, allow)),
   queueSetStatus: (id, status) => call((a) => a.queueSetStatus(id, status)),
   queueMove: (id, dir) => call((a) => a.queueMove(id, dir)),
+  tabletStatus: () => call((a) => a.tabletStatus()),
+  tabletRevoke: (id) => call((a) => a.tabletRevoke(id)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

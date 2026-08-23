@@ -5,7 +5,7 @@ import { RedFlagAlert } from './RedFlagAlert';
 import { RecallCardScreen } from './RecallCard';
 import { PatientSearch } from './PatientSearch';
 import { Queue } from './Queue';
-import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView } from '../../shared/ipc';
+import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView, TabletStatus } from '../../shared/ipc';
 import type { RecallCard } from '../../shared/recall';
 
 const LABELS: Record<string, string> = {
@@ -40,6 +40,7 @@ export function Status() {
   const [card, setCard] = useState<RecallCard | null>(null);
   const [findingPatient, setFindingPatient] = useState(false);
   const [showingQueue, setShowingQueue] = useState(false);
+  const [tablet, setTablet] = useState<TabletStatus | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -47,6 +48,18 @@ export function Status() {
       if (failure) { setFailure(failure); return; }
       setSummary(value!.summary);
     })();
+  }, []);
+
+  useEffect(() => {
+    // The pairing code changes when a tablet is paired, so this is
+    // re-read rather than fetched once.
+    const read = async () => {
+      const { value, failure } = unwrap(await api.tabletStatus());
+      if (!failure) setTablet(value!.status);
+    };
+    void read();
+    const timer = setInterval(() => { void read(); }, 5000);
+    return () => clearInterval(timer);
   }, []);
 
   async function openRecallCard() {
@@ -110,6 +123,12 @@ export function Status() {
         <button onClick={openRecallCard}>Open the Recall Card</button>
       </div>
 
+      {tablet !== null && <TabletSection status={tablet} onRevoke={async (id) => {
+        unwrap(await api.tabletRevoke(id));
+        const { value } = unwrap(await api.tabletStatus());
+        if (value) setTablet(value.status);
+      }} />}
+
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Today's list</h2>
         <p>
@@ -167,6 +186,82 @@ export function Status() {
         Created {summary.createdAt ? new Date(summary.createdAt).toLocaleString() : 'unknown'}
         {summary.seededAt && ` · practice data added ${new Date(summary.seededAt).toLocaleString()}`}
       </p>
+    </div>
+  );
+}
+
+function TabletSection({ status, onRevoke }: { status: TabletStatus; onRevoke: (id: string) => void }) {
+  return (
+    <div className="card">
+      <h2 style={{ marginTop: 0 }}>The front desk tablet</h2>
+
+      {!status.running ? (
+        <div className="failure" role="alert">
+          <div className="what">The tablet cannot connect to this laptop.</div>
+          <div className="do">
+            {status.problem ?? 'The local network server is not running.'} The register and the
+            Recall Card still work; only the tablet is affected.
+          </div>
+        </div>
+      ) : (
+        <>
+          <p>
+            On the tablet, open a browser and go to one of these addresses. There is no internet
+            involved: this is the chamber's own network, and it works with the router unplugged
+            from the outside line.
+          </p>
+          <p>
+            {status.addresses.length === 0
+              ? <span className="muted">This laptop is not on any network yet, so the tablet has nothing to connect to. Join the chamber's wifi.</span>
+              : status.addresses.map((address) => (
+                <span className="recovery-key" key={address} style={{ fontSize: 22, padding: 12, margin: '6px 0' }}>
+                  http://{address}:{status.port}
+                </span>
+              ))}
+          </p>
+
+          <h3 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--muted)' }}>
+            Pairing code
+          </h3>
+          {status.pairingLocked ? (
+            <div className="failure" role="alert">
+              <div className="what">Too many wrong codes have been tried.</div>
+              <div className="do">Close this program and open it again before pairing a tablet.</div>
+            </div>
+          ) : (
+            <>
+              <div className="recovery-key">{status.pairingCode}</div>
+              <p className="muted">
+                Type this into the tablet once. It changes every time this program starts, and
+                again after each tablet is paired. Only a tablet that has been given a code can
+                see the waiting list or the questions.
+              </p>
+            </>
+          )}
+
+          <h3 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--muted)' }}>
+            Tablets connected
+          </h3>
+          {status.devices.length === 0 ? (
+            <p className="muted">None yet.</p>
+          ) : (
+            <table>
+              <thead><tr><th>Tablet</th><th>Paired</th><th>Last seen</th><th /></tr></thead>
+              <tbody>
+                {status.devices.map((device) => (
+                  <tr key={device.id}>
+                    <td>{device.label}</td>
+                    <td className="muted">{new Date(device.pairedAt).toLocaleString()}</td>
+                    <td className="muted">{device.lastSeenAt === null ? 'never' : new Date(device.lastSeenAt).toLocaleString()}</td>
+                    <td><button className="secondary" style={{ margin: 0, padding: '6px 12px', fontSize: 13 }}
+                                onClick={() => onRevoke(device.id)}>Disconnect</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
     </div>
   );
 }

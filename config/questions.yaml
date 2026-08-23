@@ -1,0 +1,189 @@
+# =====================================================================
+# THE QUESTIONS ASKED AT THE FRONT DESK
+# =====================================================================
+# This file decides what the tablet asks while a patient waits, in what
+# order, and in what words. Change it here and the tablet changes.
+#
+# ---------------------------------------------------------------------
+# THE TWO RULES THAT MATTER MOST
+# ---------------------------------------------------------------------
+# 1. EVERY QUESTION CAN BE SKIPPED. There is a Skip button on every
+#    screen and there is no way to remove it. An assistant trapped
+#    behind a question a patient cannot answer stops using the tablet
+#    altogether, and then nothing gets asked at all. An incomplete
+#    intake is a good outcome; an abandoned tablet is not.
+#
+# 2. NOTHING PRIVATE IS ASKED HERE. This tablet is used at a desk,
+#    within earshot of other patients and of whoever came with them.
+#    Anything a patient would not say out loud in that room does not
+#    belong in this file - it belongs in the doctor's own section
+#    behind a closed door.
+#
+#    The software refuses to load a question about menstruation,
+#    pregnancy, sexual health, mental health, alcohol or drugs, or
+#    domestic circumstances. That refusal is deliberate, and it is not
+#    a judgement about whether those questions matter. They matter a
+#    great deal, which is exactly why asking them in a waiting room
+#    gets an answer that is a lie.
+#
+# ---------------------------------------------------------------------
+# HOW TO WRITE A QUESTION
+# ---------------------------------------------------------------------
+#   key      a short name, lowercase with underscores. This is what the
+#            answer is stored under and what red_flags.yaml refers to.
+#            NEVER change or reuse a key - old records point at it.
+#   type     free_text | choice | scale
+#   prompt   what the patient is asked, in Bangla and in English.
+#   help     optional smaller line under the prompt, for the assistant.
+#   options  for choice and scale: the answers offered. Each has a
+#            value (stored) and a label (shown, in both languages).
+#   style    optional. "body_regions" lays the options out head to toe.
+#   ask_when optional. The question is only asked when this is true.
+#            Same wording as red_flags.yaml:
+#
+#              ask_when:
+#                question: medicines_already_taken
+#                in: [from_pharmacy, brought_strip]
+#
+# A "scale" must have exactly three options and is shown as three large
+# buttons. It never shows a number, a score or a colour ranking - not to
+# the patient, not to the assistant, not anywhere.
+# =====================================================================
+
+questions:
+
+  - key: presenting_complaint
+    type: free_text
+    prompt:
+      bn: "আজ কী সমস্যা নিয়ে এসেছেন?"
+      en: "What has brought you in today?"
+    help:
+      bn: "রোগী যেভাবে বলছেন, সেভাবেই লিখুন।"
+      en: "Write it in the patient's own words, not in medical words."
+
+  - key: body_region
+    type: choice
+    style: body_regions
+    prompt:
+      bn: "কোথায় সমস্যা হচ্ছে?"
+      en: "Where is the problem?"
+    options:
+      - { value: head,       label: { bn: "মাথা",        en: "Head" } }
+      - { value: throat,     label: { bn: "গলা",         en: "Throat" } }
+      - { value: chest,      label: { bn: "বুক",         en: "Chest" } }
+      - { value: abdomen,    label: { bn: "পেট",         en: "Abdomen" } }
+      - { value: back,       label: { bn: "পিঠ / কোমর",  en: "Back" } }
+      - { value: arm,        label: { bn: "হাত",         en: "Arm" } }
+      - { value: leg,        label: { bn: "পা",          en: "Leg" } }
+      - { value: skin,       label: { bn: "চামড়া",       en: "Skin" } }
+      - { value: whole_body, label: { bn: "সারা শরীর",   en: "All over" } }
+
+  - key: duration
+    type: choice
+    prompt:
+      bn: "কতদিন ধরে?"
+      en: "How long has it been going on?"
+    options:
+      - { value: days_1_2,      label: { bn: "১-২ দিন",          en: "1-2 days" } }
+      - { value: about_a_week,  label: { bn: "প্রায় এক সপ্তাহ",   en: "About a week" } }
+      - { value: weeks_2_3,     label: { bn: "২-৩ সপ্তাহ",        en: "2-3 weeks" } }
+      - { value: over_a_month,  label: { bn: "এক মাসের বেশি",     en: "More than a month" } }
+      - { value: over_6_months, label: { bn: "ছয় মাসের বেশি",     en: "More than six months" } }
+
+  - key: onset
+    type: choice
+    prompt:
+      bn: "হঠাৎ শুরু হয়েছে, না ধীরে ধীরে?"
+      en: "Did it start suddenly or slowly?"
+    options:
+      - { value: sudden,     label: { bn: "হঠাৎ",           en: "Suddenly" } }
+      - { value: gradual,    label: { bn: "ধীরে ধীরে",      en: "Slowly" } }
+      - { value: dont_know,  label: { bn: "বলতে পারছি না",  en: "Cannot say" } }
+
+  - key: severity
+    type: scale
+    prompt:
+      bn: "কতটা কষ্ট হচ্ছে?"
+      en: "How much is it troubling you?"
+    options:
+      - { value: mild,     label: { bn: "অল্প",      en: "A little" } }
+      - { value: moderate, label: { bn: "মাঝারি",    en: "In between" } }
+      - { value: severe,   label: { bn: "খুব বেশি",  en: "A great deal" } }
+
+  - key: better_with
+    type: free_text
+    prompt:
+      bn: "কিসে আরাম লাগে?"
+      en: "What makes it better?"
+
+  - key: worse_with
+    type: free_text
+    prompt:
+      bn: "কিসে বাড়ে?"
+      en: "What makes it worse?"
+
+  # Asked without any hint of disapproval, on purpose. Buying medicine
+  # from a pharmacy without a prescription is ordinary and extremely
+  # common. A question that sounds like a telling-off gets "no" as the
+  # answer, and then the doctor never finds out.
+  - key: medicines_already_taken
+    type: choice
+    prompt:
+      bn: "এই সমস্যার জন্য কোনো ওষুধ খেয়েছেন?"
+      en: "Have you taken any medicine for this?"
+    options:
+      - { value: none,                  label: { bn: "কিছু খাইনি",                    en: "Nothing" } }
+      - { value: brought_strip,         label: { bn: "স্ট্রিপ সাথে এনেছি",             en: "Brought the strip" } }
+      - { value: from_pharmacy,         label: { bn: "ফার্মেসি থেকে কিনে খেয়েছি",     en: "Bought from a pharmacy" } }
+      - { value: previous_prescription, label: { bn: "আগের প্রেসক্রিপশনের ওষুধ",       en: "From an earlier prescription" } }
+      - { value: dont_know,             label: { bn: "খেয়েছি, নাম মনে নেই",           en: "Took something, cannot name it" } }
+
+  - key: medicines_details
+    type: free_text
+    ask_when:
+      question: medicines_already_taken
+      in: [brought_strip, from_pharmacy, previous_prescription, dont_know]
+    prompt:
+      bn: "কী খেয়েছেন?"
+      en: "What did you take?"
+    help:
+      bn: "নাম, রং, বা যা মনে আছে। স্ট্রিপ থাকলে সেটা দেখে লিখুন।"
+      en: "The name, the colour, or anything remembered. Copy it off the strip if there is one."
+
+  - key: known_conditions
+    type: free_text
+    prompt:
+      bn: "আগে থেকে কোনো রোগ আছে?"
+      en: "Any illness the patient already has?"
+
+  - key: regular_medicines
+    type: free_text
+    prompt:
+      bn: "নিয়মিত কোনো ওষুধ খান?"
+      en: "Any medicine taken regularly?"
+
+  - key: allergies
+    type: free_text
+    prompt:
+      bn: "কোনো ওষুধে বা খাবারে সমস্যা হয়?"
+      en: "Any medicine or food that causes a problem?"
+
+  # These last two are the point of this whole interface. They are the
+  # part of a history that gets skipped most often, and they are how a
+  # patient ends up feeling heard rather than processed. If everything
+  # else in this file were deleted, these two would still be worth
+  # asking.
+  - key: most_worried_about
+    type: free_text
+    prompt:
+      bn: "আপনি সবচেয়ে বেশি কী নিয়ে চিন্তায় আছেন?"
+      en: "What are you most worried about?"
+    help:
+      bn: "রোগী যা বলেন, ঠিক তাই লিখুন। ঠিক করে দেওয়ার দরকার নেই।"
+      en: "Write exactly what is said. It does not need to be tidied up."
+
+  - key: hoping_for
+    type: free_text
+    prompt:
+      bn: "আজ ডাক্তার দেখানো থেকে আপনি কী চান?"
+      en: "What are you hoping for from seeing the doctor today?"
