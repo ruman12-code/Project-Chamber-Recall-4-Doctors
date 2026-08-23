@@ -25,6 +25,12 @@ interface Api {
   queueMove(visitId: string, direction: 'up' | 'down'): Promise<Result<Record<string, never>>>;
   tabletStatus(): Promise<Result<{ status: TabletStatus }>>;
   tabletRevoke(deviceId: string): Promise<Result<Record<string, never>>>;
+  recallCardFor(visitId: string): Promise<Result<{ card: RecallCard | null }>>;
+  intakeConfirm(intakeId: string): Promise<Result<Record<string, never>>>;
+  intakeUnconfirm(intakeId: string): Promise<Result<Record<string, never>>>;
+  intakeCorrect(intakeId: string, correction: unknown): Promise<Result<Record<string, never>>>;
+  laptopRole(): Promise<Result<{ role: string }>>;
+  setLaptopRole(role: string): Promise<Result<Record<string, never>>>;
 }
 
 declare global {
@@ -66,6 +72,12 @@ export const api: Api = {
   queueMove: (id, dir) => call((a) => a.queueMove(id, dir)),
   tabletStatus: () => call((a) => a.tabletStatus()),
   tabletRevoke: (id) => call((a) => a.tabletRevoke(id)),
+  recallCardFor: (visitId) => call((a) => a.recallCardFor(visitId)),
+  intakeConfirm: (id) => call((a) => a.intakeConfirm(id)),
+  intakeUnconfirm: (id) => call((a) => a.intakeUnconfirm(id)),
+  intakeCorrect: (id, c) => call((a) => a.intakeCorrect(id, c)),
+  laptopRole: () => call((a) => a.laptopRole()),
+  setLaptopRole: (role) => call((a) => a.setLaptopRole(role)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

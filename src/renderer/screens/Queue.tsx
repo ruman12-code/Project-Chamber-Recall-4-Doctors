@@ -21,7 +21,7 @@ import type { QueueEntry, QueueView } from '../../shared/queue';
  * Dragging on a touch screen misfires, and a misfire here silently
  * changes who the doctor sees next.
  */
-export function Queue({ onClose }: { onClose: () => void }) {
+export function Queue({ onClose, onOpenCard }: { onClose: () => void; onOpenCard?: (visitId: string) => void }) {
   const [view, setView] = useState<QueueView | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [adding, setAdding] = useState(false);
@@ -98,6 +98,11 @@ export function Queue({ onClose }: { onClose: () => void }) {
   }
 
   function onKeyDownCapture(event: React.KeyboardEvent) {
+    // Keys are for the list, not for whatever control happens to have
+    // focus. Without this, pressing "c" while the chamber picker is
+    // focused would open a card instead of choosing a chamber.
+    const tag = (event.target as HTMLElement | null)?.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
     const entry = entries[selected];
     if (entry === undefined) return;
     if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
@@ -106,6 +111,9 @@ export function Queue({ onClose }: { onClose: () => void }) {
     } else if (event.key === 'Enter' && entry.status === 'waiting') {
       event.preventDefault();
       void act(api.queueSetStatus(entry.visitId, 'in_chamber'));
+    } else if (event.key.toLowerCase() === 'c' && onOpenCard !== undefined) {
+      event.preventDefault();
+      onOpenCard(entry.visitId);
     }
   }
 
@@ -163,6 +171,7 @@ export function Queue({ onClose }: { onClose: () => void }) {
             canMoveUp={waitingIds.indexOf(entry.visitId) > 0}
             canMoveDown={waitingIds.indexOf(entry.visitId) >= 0 && waitingIds.indexOf(entry.visitId) < waitingIds.length - 1}
             onSelect={() => setSelected(index)}
+            onOpenCard={onOpenCard === undefined ? undefined : () => onOpenCard(entry.visitId)}
             onMove={(direction) => { void act(api.queueMove(entry.visitId, direction)); }}
             onStatus={(status) => {
           // A patient the questions flagged cannot be taken off the
@@ -183,16 +192,18 @@ export function Queue({ onClose }: { onClose: () => void }) {
 
       <p className="queue-foot no-print">
         Arrow keys move down the list · Alt and an arrow moves a patient up or down the order ·
-        Enter calls the highlighted patient in. Serial numbers never change when the order does.
+        Enter calls the highlighted patient in · C opens the highlighted patient's card.
+        Serial numbers never change when the order does.
       </p>
     </div>
   );
 }
 
 function Row(
-  { entry, selected, canMoveUp, canMoveDown, onSelect, onMove, onStatus }: {
+  { entry, selected, canMoveUp, canMoveDown, onSelect, onOpenCard, onMove, onStatus }: {
     entry: QueueEntry; selected: boolean; canMoveUp: boolean; canMoveDown: boolean;
-    onSelect: () => void; onMove: (d: 'up' | 'down') => void; onStatus: (s: QueueEntry['status']) => void;
+    onSelect: () => void; onOpenCard?: () => void;
+    onMove: (d: 'up' | 'down') => void; onStatus: (s: QueueEntry['status']) => void;
   },
 ) {
   const flagged = entry.redFlags.length > 0;
@@ -238,6 +249,9 @@ function Row(
       </div>
 
       <div className="acts no-print">
+        {onOpenCard !== undefined && (
+          <button className="secondary" onClick={(e) => { e.stopPropagation(); onOpenCard(); }}>Card</button>
+        )}
         {entry.status === 'waiting' && (
           <>
             <button onClick={(e) => { e.stopPropagation(); onStatus('in_chamber'); }}>Call in</button>

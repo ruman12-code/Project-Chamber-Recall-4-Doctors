@@ -647,6 +647,77 @@ this is what happened.
 
 ---
 
+## Milestone 8: the Recall Card wired to the record
+
+### 47. Confirming is the only moment intake becomes part of the record
+
+Everything the front desk takes is, until this moment, a report of what a
+patient said to somebody. The card labels it that way in brown, and the
+doctor sees the label before he sees a single answer.
+
+Confirming stamps his name and the time on it. Nothing else on the panel
+changes colour or moves: the words stay the patient's words, and the panel
+stays walled off from the clinical record beside it. Confirming twice is not
+an error, but it never moves the time of the first confirmation.
+
+Undoing is possible, because a doctor who confirms the wrong patient's
+history needs a way back. The way back is another recorded event, not an
+erasure — the audit log keeps both.
+
+### 48. A correction never replaces what the patient said
+
+The front desk answer is evidence of what a patient told somebody. Software
+that quietly swaps in a tidier version destroys that evidence, and a year
+later nobody can tell which sentence came from the patient.
+
+So `intake_correction` is a separate append-only table. The card shows the
+doctor's wording as the answer, and underneath it, smaller, "front desk
+had" with the original — struck through when he marked it wrong. Every
+correction carries who made it and when. A second correction of the same
+question does not overwrite the first; the newest is shown and both are
+kept.
+
+### 49. A question nobody answered cannot be corrected
+
+The correction sheet lists only questions with an answer in them. A skipped
+or blank question has nothing to put right, and what the doctor learns when
+he asks it himself is his own history-taking. That belongs in his notes at
+milestone 9 — not written into the front desk's record of a conversation he
+was not present at. The sheet says so in place of the boxes.
+
+### 50. The correction sheet is in the order he just read
+
+It stops the screen rather than squeezing into the intake column, and it
+lists the questions in the same order the card does. The first version
+listed them in whatever order the database returned, which put "allergies"
+above the presenting complaint. A doctor hunting for the sentence he is
+trying to correct is a doctor who corrects the wrong one.
+
+### 51. The laptop says which chair it is speaking for
+
+Only a doctor may confirm a history. Building that rule while every action
+in the program is recorded as the same anonymous front desk user would make
+it a decoration.
+
+So the laptop now carries a role setting: doctor, clinical assistant, or
+front desk. **It is not a login.** Nothing is proved, there is no password,
+and the screen says exactly that. It defaults to the doctor because it is
+the doctor's laptop. What it buys is a real rule with a real refusal
+behind it — with the laptop set to the front desk, Confirm is dead and the
+reason is written under the button rather than left to be guessed. Sign-in
+proper arrives at milestone 9 and replaces this.
+
+### 52. Any patient on the list can be opened, not only the one in the room
+
+The card used to show whoever was in the chamber. Every row of today's list
+now has a Card button, and C on the keyboard opens the highlighted one, so
+the doctor can read a waiting patient's history before calling them in. The
+open card re-reads itself every fifteen seconds, so a red flag raised at the
+front desk while the patient is already sitting in the chamber appears
+without anybody reopening anything.
+
+---
+
 ## Two bugs from milestone 7
 
 **The tablet crashed on the first tap after the update.** It keeps a copy of
@@ -923,6 +994,13 @@ nothing to look the answer up from.
 If you want to start the pilot earlier than milestone 9, tell me and I will
 move the sign-in forward. It is a small piece of work in the wrong order
 rather than a hard problem.
+
+**Milestone 8 narrowed this, but did not close it.** The laptop now says
+which chair it is speaking for (decision 51), so an action is recorded
+against a doctor rather than against a front desk user pretending to be
+one, and the doctor-only rule has something real behind it. It is still a
+setting rather than a person. The paragraph above stands unchanged: no real
+patient before milestone 9.
 
 ### K. Consent — ANSWERED, and built at milestone 7
 

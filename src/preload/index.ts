@@ -63,4 +63,16 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('tablet:status'),
   tabletRevoke: (deviceId: string): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('tablet:revoke', deviceId),
+  recallCardFor: (visitId: string): Promise<Result<{ card: RecallCard | null }>> =>
+    ipcRenderer.invoke('recall:card', visitId),
+  intakeConfirm: (intakeId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('intake:confirm', intakeId),
+  intakeUnconfirm: (intakeId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('intake:unconfirm', intakeId),
+  intakeCorrect: (intakeId: string, correction: unknown): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('intake:correct', intakeId, correction),
+  laptopRole: (): Promise<Result<{ role: string }>> =>
+    ipcRenderer.invoke('laptop:role'),
+  setLaptopRole: (role: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('laptop:setRole', role),
 });

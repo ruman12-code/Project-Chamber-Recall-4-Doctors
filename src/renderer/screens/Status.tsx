@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, unwrap, type Failure } from '../api';
 import { FailureNotice } from '../Failure';
 import { RedFlagAlert } from './RedFlagAlert';
 import { RecallCardScreen } from './RecallCard';
 import { PatientSearch } from './PatientSearch';
 import { Queue } from './Queue';
+import { ROLES, roleLabel, type Role } from '../../shared/roles';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView, TabletStatus } from '../../shared/ipc';
 import type { RecallCard } from '../../shared/recall';
 
@@ -41,6 +42,15 @@ export function Status() {
   const [findingPatient, setFindingPatient] = useState(false);
   const [showingQueue, setShowingQueue] = useState(false);
   const [tablet, setTablet] = useState<TabletStatus | null>(null);
+  const [role, setRole] = useState<Role | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const { value, failure } = unwrap(await api.laptopRole());
+      if (failure) { setFailure(failure); return; }
+      setRole(value!.role as Role);
+    })();
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -76,6 +86,40 @@ export function Status() {
     setCard(value!.card);
   }
 
+  async function openCardForVisit(visitId: string) {
+    const { value, failure } = unwrap(await api.recallCardFor(visitId));
+    if (failure) { setFailure(failure); return; }
+    if (value!.card === null) {
+      setFailure({
+        userMessage: 'That patient’s card could not be built.',
+        whatToDo: 'Nothing has been changed. Go back to today’s list and try again; if it happens twice, report it before carrying on.',
+        technical: `recall:card returned null for visit ${visitId}`,
+      });
+      return;
+    }
+    setCard(value!.card);
+  }
+
+  /**
+   * Re-reads the open card from the database. Called after the doctor
+   * confirms or corrects anything, and on a timer while the card is
+   * open, so a red flag raised at the front desk while the patient is
+   * already in the chamber appears on the card without anybody
+   * reopening it.
+   */
+  const reloadCard = useCallback(async () => {
+    if (card === null) return;
+    const { value, failure } = unwrap(await api.recallCardFor(card.today.visitId));
+    if (failure) { setFailure(failure); return; }
+    if (value!.card !== null) setCard(value!.card);
+  }, [card]);
+
+  useEffect(() => {
+    if (card === null) return;
+    const timer = setInterval(() => { void reloadCard(); }, 15000);
+    return () => clearInterval(timer);
+  }, [card, reloadCard]);
+
   async function showRealAlert() {
     const { value, failure } = unwrap(await api.redFlagSample());
     if (failure) { setFailure(failure); return; }
@@ -97,9 +141,17 @@ export function Status() {
     return <RedFlagAlert alert={previewing} onAcknowledged={() => setPreviewing(null)} />;
   }
 
-  if (card !== null) return <RecallCardScreen card={card} onClose={() => setCard(null)} />;
+  // The card is not shown until the laptop role has been read. Which
+  // chair the laptop is speaking for decides whether Confirm works, so
+  // guessing it - even guessing "doctor", which is right nearly every
+  // time - would put a button on screen that lies about what it does.
+  if (card !== null && role !== null) {
+    return <RecallCardScreen card={card} role={role} onReload={reloadCard} onClose={() => setCard(null)} />;
+  }
   if (findingPatient) return <PatientSearch onClose={() => setFindingPatient(false)} />;
-  if (showingQueue) return <Queue onClose={() => setShowingQueue(false)} />;
+  if (showingQueue) {
+    return <Queue onClose={() => setShowingQueue(false)} onOpenCard={(visitId) => { void openCardForVisit(visitId); }} />;
+  }
 
   return (
     <div className="page">
@@ -115,10 +167,41 @@ export function Status() {
       </p>
 
       <div className="card">
+        <h2 style={{ marginTop: 0 }}>Who is at this laptop</h2>
+        <p>
+          This is not a login. Nothing is proved and there is no password: it is a setting that
+          says which chair the laptop is speaking for, so that everything written from here is
+          recorded against somebody rather than against nobody. Signing in properly comes later.
+        </p>
+        <p>
+          It matters for one thing today: only the doctor can confirm a history the front desk
+          took, because confirming it makes it part of the patient’s medical record.
+        </p>
+        {role === null ? <p className="muted">Reading…</p> : (
+          <select
+            value={role}
+            aria-label="Who is at this laptop"
+            onChange={(e) => {
+              const chosen = e.target.value as Role;
+              void (async () => {
+                const { failure } = unwrap(await api.setLaptopRole(chosen));
+                if (failure) { setFailure(failure); return; }
+                setRole(chosen);
+              })();
+            }}
+          >
+            {ROLES.map((r) => <option key={r} value={r}>{roleLabel(r).en} · {roleLabel(r).bn}</option>)}
+          </select>
+        )}
+      </div>
+
+      <div className="card">
         <h2 style={{ marginTop: 0 }}>The Recall Card</h2>
         <p>
-          Milestone 3, shown against the practice database: the patient who is with the doctor
-          right now in today's session. Nothing on it is wired yet.
+          The patient who is with the doctor right now in today’s session. Confirm and Correct
+          are live: confirming takes the front desk’s history into the record under your name,
+          and correcting adds your wording beside theirs without ever replacing it. To open any
+          other patient’s card, use today’s list.
         </p>
         <button onClick={openRecallCard}>Open the Recall Card</button>
       </div>

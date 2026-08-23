@@ -3,9 +3,10 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 7 of 13.** Foundations, the safety layer, the Recall
-Card as a static mockup, patient search and merging, the serial register
-with its live queue, the tablet intake, and consent.
+**Status: milestone 8 of 13.** Foundations, the safety layer, patient
+search and merging, the serial register with its live queue, the tablet
+intake, consent, and the Recall Card wired to the live record with
+Confirm and Correct.
 
 **Before any real patient:** the consent wording needs approving by the
 supervising physician and by a lawyer in Bangladesh, and the spoken
@@ -26,8 +27,8 @@ first is done. See [docs/CONSENT.md](docs/CONSENT.md).
 - **The red flag layer.** Screening rules in a file a doctor edits by hand,
   a deterministic evaluator, and a guard that refuses to open a real
   patient database until a clinician has approved the rules.
-- **The Recall Card**, as a static mockup on the practice database. One
-  screen at 1366x768 with no scrolling, plus the patient-facing view.
+- **The Recall Card.** One screen at 1366x768 with no scrolling, plus the
+  patient-facing view.
 - A practice database: 312 invented patients, 1,469 visits across two
   chambers over four years, real rule evaluations, and a session running
   today with people waiting and one patient in the chamber.
@@ -45,10 +46,16 @@ first is done. See [docs/CONSENT.md](docs/CONSENT.md).
 - **Consent**, recorded per patient and versioned, with a separate
   research opt-in. Refusing is one tap; agreeing is not possible until
   the patient has actually been told, by recording or read aloud.
-- 388 tests covering key custody, the database layer, the practice data,
+- **The Recall Card wired live, with Confirm and Correct.** What the front
+  desk wrote is a report until the doctor accepts it; confirming stamps his
+  name and the time on it, and correcting puts his wording beside the
+  patient's without ever replacing it. Any patient on today's list can be
+  opened from the queue.
+- 419 tests covering key custody, the database layer, the practice data,
   the rule evaluator, the refuse-to-run guard, the Recall Card, patient
   matching, the merge tool, temperature entry, the register, the queue,
-  the question engine, the network server and the offline buffer.
+  the question engine, the network server, the offline buffer, and
+  confirming and correcting an intake.
 
 ## Running it
 

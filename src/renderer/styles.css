@@ -207,6 +207,70 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .q .a.skipped { color: var(--muted); font-style: italic; font-size: 12.5px; }
 .rc-actions { margin-top: auto; padding-top: 7px; border-top: 1px dashed #d9c9a3; }
 .rc-actions button { margin: 0 6px 0 0; padding: 7px 14px; font-size: 13px; }
+.rc-actions .failure { padding: 8px 10px; margin-bottom: 7px; }
+.rc-actions .failure .what { font-size: 13px; margin-bottom: 3px; }
+.rc-actions .failure .do { font-size: 12px; line-height: 1.35; }
+.rc-actions .failure summary { font-size: 11px; }
+
+/* The stamp turns green only once the doctor has taken the history as
+   his own. Nothing else on this screen changes colour on confirmation:
+   the words stay the patient's words. */
+.intake-stamp.confirmed { background: #1c6b3a; }
+
+/* A doctor's correction, shown beside what the front desk wrote and
+   never on top of it. */
+.corrected .a.fixed { font-size: 14px; line-height: 1.35; font-weight: 600; }
+.corrected .a.fixed.wrong { color: var(--alarm); font-style: italic; font-size: 13px; }
+.corrected .was { display: flex; gap: 6px; align-items: baseline; margin-top: 1px; }
+.corrected .was .tag {
+  flex: none; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--muted); font-weight: 700; padding-top: 2px;
+}
+.corrected .was .a.small { font-size: 11.5px; color: var(--muted); line-height: 1.3; }
+.corrected .was.struck .a { text-decoration: line-through; }
+.corrected .by { font-size: 10px; color: var(--muted); font-style: italic; }
+
+/* ---------------------------------------------------------------
+   THE CORRECTION SHEET
+   It stops the screen rather than squeezing into the intake column.
+   At 1366x768 there is no room to grow that column, and correcting
+   somebody's history is a deliberate act rather than something done
+   in passing while reading the card.
+   --------------------------------------------------------------- */
+.correct-overlay {
+  position: fixed; inset: 0; z-index: 40; background: rgba(20, 22, 26, 0.55);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.correct-box {
+  background: var(--paper); border-radius: 8px; padding: 18px 22px 16px;
+  width: 760px; max-width: 96vw; max-height: 90vh;
+  display: flex; flex-direction: column; min-height: 0;
+}
+.correct-box h2 { margin: 0 0 4px; font-size: 21px; }
+.correct-box .lede { margin: 0 0 10px; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.correct-box .lede b { color: var(--ink); }
+.correct-list { flex: 1; min-height: 0; overflow-y: auto; }
+.correct-row { border-top: 1px solid var(--line); padding: 9px 0; }
+.correct-row .k {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: #8a7448; font-weight: 700;
+}
+.correct-row .said { margin: 2px 0 6px; }
+.correct-row .said.struck .a { text-decoration: line-through; color: var(--muted); }
+.correct-row input[type="text"] { width: 100%; margin: 0; font-size: 14px; padding: 7px 9px; }
+.correct-row label.wrong {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--muted); margin-top: 6px; cursor: pointer;
+}
+.correct-row label.wrong input { margin: 0; width: 15px; height: 15px; }
+.correct-row.nothing .said { font-size: 13px; color: var(--muted); }
+.correct-row.nothing p { font-size: 12px; line-height: 1.4; margin: 4px 0 0; }
+.correct-foot {
+  display: flex; align-items: center; gap: 10px;
+  padding-top: 12px; margin-top: 10px; border-top: 1px solid var(--line);
+}
+.correct-foot input.grow { flex: 1; margin: 0; font-size: 13px; padding: 8px 10px; }
+.correct-foot button { margin: 0; }
 
 /* 5 - the last visit. The dominant block on the screen. */
 .panel.last { border: 2px solid var(--ink); }
@@ -390,7 +454,10 @@ table.vitals th, table.vitals td { padding: 1px 5px; }
 .queue { position: fixed; inset: 0; display: flex; flex-direction: column; padding: 12px 16px; gap: 10px; overflow: hidden; }
 .queue-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .queue-head h1 { font-size: 22px; margin: 0; }
-.queue-head select { font: inherit; font-size: 15px; padding: 8px 10px; border: 2px solid var(--line); border-radius: 6px; background: #fff; }
+.queue-head select, .card select {
+  font: inherit; font-size: 15px; padding: 8px 10px;
+  border: 2px solid var(--line); border-radius: 6px; background: #fff;
+}
 .queue-head .spacer { flex: 1; }
 .queue-head button { margin: 0; padding: 11px 18px; font-size: 15px; }
 .queue-counts { display: flex; gap: 8px; }
@@ -399,7 +466,11 @@ table.vitals th, table.vitals td { padding: 1px 5px; }
 
 .queue-list { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
 .qrow {
-  display: grid; grid-template-columns: 62px 1fr 118px 92px 108px 210px;
+  /* The last column has to hold the widest run of buttons without
+     wrapping - Card, Seen, Back to waiting - and the arrows column
+     only ever holds two 38px buttons, so the room comes from there
+     rather than from the patient's name. */
+  display: grid; grid-template-columns: 62px 1fr 118px 92px 52px 312px;
   gap: 12px; align-items: center;
   background: var(--paper); border: 1px solid var(--line); border-left-width: 5px; border-radius: 8px; padding: 9px 12px;
 }
@@ -425,7 +496,7 @@ table.vitals th, table.vitals td { padding: 1px 5px; }
 .qrow .waited small { display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
 .qrow .waited.long { color: #8a5a00; }
 .qrow .acts { display: flex; gap: 6px; justify-content: flex-end; }
-.qrow .acts button { margin: 0; padding: 10px 14px; font-size: 14px; min-height: 44px; }
+.qrow .acts button { margin: 0; padding: 10px 14px; font-size: 14px; min-height: 44px; white-space: nowrap; }
 .qrow .nudge { display: flex; flex-direction: column; gap: 3px; }
 .qrow .nudge button { margin: 0; padding: 0; width: 38px; height: 21px; font-size: 12px; line-height: 1; }
 .queue-empty { padding: 60px 20px; text-align: center; color: var(--muted); font-size: 16px; }

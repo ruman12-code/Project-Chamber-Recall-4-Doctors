@@ -17,6 +17,7 @@ import type { Db } from '../db/open';
 import { patientAgeYears } from '../db/age';
 import type { Rulebook } from '../redflags/rulebook';
 import { consentState } from '../consent/store';
+import { correctionsFor } from '../intake/confirm';
 import type {
   RecallCard, VitalsReading, IntakeAnswerView, RedFlagView, MedicationView,
   OutstandingInvestigation, TimelineEntry, RecurringDiagnosis, ScreeningState,
@@ -75,11 +76,15 @@ export function buildRecallCard(
   // ---- today: red flags, screening, intake, vitals
   const intake = db.prepare(
     `SELECT i.id, i.started_at AS startedAt, i.completed_at AS completedAt, i.helper_present AS helperPresent,
-            u.display_name AS recordedByName, u.role AS recordedByRole
-     FROM intake i LEFT JOIN app_user u ON u.id = i.recorded_by
+            u.display_name AS recordedByName, u.role AS recordedByRole,
+            i.doctor_confirmed_at AS confirmedAt, d.display_name AS confirmedByName
+     FROM intake i
+     LEFT JOIN app_user u ON u.id = i.recorded_by
+     LEFT JOIN app_user d ON d.id = i.doctor_confirmed_by
      WHERE i.visit_id = ? AND i.deleted_at IS NULL`).get(visitId) as
     { id: string; startedAt: string; completedAt: string | null; helperPresent: number | null;
-      recordedByName: string | null; recordedByRole: string | null } | undefined;
+      recordedByName: string | null; recordedByRole: string | null;
+      confirmedAt: string | null; confirmedByName: string | null } | undefined;
 
   let redFlags: RedFlagView[] = [];
   let screening: ScreeningState = { ran: false, incomplete: false, missingQuestions: [] };
@@ -88,7 +93,7 @@ export function buildRecallCard(
   if (intake !== undefined) {
     intakeAnswers = (db.prepare(
       `SELECT question_key AS questionKey, answer_value AS value, answer_free_text AS freeText, was_skipped AS skipped
-       FROM intake_answer WHERE intake_id = ?`).all(intake.id) as Array<
+       FROM intake_answer WHERE intake_id = ? ORDER BY created_at, rowid`).all(intake.id) as Array<
         { questionKey: string; value: string | null; freeText: string | null; skipped: number }>)
       .map((a) => ({ questionKey: a.questionKey, value: a.value, freeText: a.freeText, skipped: a.skipped === 1 }));
 
@@ -253,6 +258,10 @@ export function buildRecallCard(
       redFlags,
       screening,
       intake: intake === undefined ? null : {
+        intakeId: intake.id,
+        confirmedAt: intake.confirmedAt,
+        confirmedByName: intake.confirmedByName,
+        corrections: correctionsFor(db, intake.id),
         recordedByName: intake.recordedByName,
         recordedByRole: intake.recordedByRole,
         startedAt: intake.startedAt,

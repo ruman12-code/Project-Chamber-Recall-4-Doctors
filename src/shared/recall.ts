@@ -22,13 +22,27 @@ export interface IntakeAnswerView {
   skipped: boolean;
 }
 
+export interface IntakeCorrectionView {
+  questionKey: string;
+  correctedValue: string | null;
+  correctedFreeText: string | null;
+  markedWrong: boolean;
+  correctedByName: string | null;
+  correctedAt: string;
+}
+
 export interface TodayIntake {
+  intakeId: string;
   recordedByName: string | null;
   recordedByRole: string | null;
   startedAt: string;
   completedAt: string | null;
   helperPresent: boolean | null;
   answers: IntakeAnswerView[];
+  /** Null until the doctor has accepted this as part of the record. */
+  confirmedAt: string | null;
+  confirmedByName: string | null;
+  corrections: IntakeCorrectionView[];
 }
 
 export interface RedFlagView {

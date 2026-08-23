@@ -25,7 +25,8 @@ import { todaysQueue, moveInQueue, activeChamberId, setActiveChamber, chambers }
 import type { QueueView, VisitStatus } from '../shared/queue';
 import { startTabletServer, DEFAULT_PORT, type RunningServer } from './server/server';
 import { pairedDevices, revokeDevice } from './server/pairing';
-import { unassignedActor } from './db/users';
+import { unassignedActor, laptopRole, setLaptopRole, laptopActor, type UnassignedRole } from './db/users';
+import { confirmIntake, unconfirmIntake, correctIntakeAnswer, type CorrectionInput } from './intake/confirm';
 import { loadConsentConfig } from './consent/config';
 import type { TabletStatus } from '../shared/ipc';
 
@@ -203,6 +204,11 @@ function registerHandlers(): void {
    * author to point at, and that author tells the truth about itself.
    */
   const actor = unassignedActor('front_desk');
+  /** Who the laptop is speaking for. Not sign-in; that arrives at M9. */
+  const atTheLaptop = () => {
+    if (db === null) throw new Error('the laptop role was needed before the database was unlocked');
+    return laptopActor(db);
+  };
 
   handle<{ status: TabletStatus }>(CHANNELS.tabletStatus, () => {
     if (db === null) throw new Error('the tablet status was requested before the database was unlocked');
@@ -292,10 +298,41 @@ function registerHandlers(): void {
     return { visitsMoved: undoMerge(db, duplicateId, actor).visitsMoved };
   });
 
-  handle<{ card: RecallCard | null }>(CHANNELS.recallCard, () => {
+  handle<{ role: string }>(CHANNELS.laptopRole, () => {
+    if (db === null) throw new Error('the laptop role was requested before the database was unlocked');
+    return { role: laptopRole(db) };
+  });
+
+  handle<Record<string, never>>(CHANNELS.setLaptopRole, (role: string) => {
+    if (db === null) throw new Error('the laptop role was set before the database was unlocked');
+    setLaptopRole(db, role as UnassignedRole);
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.intakeConfirm, (intakeId: string) => {
+    if (db === null) throw new Error('an intake was confirmed before the database was unlocked');
+    confirmIntake(db, intakeId, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.intakeUnconfirm, (intakeId: string) => {
+    if (db === null) throw new Error('an intake was unconfirmed before the database was unlocked');
+    unconfirmIntake(db, intakeId, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.intakeCorrect, (intakeId: string, correction: CorrectionInput) => {
+    if (db === null) throw new Error('an intake was corrected before the database was unlocked');
+    correctIntakeAnswer(db, intakeId, correction, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  handle<{ card: RecallCard | null }>(CHANNELS.recallCard, (requestedVisitId?: string) => {
     if (db === null) throw new Error('the recall card was requested before the database was unlocked');
     const today = localDate();
-    let visitId = currentVisitId(db, today);
+    let visitId = typeof requestedVisitId === 'string' && requestedVisitId !== ''
+      ? requestedVisitId
+      : currentVisitId(db, today);
     if (visitId === null) {
       const row = db.prepare(
         `SELECT id FROM visit WHERE visit_date = ? AND deleted_at IS NULL ORDER BY serial_no LIMIT 1`,

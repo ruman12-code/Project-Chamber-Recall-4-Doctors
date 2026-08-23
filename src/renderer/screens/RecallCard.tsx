@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { BpSparkline, ValueSparkline } from './Sparkline';
 import { PatientView } from './PatientView';
-import type { RecallCard as Card, VitalsReading, IntakeAnswerView } from '../../shared/recall';
+import { api, unwrap, type Failure } from '../api';
+import { FailureNotice } from '../Failure';
+import { roleLabel, type Role } from '../../shared/roles';
+import type { Result } from '../../shared/ipc';
+import type {
+  RecallCard as Card, VitalsReading, IntakeAnswerView, IntakeCorrectionView, TodayIntake,
+} from '../../shared/recall';
 
 /**
  * The single most important screen in the product.
@@ -43,13 +49,77 @@ const MIDDLE_QUESTIONS = [
   'known_conditions', 'allergies',
 ];
 
-function Answer({ answer }: { answer: IntakeAnswerView | undefined }) {
-  if (answer === undefined) return <div className="a skipped">not asked</div>;
-  if (answer.skipped) return <div className="a skipped">skipped</div>;
+/**
+ * The order the card puts the questions in, which is the order the
+ * doctor has just read them in. The correction sheet uses the same
+ * order: a sheet that shuffles them makes him hunt for the sentence he
+ * is trying to put right, and the answer he corrects by mistake
+ * becomes part of somebody's record.
+ */
+const CARD_ORDER = ['presenting_complaint', ...MIDDLE_QUESTIONS, 'most_worried_about', 'hoping_for'];
+
+function inCardOrder(answers: IntakeAnswerView[]): IntakeAnswerView[] {
+  const rank = (key: string) => {
+    const i = CARD_ORDER.indexOf(key);
+    return i === -1 ? CARD_ORDER.length : i;
+  };
+  return [...answers].sort((a, b) => rank(a.questionKey) - rank(b.questionKey)
+    || a.questionKey.localeCompare(b.questionKey));
+}
+
+/**
+ * Whether there is an answer here to correct at all.
+ *
+ * A question the patient skipped, or left blank, has nothing to put
+ * right. What the doctor learns when he asks it himself is his own
+ * history-taking and belongs in his notes, not in the front desk's
+ * record of a conversation he was not present at.
+ */
+function hasSomethingToCorrect(answer: IntakeAnswerView): boolean {
+  if (answer.skipped) return false;
   const text = answer.freeText ?? answer.value;
-  if (text === null || text.trim() === '') return <div className="a skipped">left blank</div>;
+  return text !== null && text.trim() !== '';
+}
+
+function OriginalAnswer({ answer, small = false }: { answer: IntakeAnswerView | undefined; small?: boolean }) {
+  const extra = small ? ' small' : '';
+  if (answer === undefined) return <div className={`a skipped${extra}`}>not asked</div>;
+  if (answer.skipped) return <div className={`a skipped${extra}`}>skipped</div>;
+  const text = answer.freeText ?? answer.value;
+  if (text === null || text.trim() === '') return <div className={`a skipped${extra}`}>left blank</div>;
   const isQuote = answer.freeText !== null;
-  return <div className={isQuote ? 'a quote' : 'a'}>{text}</div>;
+  return <div className={`${isQuote ? 'a quote' : 'a'}${extra}`}>{text}</div>;
+}
+
+/**
+ * One answer, and the doctor's correction of it if he made one.
+ *
+ * The correction never replaces the original. What a patient said to
+ * an assistant is evidence of what they said, and a screen that
+ * quietly swaps in a tidier version destroys that evidence. So the
+ * doctor's wording is shown as the answer, and underneath it, smaller,
+ * is what the front desk actually wrote down, struck through when he
+ * marked it wrong.
+ */
+function Answer({ answer, correction }: { answer: IntakeAnswerView | undefined; correction?: IntakeCorrectionView }) {
+  if (correction === undefined) return <OriginalAnswer answer={answer} />;
+
+  const corrected = correction.correctedFreeText ?? correction.correctedValue;
+  const hasText = corrected !== null && corrected.trim() !== '';
+  const when = new Date(correction.correctedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <div className="corrected">
+      {hasText
+        ? <div className="a fixed">{corrected}</div>
+        : <div className="a fixed wrong">the doctor marked this wrong</div>}
+      <div className={correction.markedWrong ? 'was struck' : 'was'}>
+        <span className="tag">front desk had</span>
+        <OriginalAnswer answer={answer} small />
+      </div>
+      <div className="by">corrected by {correction.correctedByName ?? 'the doctor'} at {when}</div>
+    </div>
+  );
 }
 
 /**
@@ -123,12 +193,226 @@ function vitalsRow(label: string, unit: string, pick: (v: VitalsReading) => numb
   );
 }
 
-export function RecallCardScreen({ card, onClose }: { card: Card; onClose: () => void }) {
+/**
+ * Confirm and Correct.
+ *
+ * Confirming is the moment the front desk's history becomes part of
+ * the medical record, so it is the doctor's alone. When the laptop is
+ * set to anybody else the buttons are dead and the reason is written
+ * underneath rather than left for the user to work out.
+ */
+function IntakeActions(
+  { intake, role, busy, failure, onConfirm, onUndo, onCorrect }: {
+    intake: TodayIntake | null; role: Role; busy: boolean; failure: Failure | null;
+    onConfirm: () => void; onUndo: () => void; onCorrect: () => void;
+  },
+) {
+  if (intake === null) {
+    return (
+      <div className="rc-actions">
+        <div className="mock-note">Nothing was taken at the front desk, so there is nothing to confirm.</div>
+      </div>
+    );
+  }
+
+  const isDoctor = role === 'doctor';
+  const confirmed = intake.confirmedAt !== null;
+  const disabled = !isDoctor || busy;
+
+  return (
+    <div className="rc-actions">
+      {failure !== null && <FailureNotice failure={failure} />}
+      {confirmed
+        ? <button className="secondary" disabled={disabled} onClick={onUndo}>Undo confirmation</button>
+        : <button disabled={disabled} onClick={onConfirm}>Confirm</button>}
+      <button className="secondary" disabled={disabled} onClick={onCorrect}>Correct</button>
+      <div className="mock-note">
+        {!isDoctor
+          ? `Only the doctor can confirm a history. This laptop is set to ${roleLabel(role).en.toLowerCase()}.`
+          : confirmed
+            ? 'This is part of the record now. The words are still the patient’s, not yours.'
+            : 'Until you confirm, none of this is part of the record.'}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The correction sheet.
+ *
+ * It stops the screen rather than squeezing into the intake column:
+ * correcting somebody's history is a deliberate act, not something
+ * done in passing while reading. Every question that was actually put
+ * to the patient is listed, with what they answered above the box, so
+ * the doctor is always correcting a specific sentence rather than
+ * typing into a blank form.
+ */
+function CorrectSheet(
+  { intake, onClose, onSaved }: { intake: TodayIntake; onClose: () => void; onSaved: () => Promise<void> },
+) {
+  const existing = new Map(intake.corrections.map((c) => [c.questionKey, c]));
+  const ordered = inCardOrder(intake.answers);
+  const correctable = ordered.filter(hasSomethingToCorrect);
+  const empty = ordered.filter((a) => !hasSomethingToCorrect(a));
+  const [drafts, setDrafts] = useState<Record<string, { text: string; wrong: boolean }>>(() => {
+    const initial: Record<string, { text: string; wrong: boolean }> = {};
+    for (const answer of correctable) {
+      const correction = existing.get(answer.questionKey);
+      initial[answer.questionKey] = {
+        text: correction === undefined ? '' : (correction.correctedFreeText ?? correction.correctedValue ?? ''),
+        wrong: correction?.markedWrong ?? false,
+      };
+    }
+    return initial;
+  });
+  const [note, setNote] = useState('');
+  const [failure, setFailure] = useState<Failure | null>(null);
+  const [failedAt, setFailedAt] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const label = (key: string) => QUESTION_LABELS[key] ?? key;
+
+  const changed = correctable.filter((answer) => {
+    const draft = drafts[answer.questionKey]!;
+    const correction = existing.get(answer.questionKey);
+    const wasText = correction === undefined ? '' : (correction.correctedFreeText ?? correction.correctedValue ?? '');
+    const wasWrong = correction?.markedWrong ?? false;
+    return draft.text.trim() !== wasText.trim() || draft.wrong !== wasWrong;
+  });
+
+  async function save() {
+    setSaving(true);
+    setFailure(null);
+    setFailedAt(null);
+    // One write per question, in order, stopping at the first refusal.
+    // Whatever was written before the refusal stays written - it is
+    // already in the record with its own timestamp - and the sheet
+    // says which question it stopped at.
+    for (const answer of changed) {
+      const draft = drafts[answer.questionKey]!;
+      const text = draft.text.trim();
+      const result = unwrap(await api.intakeCorrect(intake.intakeId, {
+        questionKey: answer.questionKey,
+        correctedFreeText: text === '' ? null : text,
+        markedWrong: draft.wrong,
+        note: note.trim() === '' ? null : note.trim(),
+      }));
+      if (result.failure !== null) {
+        setFailure(result.failure);
+        setFailedAt(label(answer.questionKey));
+        setSaving(false);
+        await onSaved();
+        return;
+      }
+    }
+    setSaving(false);
+    await onSaved();
+    onClose();
+  }
+
+  return (
+    <div className="correct-overlay" role="dialog" aria-label="Correct the front desk history">
+      <div className="correct-box">
+        <h2>Correct what the front desk wrote down</h2>
+        <p className="lede">
+          What the patient told the assistant is kept exactly as it was recorded. Your wording is
+          added beside it with your name and the time, and both stay in the record. Leave a box
+          empty to change nothing about that question.
+        </p>
+
+        {failure !== null && (
+          <>
+            {failedAt !== null && <p className="lede"><b>Stopped at &ldquo;{failedAt}&rdquo;.</b> Corrections before it were saved.</p>}
+            <FailureNotice failure={failure} />
+          </>
+        )}
+
+        <div className="correct-list">
+          {correctable.length === 0 && (
+            <p className="muted">Nothing was answered at the front desk, so there is nothing here to correct.</p>
+          )}
+          {correctable.map((answer) => {
+            const draft = drafts[answer.questionKey]!;
+            return (
+              <div className="correct-row" key={answer.questionKey}>
+                <div className="k">{label(answer.questionKey)}</div>
+                <div className={draft.wrong ? 'said struck' : 'said'}>
+                  <OriginalAnswer answer={answer} />
+                </div>
+                <input
+                  type="text"
+                  value={draft.text}
+                  placeholder="What it should say"
+                  aria-label={`Correction for ${label(answer.questionKey)}`}
+                  onChange={(e) => setDrafts({ ...drafts, [answer.questionKey]: { ...draft, text: e.target.value } })}
+                />
+                <label className="wrong">
+                  <input
+                    type="checkbox"
+                    checked={draft.wrong}
+                    onChange={(e) => setDrafts({ ...drafts, [answer.questionKey]: { ...draft, wrong: e.target.checked } })}
+                  />
+                  This answer is wrong
+                </label>
+              </div>
+            );
+          })}
+
+          {empty.length > 0 && (
+            <div className="correct-row nothing">
+              <div className="k">Not answered at the front desk</div>
+              <div className="said">{empty.map((a) => label(a.questionKey)).join(', ')}</div>
+              <p className="muted">
+                There is nothing here to put right. What the patient tells you when you ask these
+                yourself is your own history-taking, and it belongs in your notes rather than in
+                the front desk's record of a conversation you were not at.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="correct-foot">
+          <input
+            type="text"
+            className="grow"
+            value={note}
+            placeholder="Why (optional, kept with the correction)"
+            aria-label="Note about these corrections"
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <button disabled={saving || changed.length === 0} onClick={() => { void save(); }}>
+            {changed.length === 0 ? 'Nothing changed' : `Save ${changed.length} correction${changed.length === 1 ? '' : 's'}`}
+          </button>
+          <button className="secondary" disabled={saving} onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function RecallCardScreen(
+  { card, onClose, role, onReload }: {
+    card: Card; onClose: () => void; role: Role; onReload: () => Promise<void>;
+  },
+) {
   const [patientFacing, setPatientFacing] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [actionFailure, setActionFailure] = useState<Failure | null>(null);
+
+  async function run(promise: Promise<Result<Record<string, never>>>) {
+    setBusy(true);
+    const { failure } = unwrap(await promise);
+    setBusy(false);
+    setActionFailure(failure);
+    if (failure === null) await onReload();
+  }
+
   if (patientFacing) return <PatientView card={card} onClose={() => setPatientFacing(false)} />;
 
   const { patient, today, lastVisit } = card;
   const answersByKey = new Map((today.intake?.answers ?? []).map((a) => [a.questionKey, a]));
+  const correctionsByKey = new Map((today.intake?.corrections ?? []).map((c) => [c.questionKey, c]));
   const name = patient.nameBn ?? patient.nameEn ?? 'unnamed';
   const altName = patient.nameBn !== null && patient.nameEn !== null ? patient.nameEn : null;
 
@@ -196,7 +480,13 @@ export function RecallCardScreen({ card, onClose }: { card: Card; onClose: () =>
         <div className="rc-col">
           <div className="panel intake grow">
             <div>
-              <span className="intake-stamp">Reported at front desk — not verified</span>
+              {today.intake?.confirmedAt != null
+                ? <span className="intake-stamp confirmed">
+                    Confirmed by {today.intake.confirmedByName ?? 'the doctor'}
+                    {' · '}
+                    {new Date(today.intake.confirmedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                : <span className="intake-stamp">Reported at front desk — not verified</span>}
             </div>
             <ConsentLine consent={card.consent} />
             <p className="intake-who">
@@ -215,14 +505,14 @@ export function RecallCardScreen({ card, onClose }: { card: Card; onClose: () =>
                 below the fold where the doctor would never see it. */}
             <div className="q pinned">
               <div className="k">{QUESTION_LABELS['presenting_complaint']}</div>
-              <Answer answer={answersByKey.get('presenting_complaint')} />
+              <Answer answer={answersByKey.get('presenting_complaint')} correction={correctionsByKey.get('presenting_complaint')} />
             </div>
 
             <div className="panel-scroll">
               {MIDDLE_QUESTIONS.map((key) => (
                 <div className="q" key={key}>
                   <div className="k">{QUESTION_LABELS[key]}</div>
-                  <Answer answer={answersByKey.get(key)} />
+                  <Answer answer={answersByKey.get(key)} correction={correctionsByKey.get(key)} />
                 </div>
               ))}
               <div className="q">
@@ -236,16 +526,20 @@ export function RecallCardScreen({ card, onClose }: { card: Card; onClose: () =>
 
             <div className="q pinned heard">
               <div className="k">{QUESTION_LABELS['most_worried_about']}</div>
-              <Answer answer={answersByKey.get('most_worried_about')} />
+              <Answer answer={answersByKey.get('most_worried_about')} correction={correctionsByKey.get('most_worried_about')} />
               <div className="k" style={{ marginTop: 5 }}>{QUESTION_LABELS['hoping_for']}</div>
-              <Answer answer={answersByKey.get('hoping_for')} />
+              <Answer answer={answersByKey.get('hoping_for')} correction={correctionsByKey.get('hoping_for')} />
             </div>
 
-            <div className="rc-actions">
-              <button disabled>Confirm</button>
-              <button className="secondary" disabled>Correct</button>
-              <div className="mock-note">Wired at milestone 8. Until confirmed, none of this is part of the record.</div>
-            </div>
+            <IntakeActions
+              intake={today.intake}
+              role={role}
+              busy={busy}
+              failure={actionFailure}
+              onConfirm={() => { void run(api.intakeConfirm(today.intake!.intakeId)); }}
+              onUndo={() => { void run(api.intakeUnconfirm(today.intake!.intakeId)); }}
+              onCorrect={() => { setActionFailure(null); setCorrecting(true); }}
+            />
           </div>
         </div>
 
@@ -380,6 +674,14 @@ export function RecallCardScreen({ card, onClose }: { card: Card; onClose: () =>
           </div>
         </div>
       </div>
+
+      {correcting && today.intake !== null && (
+        <CorrectSheet
+          intake={today.intake}
+          onClose={() => setCorrecting(false)}
+          onSaved={onReload}
+        />
+      )}
     </div>
   );
 }

@@ -98,4 +98,9 @@ export const CHANNELS = {
   queueMove: 'queue:move',
   tabletStatus: 'tablet:status',
   tabletRevoke: 'tablet:revoke',
+  intakeConfirm: 'intake:confirm',
+  intakeUnconfirm: 'intake:unconfirm',
+  intakeCorrect: 'intake:correct',
+  laptopRole: 'laptop:role',
+  setLaptopRole: 'laptop:setRole',
 } as const;
