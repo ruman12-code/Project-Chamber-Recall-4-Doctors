@@ -3,7 +3,7 @@
 // ===================================================================
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { openEncrypted, applySchema, isEmptyDatabase, setMeta, type Db, type DataMode } from './open';
+import { openEncrypted, applySchema, migrate, isEmptyDatabase, setMeta, type Db, type DataMode } from './open';
 import { createKeystore, parseKeystore, unlockWithPassphrase, unlockWithRecoveryKey } from '../keystore/keystore';
 import { recordAudit } from './audit';
 import { dbPath, keystorePath } from '../paths';
@@ -85,14 +85,35 @@ function readKeystoreFile(dir: string) {
   return parseKeystore(readFileSync(path, 'utf8'), path);
 }
 
+/**
+ * Opening an existing installation ALSO brings its schema up to date.
+ *
+ * This is not optional and it is not a convenience. A chamber that has
+ * been running since last year has an older database, and the software
+ * it is now running expects the current one. Without this it opens
+ * perfectly happily and then fails on the first query that touches
+ * anything added since - which is how it was found: the queue screen
+ * sat on "Reading today's list" for ever because the column it needed
+ * had never been added to a database created before that migration
+ * existed.
+ */
+function openAndUpgrade(dir: string, dekHex: string): Db {
+  const db = openEncrypted(dbPath(dir), dekHex);
+  try {
+    migrate(db);
+  } catch (cause) {
+    db.close();
+    throw cause;
+  }
+  return db;
+}
+
 export function openWithPassphrase(dir: string, passphrase: string): Db {
-  const dekHex = unlockWithPassphrase(readKeystoreFile(dir), passphrase);
-  return openEncrypted(dbPath(dir), dekHex);
+  return openAndUpgrade(dir, unlockWithPassphrase(readKeystoreFile(dir), passphrase));
 }
 
 export function openWithRecoveryKey(dir: string, recoveryKey: string): Db {
-  const dekHex = unlockWithRecoveryKey(readKeystoreFile(dir), recoveryKey);
-  return openEncrypted(dbPath(dir), dekHex);
+  return openAndUpgrade(dir, unlockWithRecoveryKey(readKeystoreFile(dir), recoveryKey));
 }
 
 export { dirname };

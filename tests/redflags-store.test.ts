@@ -382,3 +382,36 @@ describe('screening the same intake more than once', () => {
     assert.deepEqual(versions.map((v) => v.rule_version), ['1', '2']);
   });
 });
+
+describe('opening an installation that was created by older software', () => {
+  // Found the hard way: provisioning ran the migrations but opening an
+  // existing database did not, so a chamber running since last year
+  // would open its database happily and then fail on the first query
+  // touching anything added since.
+  test('an old database is brought up to date when it is opened', () => {
+    const t = tempDir();
+    const fresh = provision(t.dir, 'passphrase', 'demo').db;
+
+    // Wind it back to the baseline, as a version 1 installation was.
+    fresh.pragma('foreign_keys = OFF');
+    for (const kind of ['trigger', 'index', 'view', 'table'] as const) {
+      const objects = fresh.prepare(
+        `SELECT name FROM sqlite_master WHERE type = ? AND name NOT LIKE 'sqlite_%'`).all(kind) as Array<{ name: string }>;
+      for (const object of objects) fresh.exec(`DROP ${kind.toUpperCase()} IF EXISTS "${object.name}"`);
+    }
+    fresh.exec(readFileSync(join(__dirname, '..', '..', 'src', 'main', 'db', 'schema.sql'), 'utf8'));
+    fresh.exec('PRAGMA user_version = 1');
+    fresh.close();
+
+    const reopened = openWithPassphrase(t.dir, 'passphrase');
+    assert.equal(schemaVersion(reopened), latestSchemaVersion());
+
+    // And the columns added by later migrations are actually usable.
+    assert.doesNotThrow(() => reopened.prepare('SELECT queue_position FROM visit').all());
+    assert.doesNotThrow(() => reopened.prepare('SELECT search_phone FROM patient').all());
+    assert.doesNotThrow(() => reopened.prepare('SELECT outcome FROM red_flag_evaluation').all());
+
+    reopened.close();
+    t.cleanup();
+  });
+});

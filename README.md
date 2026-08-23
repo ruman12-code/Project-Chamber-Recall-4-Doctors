@@ -3,9 +3,10 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 4 of 13.** Foundations, the safety layer, the Recall
-Card as a static mockup, and patient search, registration and merging.
-There is no serial register, no intake and no prescription printing yet.
+**Status: milestone 5 of 13.** Foundations, the safety layer, the Recall
+Card as a static mockup, patient search and merging, and the serial
+register with its live queue. There is no intake and no prescription
+printing yet.
 
 ---
 
@@ -29,9 +30,13 @@ There is no serial register, no intake and no prescription printing yet.
 - **Patient search, registration and the merge tool.** Search by phone or
   name in either script, register someone new, and put duplicate records
   together — with an undo that puts back exactly what moved.
-- 250 tests covering key custody, the database layer, the practice data,
+- **The serial register and live queue.** Give arriving patients their
+  number, see who is waiting and for how long, change who is seen next,
+  and print today's list. A flagged patient is held at the front of the
+  queue and there is no control anywhere that moves them back.
+- 296 tests covering key custody, the database layer, the practice data,
   the rule evaluator, the refuse-to-run guard, the Recall Card, patient
-  matching, the merge tool and temperature entry.
+  matching, the merge tool, temperature entry, the register and the queue.
 
 ## Running it
 
@@ -62,6 +67,7 @@ src/main/db/              opening, migrating, audit log, usage log
 src/main/redflags/        the safety layer: rules, evaluator, guard
 src/main/recall/          assembling the Recall Card
 src/main/patients/        search, registration, merging
+src/main/queue/           the serial register and the live queue
 src/main/vitals/          temperature entry in either scale
 config/red_flags.yaml     the rules template, written for a doctor to edit
 src/main/seed/            the practice data generator

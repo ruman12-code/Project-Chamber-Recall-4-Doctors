@@ -17,7 +17,10 @@ import type { PatientSearchResult } from '../../shared/patients';
  * than anything else, and pressing Enter opens whatever row the
  * assistant has actually moved to rather than a guess.
  */
-export function PatientSearch({ onClose }: { onClose: () => void }) {
+export function PatientSearch(
+  { onClose, onPick, pickLabel }:
+  { onClose: () => void; onPick?: (patient: PatientSearchResult) => void; pickLabel?: string },
+) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PatientSearchResult[]>([]);
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -55,7 +58,14 @@ export function PatientSearch({ onClose }: { onClose: () => void }) {
   if (mode === 'register') {
     return <RegisterPatient
       initialQuery={query}
-      onDone={(id) => { setMode('search'); void runSearch(query); setPickedForMerge([]); void id; }}
+      onDone={(id) => {
+        // A patient registered from the arrivals screen goes straight
+        // onto today's list. Making the assistant find them again after
+        // typing their details would be the software wasting the time
+        // it exists to save.
+        if (onPick !== undefined) { onPick({ id } as PatientSearchResult); return; }
+        setMode('search'); void runSearch(query); setPickedForMerge([]);
+      }}
       onCancel={() => setMode('search')} />;
   }
 
@@ -70,12 +80,12 @@ export function PatientSearch({ onClose }: { onClose: () => void }) {
   return (
     <div className="patients">
       <div className="patients-head">
-        <h1>Find a patient</h1>
+        <h1>{onPick === undefined ? 'Find a patient' : 'Who has arrived?'}</h1>
         <span className="spacer" />
-        {pickedForMerge.length === 2 && (
+        {onPick === undefined && pickedForMerge.length === 2 && (
           <button onClick={() => setMode('merge')}>Compare these two</button>
         )}
-        {pickedForMerge.length === 1 && (
+        {onPick === undefined && pickedForMerge.length === 1 && (
           <span className="muted">Tick a second record to compare them</span>
         )}
         <button className="secondary" onClick={() => setMode('register')}>Register a new patient</button>
@@ -98,7 +108,9 @@ export function PatientSearch({ onClose }: { onClose: () => void }) {
           Any part of a phone number or a name. A number written 01712-345678, +8801712345678 or
           just the last few digits all find the same patient.
           {results.length > 0 && <span className="search-count"> · {results.length} found</span>}
-          {' '}Arrow keys move, Ctrl+Space ticks a record for merging.
+          {onPick === undefined
+            ? ' Arrow keys move, Ctrl+Space ticks a record for merging.'
+            : ' Arrow keys move, Enter puts the highlighted patient on today\'s list.'}
         </p>
       </div>
 
@@ -146,6 +158,11 @@ export function PatientSearch({ onClose }: { onClose: () => void }) {
                 ? <span className="dim">never seen</span>
                 : <>{result.lastVisitDate}<div className="dim">{result.lastChamberName}</div></>}
             </div>
+            {onPick !== undefined && (
+              <button onClick={(e) => { e.stopPropagation(); onPick(result); }} style={{ margin: 0, padding: '9px 14px', fontSize: 14 }}>
+                {pickLabel ?? 'Choose'}
+              </button>
+            )}
           </div>
         ))}
       </div>

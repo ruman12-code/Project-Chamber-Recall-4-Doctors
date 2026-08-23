@@ -1,6 +1,7 @@
 import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result } from '../shared/ipc';
 import type { RecallCard } from '../shared/recall';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
+import type { QueueView, VisitStatus } from '../shared/queue';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -16,6 +17,11 @@ interface Api {
   patientMergePreview(survivingId: string, duplicateId: string): Promise<Result<{ preview: MergePreview }>>;
   patientMerge(survivingId: string, duplicateId: string, note: string | null): Promise<Result<{ visitsMoved: number }>>;
   patientUndoMerge(duplicateId: string): Promise<Result<{ visitsMoved: number }>>;
+  queueToday(): Promise<Result<{ view: QueueView }>>;
+  queueSetChamber(chamberId: string): Promise<Result<Record<string, never>>>;
+  queueRegisterArrival(patientId: string, allowSecondVisitToday: boolean): Promise<Result<{ serialNo: number; alreadyOnListVisitId: string | null }>>;
+  queueSetStatus(visitId: string, status: VisitStatus): Promise<Result<Record<string, never>>>;
+  queueMove(visitId: string, direction: 'up' | 'down'): Promise<Result<Record<string, never>>>;
 }
 
 declare global {
@@ -50,6 +56,11 @@ export const api: Api = {
   patientMergePreview: (s, d) => call((a) => a.patientMergePreview(s, d)),
   patientMerge: (s, d, note) => call((a) => a.patientMerge(s, d, note)),
   patientUndoMerge: (d) => call((a) => a.patientUndoMerge(d)),
+  queueToday: () => call((a) => a.queueToday()),
+  queueSetChamber: (id) => call((a) => a.queueSetChamber(id)),
+  queueRegisterArrival: (id, allow) => call((a) => a.queueRegisterArrival(id, allow)),
+  queueSetStatus: (id, status) => call((a) => a.queueSetStatus(id, status)),
+  queueMove: (id, dir) => call((a) => a.queueMove(id, dir)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

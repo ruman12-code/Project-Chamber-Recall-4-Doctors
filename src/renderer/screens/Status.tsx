@@ -4,6 +4,7 @@ import { FailureNotice } from '../Failure';
 import { RedFlagAlert } from './RedFlagAlert';
 import { RecallCardScreen } from './RecallCard';
 import { PatientSearch } from './PatientSearch';
+import { Queue } from './Queue';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView } from '../../shared/ipc';
 import type { RecallCard } from '../../shared/recall';
 
@@ -38,6 +39,7 @@ export function Status() {
   const [previewing, setPreviewing] = useState<RedFlagAlertView | null>(null);
   const [card, setCard] = useState<RecallCard | null>(null);
   const [findingPatient, setFindingPatient] = useState(false);
+  const [showingQueue, setShowingQueue] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -84,6 +86,7 @@ export function Status() {
 
   if (card !== null) return <RecallCardScreen card={card} onClose={() => setCard(null)} />;
   if (findingPatient) return <PatientSearch onClose={() => setFindingPatient(false)} />;
+  if (showingQueue) return <Queue onClose={() => setShowingQueue(false)} />;
 
   return (
     <div className="page">
@@ -105,6 +108,15 @@ export function Status() {
           right now in today's session. Nothing on it is wired yet.
         </p>
         <button onClick={openRecallCard}>Open the Recall Card</button>
+      </div>
+
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Today's list</h2>
+        <p>
+          Milestone 5: the serial register and the live queue. Give arriving patients their
+          number, see who is waiting and for how long, and change who is seen next.
+        </p>
+        <button onClick={() => setShowingQueue(true)}>Open today's list</button>
       </div>
 
       <div className="card">

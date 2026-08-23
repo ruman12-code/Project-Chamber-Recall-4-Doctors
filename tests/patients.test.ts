@@ -11,7 +11,11 @@ import { searchablePhone } from '../src/main/db/names';
 import { tempDir } from './helpers';
 
 const DESK = { id: 'user-desk', role: 'front_desk' as const };
-const AS_OF = new Date('2026-08-22T12:00:00Z');
+// Deliberately the real clock, not a fixed date. Patients registered by
+// this test get today's date stamped on their estimated age, and a
+// fixed AS_OF silently starts returning "age unknown" the first time
+// the test runs after midnight.
+const AS_OF = new Date();
 
 function newChamber() {
   const t = tempDir();

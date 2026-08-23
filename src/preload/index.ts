@@ -19,6 +19,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result } from '../shared/ipc';
 import type { RecallCard } from '../shared/recall';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
+import type { QueueView, VisitStatus } from '../shared/queue';
 
 contextBridge.exposeInMainWorld('chamberRecall', {
   status: (): Promise<Result<{ status: InstallationStatus }>> =>
@@ -47,4 +48,14 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('patients:merge', survivingId, duplicateId, note),
   patientUndoMerge: (duplicateId: string): Promise<Result<{ visitsMoved: number }>> =>
     ipcRenderer.invoke('patients:undoMerge', duplicateId),
+  queueToday: (): Promise<Result<{ view: QueueView }>> =>
+    ipcRenderer.invoke('queue:today'),
+  queueSetChamber: (chamberId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('queue:setChamber', chamberId),
+  queueRegisterArrival: (patientId: string, allowSecondVisitToday: boolean): Promise<Result<{ serialNo: number; alreadyOnListVisitId: string | null }>> =>
+    ipcRenderer.invoke('queue:registerArrival', patientId, allowSecondVisitToday),
+  queueSetStatus: (visitId: string, status: VisitStatus): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('queue:setStatus', visitId, status),
+  queueMove: (visitId: string, direction: 'up' | 'down'): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('queue:move', visitId, direction),
 });

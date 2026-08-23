@@ -378,3 +378,85 @@ table.vitals th, table.vitals td { padding: 1px 5px; }
 .merge-warning { border: 2px solid var(--alarm); background: var(--alarm-bg); border-radius: 6px; padding: 12px 16px; margin: 12px 0; font-size: 14px; }
 .merge-grid > div { font-size: 15px; }
 .merge-grid .lbl { font-size: 12px; }
+
+/* ===============================================================
+   THE SERIAL REGISTER AND LIVE QUEUE
+   ===============================================================
+   Used on a tablet at a front desk, standing up, with somebody
+   waiting. Everything tappable is at least 44px, the serial number
+   is the biggest thing on each row because it is what gets called
+   out, and nothing important is behind a menu.
+   =============================================================== */
+.queue { position: fixed; inset: 0; display: flex; flex-direction: column; padding: 12px 16px; gap: 10px; overflow: hidden; }
+.queue-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.queue-head h1 { font-size: 22px; margin: 0; }
+.queue-head select { font: inherit; font-size: 15px; padding: 8px 10px; border: 2px solid var(--line); border-radius: 6px; background: #fff; }
+.queue-head .spacer { flex: 1; }
+.queue-head button { margin: 0; padding: 11px 18px; font-size: 15px; }
+.queue-counts { display: flex; gap: 8px; }
+.queue-counts .c { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px; font-size: 13px; }
+.queue-counts .c b { font-size: 19px; font-variant-numeric: tabular-nums; display: block; }
+
+.queue-list { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.qrow {
+  display: grid; grid-template-columns: 62px 1fr 118px 92px 108px 210px;
+  gap: 12px; align-items: center;
+  background: var(--paper); border: 1px solid var(--line); border-left-width: 5px; border-radius: 8px; padding: 9px 12px;
+}
+.qrow.selected { outline: 3px solid #2c5fd1; outline-offset: 1px; }
+.qrow.waiting { border-left-color: var(--line); }
+.qrow.in_chamber { border-left-color: #1d6b2f; background: #f3faf4; }
+.qrow.done { border-left-color: var(--line); opacity: 0.62; }
+.qrow.left { border-left-color: var(--line); opacity: 0.45; }
+.qrow.flagged { border-color: var(--alarm); border-left-color: var(--alarm); background: var(--alarm-bg); }
+
+.qrow .serial { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; line-height: 1; }
+.qrow .serial small { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px; color: var(--muted); text-transform: uppercase; }
+.qrow .who { min-width: 0; }
+.qrow .who .n { font-size: 18px; font-weight: 700; line-height: 1.2; }
+.qrow .who .n .alt { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 8px; }
+.qrow .who .tags { margin-top: 3px; display: flex; gap: 6px; flex-wrap: wrap; }
+.qtag { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 2px 7px; border: 1px solid; }
+.qtag.flag { background: var(--alarm); border-color: var(--alarm); color: #fff; }
+.qtag.gap { background: var(--demo-bg); border-color: #d9a441; color: #6b4708; }
+.qtag.new { background: #eef3fd; border-color: #9db6e8; color: #1f4e9c; }
+.qtag.back { background: #f2f3f5; border-color: var(--line); color: var(--muted); }
+.qrow .waited { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.qrow .waited small { display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
+.qrow .waited.long { color: #8a5a00; }
+.qrow .acts { display: flex; gap: 6px; justify-content: flex-end; }
+.qrow .acts button { margin: 0; padding: 10px 14px; font-size: 14px; min-height: 44px; }
+.qrow .nudge { display: flex; flex-direction: column; gap: 3px; }
+.qrow .nudge button { margin: 0; padding: 0; width: 38px; height: 21px; font-size: 12px; line-height: 1; }
+.queue-empty { padding: 60px 20px; text-align: center; color: var(--muted); font-size: 16px; }
+.queue-empty b { display: block; font-size: 19px; color: var(--ink); margin-bottom: 8px; }
+.queue-foot { font-size: 12px; color: var(--muted); }
+
+/* Printing today's list. Everything that is a control on screen is
+   not a control on paper, so it goes. */
+@media print {
+  body { background: #fff; }
+  .no-print, .queue-head button, .qrow .acts, .qrow .nudge, .queue-head select { display: none !important; }
+  .queue { position: static; padding: 0; overflow: visible; height: auto; }
+  .queue-list { overflow: visible; gap: 0; }
+  .qrow { break-inside: avoid; border-radius: 0; border-left-width: 1px; opacity: 1 !important;
+          grid-template-columns: 50px 1fr 100px 80px 90px; background: #fff !important; }
+  .print-only { display: block !important; }
+}
+.print-only { display: none; }
+
+/* Keep the whole register header on one line at 1366px. */
+.queue-head { gap: 9px; flex-wrap: nowrap; }
+.queue-head h1 { font-size: 20px; white-space: nowrap; }
+.queue-head select { max-width: 220px; font-size: 14px; padding: 7px 8px; }
+.queue-head button { padding: 10px 14px; font-size: 14px; white-space: nowrap; }
+.queue-counts .c { padding: 4px 10px; font-size: 12px; }
+.queue-counts .c b { font-size: 17px; }
+
+/* A transient error on screen has no business on a printed register,
+   and neither has the "serial given" confirmation. */
+@media print {
+  .failure, .banner, .queue-head h1, .queue-foot { display: none !important; }
+  .print-head { font-size: 17px; font-weight: 800; margin-bottom: 10px; }
+  .queue-head { margin-bottom: 6px; }
+}

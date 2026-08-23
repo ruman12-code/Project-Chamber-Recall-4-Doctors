@@ -263,3 +263,37 @@ describe('the deliberate duplicates are usable for testing the merge tool', () =
     db.close(); t.cleanup();
   });
 });
+
+describe("today's session looks like an evening in progress", () => {
+  test('patients arrived in the past, so waiting times are real numbers', () => {
+    // A session pinned to a fixed hour shows everybody as having waited
+    // zero minutes whenever the demo is opened before that hour, and
+    // "how long has this person been waiting" is the whole point of a
+    // live queue.
+    const t = tempDir();
+    const db = provision(t.dir, 'passphrase', 'demo').db;
+    seedDatabase(db, { patientCount: 60, randomSeed: 31337 });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = db.prepare(
+      `SELECT arrived_at AS arrivedAt, seen_at AS seenAt, status FROM visit WHERE visit_date = ?`).all(today) as
+      Array<{ arrivedAt: string; seenAt: string | null; status: string }>;
+    assert.ok(rows.length > 0);
+
+    const now = Date.now();
+    for (const row of rows) {
+      assert.ok(new Date(row.arrivedAt).getTime() < now, `a patient arrived in the future: ${row.arrivedAt}`);
+      if (row.seenAt !== null) {
+        assert.ok(new Date(row.seenAt).getTime() <= now, `a patient was seen in the future: ${row.seenAt}`);
+        assert.ok(new Date(row.seenAt).getTime() >= new Date(row.arrivedAt).getTime(),
+          'a patient was seen before they arrived');
+      }
+    }
+
+    const waiting = rows.filter((r) => r.status === 'waiting');
+    const longestWait = Math.max(...waiting.map((r) => now - new Date(r.arrivedAt).getTime()));
+    assert.ok(longestWait > 20 * 60000, 'nobody has been waiting long enough to be worth showing');
+
+    db.close(); t.cleanup();
+  });
+});

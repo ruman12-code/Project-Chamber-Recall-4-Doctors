@@ -394,6 +394,90 @@ failure that quietly wastes your time when you review a screen.
 
 ---
 
+## Milestone 5: the register and the queue
+
+### 28. A serial number and a place in the queue are two different things
+
+The serial is what the patient was TOLD. It is spoken aloud, written on a
+slip and remembered, and it never changes. The queue position is who the
+doctor sees next, and it can be changed.
+
+They start equal and usually stay equal. When they do not, the patient still
+holds serial 14, still hears "fourteen" called, and the screen still knows to
+bring them in third. A register that renumbers people is a register nobody
+trusts, so reordering the queue never touches a serial - there is a test that
+holds every serial constant across a reorder.
+
+### 29. The escalation rule, enforced in the queue itself
+
+A patient whose intake fired a red flag sorts above the patients who did
+not, automatically, and cannot be pushed back below them. The up and down
+controls swap neighbours within the same group, so ordinary patients can be
+reordered among themselves and flagged patients among themselves, but no
+sequence of taps - careless or deliberate - moves a flagged patient behind an
+unflagged one. There is no override and no dismiss.
+
+They leave the flagged group by being seen, which is what the alert was
+driving at in the first place.
+
+One hole in that, which I found while looking at the finished screen: marking
+somebody as having LEFT takes them off the list, and it is the only path that
+removes a flagged patient without the doctor seeing them. The software cannot
+stop a patient walking out, so it is allowed. It is not allowed to be quiet.
+It asks first, and it writes its own audit entry -
+`flagged_patient_left_unseen` - so "a flagged patient went home unseen" can
+be found later without reading every status change in the log.
+
+### 30. Reordering is by buttons and keyboard, not by dragging
+
+Your brief says "by drag or by keyboard". It is buttons and keyboard.
+
+Dragging on a touch screen misfires - a scroll gesture that starts on a row
+becomes a drag - and a misfire here silently changes who the doctor sees
+next. Up and down buttons at 44 pixels are unmissable with a thumb and cannot
+half-happen. On the laptop, Alt with an arrow key does the same thing.
+
+If you use it at the desk and want dragging as well, say so and I will add
+it alongside the buttons rather than instead of them.
+
+### 31. Somebody arriving twice is questioned, not refused
+
+Adding the same patient to today's list twice is nearly always the assistant
+tapping twice, so the software says so rather than silently issuing a second
+serial. But it does happen for real - a patient sent away for a test and
+coming back - so the answer is a question, not a refusal.
+
+---
+
+## Two more bugs worth recording
+
+**Opening a database never upgraded it.** Creating a new installation ran the
+schema migrations; opening an existing one did not. A chamber that had been
+running since last year would have opened its database perfectly happily and
+then failed on the first query touching anything added since. It surfaced as
+the queue screen sitting on "Reading today's list" for ever, because the
+column it needed had never been added. Opening now upgrades, and there is a
+test that winds a database back to version 1, reopens it through the normal
+path, and checks every later column is actually usable.
+
+**The same silent failure as milestone 1, in a new screen.** The queue
+checked "have I loaded yet" before "did it fail", so the error had nowhere to
+render and the screen waited for ever. I had written the identical mistake in
+the preload bridge in milestone 1 and fixed it there; I then made it again.
+Both are fixed and both now have the failure check first, but the honest
+lesson is that this is a shape of bug this codebase attracts, and it is worth
+me checking for it deliberately on every screen that loads something.
+
+**The practice data showed everybody as having waited zero minutes.** Today's
+session was pinned to 17:00, so whenever the demo is opened before the
+evening every arrival is in the future and every wait is zero. Arrivals now
+run backwards from the moment the practice data is built, so the queue always
+looks like an evening already in progress. It is not a bug in the product,
+but "how long has this person been waiting" is one of the things the queue
+exists to answer, and a demo that always answers zero cannot be judged.
+
+---
+
 ## A bug worth recording, because the symptom is the point
 
 The first time the application ran end to end, it showed "Starting…" and

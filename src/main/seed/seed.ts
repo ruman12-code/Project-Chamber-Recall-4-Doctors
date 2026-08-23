@@ -501,6 +501,14 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
     const todayDate = dateOnly(now);
     const todaysChamber = chambers[0]!.id;
 
+    // Arrival times run BACKWARDS from the moment the practice data is
+    // built, not from a fixed hour of the evening. A session pinned to
+    // 17:00 shows every patient as having waited zero minutes whenever
+    // the demo is opened in the morning - and "how long has this person
+    // been waiting" is one of the things the queue exists to answer.
+    const sessionStartedAt = now.getTime() - 3 * 3600 * 1000;
+    const arrivalOf = (index: number) => new Date(sessionStartedAt + index * 8 * 60000);
+
     // Continue from any serial already issued in this chamber today,
     // rather than assuming today's list starts empty. A register that
     // reuses a serial is a register nobody can trust.
@@ -512,8 +520,13 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
       const serial = serialsAlreadyToday + index + 1;
       // Six already seen, one with the doctor now, the rest waiting.
       const status = index < 6 ? 'done' : index === 6 ? 'in_chamber' : 'waiting';
-      const arrivedAt = isoAt(now, 17, Math.min(59, index * 3 + intBetween(rng, 0, 2)));
-      const seenAt = status === 'waiting' ? null : isoAt(now, 17 + Math.floor((index * 7) / 60), (index * 7) % 60);
+      const arrived = arrivalOf(index);
+      const arrivedAt = arrived.toISOString();
+      // Those already seen were called in some minutes after arriving;
+      // the one with the doctor went in a quarter of an hour ago.
+      const seenAt = status === 'waiting' ? null
+        : status === 'in_chamber' ? new Date(now.getTime() - 14 * 60000).toISOString()
+        : new Date(arrived.getTime() + intBetween(rng, 12, 38) * 60000).toISOString();
       const visitId = newId();
       const desk = pick(rng, frontDesk);
 
@@ -528,7 +541,7 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
       const noIntakeAtAll = index === todaysPatients.length - 1;
       if (!noIntakeAtAll) {
         const intakeId = newId();
-        const startedAt = isoAt(now, 17, Math.min(59, index * 3 + 2));
+        const startedAt = new Date(arrived.getTime() + 2 * 60000).toISOString();
         const durationMs = Math.round((55000 + rng() * 150000) * desk.speed);
         insIntake.run(intakeId, visitId, desk.id, startedAt,
           new Date(new Date(startedAt).getTime() + durationMs).toISOString(),

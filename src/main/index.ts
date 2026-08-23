@@ -20,6 +20,9 @@ import { searchPatients } from './patients/search';
 import { registerPatient } from './patients/register';
 import { previewMerge, mergePatients, undoMerge } from './patients/merge';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
+import { registerArrival, setVisitStatus } from './queue/register';
+import { todaysQueue, moveInQueue, activeChamberId, setActiveChamber, chambers } from './queue/queue';
+import type { QueueView, VisitStatus } from '../shared/queue';
 
 let db: Db | null = null;
 let installDir = '';
@@ -165,6 +168,48 @@ function registerHandlers(): void {
    * this becomes whoever is signed in.
    */
   const actor = { id: null, role: 'front_desk' as const };
+
+  handle<{ view: QueueView }>(CHANNELS.queueToday, () => {
+    if (db === null) throw new Error('the queue was requested before the database was unlocked');
+    const chamberId = activeChamberId(db);
+    const all = chambers(db);
+    return {
+      view: {
+        chamberId,
+        chamberName: all.find((c) => c.id === chamberId)?.name ?? null,
+        visitDate: localDate(),
+        chambers: all,
+        entries: chamberId === null ? [] : todaysQueue(db, chamberId, localDate()),
+      },
+    };
+  });
+
+  handle<Record<string, never>>(CHANNELS.queueSetChamber, (chamberId: string) => {
+    if (db === null) throw new Error('a chamber was chosen before the database was unlocked');
+    setActiveChamber(db, chamberId);
+    return {} as Record<string, never>;
+  });
+
+  handle<{ serialNo: number; alreadyOnListVisitId: string | null }>(
+    CHANNELS.queueRegisterArrival, (patientId: string, allowSecondVisitToday: boolean) => {
+      if (db === null) throw new Error('a patient arrived before the database was unlocked');
+      const chamberId = activeChamberId(db);
+      if (chamberId === null) throw new Error('there is no chamber to register this patient into');
+      const result = registerArrival(db, patientId, chamberId, actor, { allowSecondVisitToday });
+      return { serialNo: result.serialNo, alreadyOnListVisitId: result.alreadyOnListVisitId };
+    });
+
+  handle<Record<string, never>>(CHANNELS.queueSetStatus, (visitId: string, status: VisitStatus) => {
+    if (db === null) throw new Error('a visit was changed before the database was unlocked');
+    setVisitStatus(db, visitId, status, actor);
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.queueMove, (visitId: string, direction: 'up' | 'down') => {
+    if (db === null) throw new Error('the queue was reordered before the database was unlocked');
+    moveInQueue(db, visitId, direction, actor);
+    return {} as Record<string, never>;
+  });
 
   handle<{ results: PatientSearchResult[] }>(CHANNELS.patientSearch, (query: string) => {
     if (db === null) throw new Error('a patient search was made before the database was unlocked');

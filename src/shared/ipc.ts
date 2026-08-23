@@ -79,4 +79,9 @@ export const CHANNELS = {
   patientMergePreview: 'patients:mergePreview',
   patientMerge: 'patients:merge',
   patientUndoMerge: 'patients:undoMerge',
+  queueToday: 'queue:today',
+  queueSetChamber: 'queue:setChamber',
+  queueRegisterArrival: 'queue:registerArrival',
+  queueSetStatus: 'queue:setStatus',
+  queueMove: 'queue:move',
 } as const;
