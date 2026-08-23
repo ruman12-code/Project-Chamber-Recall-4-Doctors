@@ -59,6 +59,10 @@ function main(): void {
   console.log(`  rules loaded               ${rulebook.rules.length} (all placeholders)`);
   console.log(`\n  passphrase                 ${passphrase}`);
   console.log(`  recovery key               ${recoveryKey}`);
+  console.log(`\n  sign in as                 Dr. Ashraful Haque         PIN 4021`);
+  console.log(`                             Nusrat (clinical assistant) PIN 5390`);
+  console.log(`                             Jahid (front desk)          PIN 6172`);
+  console.log(`                             Shopna (front desk)         PIN 7483`);
   console.log(`\nThis database is marked demo. It can never be used for real patients.\n`);
 }
 

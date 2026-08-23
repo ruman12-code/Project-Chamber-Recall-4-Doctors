@@ -66,14 +66,29 @@ function addVisit(db: Db, patientId: string, date: string, chamberId = CHAMBER_A
   return id;
 }
 
+/**
+ * An encounter is written first and signed afterwards, in that order,
+ * because since milestone 9 the database refuses to let a medicine or
+ * a test be added to a consultation that is already confirmed. The
+ * helper mirrors what really happens: build it, then sign it.
+ */
+const toSign: string[] = [];
 function addEncounter(db: Db, visitId: string, opts: { diagnosis?: string; complaint?: string; confirmed?: boolean } = {}) {
   const id = newId();
   db.prepare(`INSERT INTO encounter (id, visit_id, chief_complaint, working_diagnosis, entered_by,
-                doctor_confirmed_by, doctor_confirmed_at, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(id, visitId, opts.complaint ?? 'a complaint', opts.diagnosis ?? null, DOCTOR,
-      opts.confirmed === false ? null : DOCTOR, opts.confirmed === false ? null : nowIso(), nowIso(), nowIso());
+                created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(id, visitId, opts.complaint ?? 'a complaint', opts.diagnosis ?? null, DOCTOR, nowIso(), nowIso());
+  if (opts.confirmed !== false) toSign.push(id);
   return id;
+}
+
+function signEncounters(db: Db) {
+  for (const id of toSign) {
+    db.prepare('UPDATE encounter SET doctor_confirmed_by = ?, doctor_confirmed_at = ? WHERE id = ?')
+      .run(DOCTOR, nowIso(), id);
+  }
+  toSign.length = 0;
 }
 
 function addVitals(db: Db, visitId: string, systolic: number, weight: number | null = null) {
@@ -131,6 +146,7 @@ describe('a returning patient with history', () => {
     const [flag] = screenIntake(db, rulebook, intakeId, { id: DESK, role: 'front_desk' }).firedFlags;
     acknowledgeRedFlag(db, flag!.eventId, { id: DESK, role: 'front_desk' });
 
+    signEncounters(db);
     card = buildRecallCard(db, today, AS_OF, rulebook);
   });
   after(() => { db.close(); cleanup(); });
@@ -217,6 +233,7 @@ describe('grouping diagnoses', () => {
       addEncounter(db, addVisit(db, patientId, date), { diagnosis });
     }
     const today = addVisit(db, patientId, '2026-08-22', CHAMBER_A, 'in_chamber');
+    signEncounters(db);
     const card = buildRecallCard(db, today, AS_OF, rulebook);
 
     const groups = Object.fromEntries(card.recurringDiagnoses.map((d) => [d.text, d.count]));
@@ -239,6 +256,7 @@ describe('soft-deleted records never come back on the card', () => {
     db.prepare(`INSERT INTO medication (id, encounter_id, drug_name, sort_order, created_at, updated_at)
                 VALUES (?, ?, 'Removed drug', 0, ?, ?)`).run(newId(), encounterId, nowIso(), nowIso());
     todayVisit = addVisit(db, patientId, '2026-08-22', CHAMBER_A, 'in_chamber');
+    signEncounters(db);
   });
   after(() => { db.close(); cleanup(); });
 
@@ -301,6 +319,7 @@ describe('the cases with nothing to recall', () => {
   test('an unconfirmed encounter is visible as unconfirmed', () => {
     const patientId = addPatient(db);
     addEncounter(db, addVisit(db, patientId, '2025-05-05'), { diagnosis: 'Something', confirmed: false });
+    signEncounters(db);
     const visitId = addVisit(db, patientId, '2026-08-22', CHAMBER_A, 'in_chamber');
     const card = buildRecallCard(db, visitId, AS_OF, rulebook);
     assert.equal(card.lastVisit!.doctorConfirmedAt, null);

@@ -3,15 +3,17 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 8 of 13.** Foundations, the safety layer, patient
+**Status: milestone 9 of 13.** Foundations, the safety layer, patient
 search and merging, the serial register with its live queue, the tablet
-intake, consent, and the Recall Card wired to the live record with
-Confirm and Correct.
+intake, consent, the Recall Card with Confirm and Correct, and — new —
+sign-in for everybody who works here, vitals, and the consultation.
 
-**Before any real patient:** the consent wording needs approving by the
-supervising physician and by a lawyer in Bangladesh, and the spoken
-recording needs making. The software refuses to take an intake until the
-first is done. See [docs/CONSENT.md](docs/CONSENT.md).
+**Before any real patient:** the red flag rules and the consent wording
+need approving by the supervising physician, a lawyer in Bangladesh needs
+to read the consent, and the spoken recording needs making. The software
+refuses to run against a real database until the rules are approved, and
+refuses to take an intake until the consent wording is. See
+[docs/CONSENT.md](docs/CONSENT.md).
 
 ---
 
@@ -51,11 +53,20 @@ first is done. See [docs/CONSENT.md](docs/CONSENT.md).
   name and the time on it, and correcting puts his wording beside the
   patient's without ever replacing it. Any patient on today's list can be
   opened from the queue.
-- 419 tests covering key custody, the database layer, the practice data,
+- **Sign-in.** Everybody who works here has an account and a PIN, on the
+  laptop and on the tablet. Every record carries the name of the person
+  who wrote it, and nothing clinical can be recorded until at least one
+  doctor has been set up.
+- **Vitals and the consultation.** Seven readings with the temperature
+  typed in either scale, complaint, examination, diagnosis, decision,
+  follow-up, prescription and tests — all of it saving as it is typed.
+  Confirming is the doctor's signature, and the database itself refuses
+  to let a confirmed consultation be changed without a recorded undo.
+- 493 tests covering key custody, the database layer, the practice data,
   the rule evaluator, the refuse-to-run guard, the Recall Card, patient
   matching, the merge tool, temperature entry, the register, the queue,
-  the question engine, the network server, the offline buffer, and
-  confirming and correcting an intake.
+  the question engine, the network server, the offline buffer, confirming
+  and correcting an intake, PINs and sign-in, and the consultation.
 
 ## Running it
 
@@ -97,6 +108,8 @@ docs/ANDROID-TABLET.md    setting up and locking down the tablet
 src/tablet/               the tablet page: intake, offline buffer
 config/questions.yaml     the intake questions, written for a doctor to edit
 src/main/vitals/          temperature entry in either scale
+src/main/auth/            PINs, who works here, signing in
+src/main/clinical/        vitals, the consultation, and who may write what
 config/red_flags.yaml     the rules template, written for a doctor to edit
 src/main/seed/            the practice data generator
 src/main/index.ts         the application process

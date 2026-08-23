@@ -28,10 +28,21 @@ import { pairedDevices, revokeDevice } from './server/pairing';
 import { unassignedActor, laptopRole, setLaptopRole, laptopActor, type UnassignedRole } from './db/users';
 import { confirmIntake, unconfirmIntake, correctIntakeAnswer, type CorrectionInput } from './intake/confirm';
 import { loadConsentConfig } from './consent/config';
-import type { TabletStatus } from '../shared/ipc';
+import type { TabletStatus, AuthState, SignedInView, StaffView } from '../shared/ipc';
+import { signIn as doSignIn, signOutAudit, actorOf, type SignedIn } from './auth/session';
+import { needsSetup, signInList, allStaff, addStaff, setPin, setStaffActive } from './auth/staff';
+import { openEncounter, saveDraft, setMedications, setInvestigations, confirmEncounter, unconfirmEncounter }
+  from './clinical/encounter';
+import { saveVitals, questionsAbout } from './clinical/vitals';
+import { chamberView } from './clinical/chamber';
+import { requireClinicalRole } from './clinical/access';
+import type { ChamberView, VitalsInput, VitalsQuestion, EncounterDraft, MedicationInput } from '../shared/clinical';
+import type { Role } from '../shared/roles';
 
 let db: Db | null = null;
 let installDir = '';
+/** Who is at this laptop right now. Memory only; closing signs out. */
+let signedIn: SignedIn | null = null;
 let tabletServer: RunningServer | null = null;
 let tabletProblem: string | null = null;
 
@@ -204,9 +215,27 @@ function registerHandlers(): void {
    * author to point at, and that author tells the truth about itself.
    */
   const actor = unassignedActor('front_desk');
-  /** Who the laptop is speaking for. Not sign-in; that arrives at M9. */
+  /**
+   * Who is doing this.
+   *
+   * Once anybody has been set up with a PIN, it is the person signed
+   * in and nothing else - a screen that carries on working after the
+   * doctor signs out would attribute his consultation to whoever
+   * happened to be standing there.
+   *
+   * Before setup, on an installation from before sign-in existed, it
+   * falls back to the milestone 8 laptop role so the program still
+   * opens and can be used to reach the setup screen.
+   */
   const atTheLaptop = () => {
-    if (db === null) throw new Error('the laptop role was needed before the database was unlocked');
+    if (db === null) throw new Error('the actor was needed before the database was unlocked');
+    if (signedIn !== null) return actorOf(signedIn);
+    if (!needsSetup(db)) {
+      throw new ChamberRecallError(
+        'Nobody is signed in.',
+        'Sign in first. Everything written here is recorded against the person who wrote it, so the program cannot record anything until it knows who you are.',
+      );
+    }
     return laptopActor(db);
   };
 
@@ -329,6 +358,10 @@ function registerHandlers(): void {
 
   handle<{ card: RecallCard | null }>(CHANNELS.recallCard, (requestedVisitId?: string) => {
     if (db === null) throw new Error('the recall card was requested before the database was unlocked');
+    // The card is somebody's medical history assembled for the person
+    // treating them. The front desk runs the register and the queue,
+    // and does not open this.
+    requireClinicalRole(atTheLaptop(), 'open a patient\u2019s history');
     const today = localDate();
     let visitId = typeof requestedVisitId === 'string' && requestedVisitId !== ''
       ? requestedVisitId
@@ -345,6 +378,108 @@ function registerHandlers(): void {
       card: visitId === null ? null
         : buildRecallCard(db, visitId, new Date(), rulebook, consent.config?.version ?? null),
     };
+  });
+
+  // ---------------- signing in ----------------
+
+  const view = (who: SignedIn): SignedInView =>
+    ({ id: who.id, displayName: who.displayName, role: who.role, since: who.since });
+
+  handle<{ auth: AuthState }>(CHANNELS.whoIsSignedIn, () => {
+    if (db === null) throw new Error('sign-in was asked about before the database was unlocked');
+    return { auth: { needsSetup: needsSetup(db), signedIn: signedIn === null ? null : view(signedIn) } };
+  });
+
+  handle<{ people: StaffView[] }>(CHANNELS.signInList, () => {
+    if (db === null) throw new Error('the sign-in list was asked for before the database was unlocked');
+    return { people: signInList(db) };
+  });
+
+  handle<{ signedIn: SignedInView }>(CHANNELS.signIn, (userId: string, pin: string) => {
+    if (db === null) throw new Error('somebody signed in before the database was unlocked');
+    signedIn = doSignIn(db, userId, pin);
+    return { signedIn: view(signedIn) };
+  });
+
+  handle<Record<string, never>>(CHANNELS.signOut, () => {
+    if (db === null) throw new Error('somebody signed out before the database was unlocked');
+    if (signedIn !== null) signOutAudit(db, signedIn);
+    signedIn = null;
+    return {} as Record<string, never>;
+  });
+
+  handle<{ people: StaffView[] }>(CHANNELS.staffList, () => {
+    if (db === null) throw new Error('the staff list was asked for before the database was unlocked');
+    return { people: allStaff(db) };
+  });
+
+  handle<{ id: string }>(CHANNELS.staffAdd, (displayName: string, role: string, pin: string) => {
+    if (db === null) throw new Error('somebody was added before the database was unlocked');
+    return { id: addStaff(db, { displayName, role: role as Role, pin }, atTheLaptop()) };
+  });
+
+  handle<Record<string, never>>(CHANNELS.staffSetPin, (userId: string, pin: string) => {
+    if (db === null) throw new Error('a PIN was changed before the database was unlocked');
+    setPin(db, userId, pin, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.staffSetActive, (userId: string, active: boolean) => {
+    if (db === null) throw new Error('an account was changed before the database was unlocked');
+    setStaffActive(db, userId, active, atTheLaptop());
+    // Somebody switching off the account they are signed in as is
+    // refused in setStaffActive, so there is nothing to do here.
+    return {} as Record<string, never>;
+  });
+
+  // ---------------- the chamber ----------------
+
+  handle<{ view: ChamberView }>(CHANNELS.chamberOpen, (visitId: string) => {
+    if (db === null) throw new Error('a consultation was opened before the database was unlocked');
+    openEncounter(db, visitId, atTheLaptop());
+    return { view: chamberView(db, visitId) };
+  });
+
+  handle<{ view: ChamberView }>(CHANNELS.chamberView, (visitId: string) => {
+    if (db === null) throw new Error('a consultation was read before the database was unlocked');
+    requireClinicalRole(atTheLaptop(), 'open a consultation');
+    return { view: chamberView(db, visitId) };
+  });
+
+  handle<{ questions: VitalsQuestion[] }>(CHANNELS.vitalsSave, (visitId: string, input: VitalsInput) => {
+    if (db === null) throw new Error('vitals were saved before the database was unlocked');
+    saveVitals(db, visitId, input, atTheLaptop());
+    return { questions: questionsAbout(input) };
+  });
+
+  handle<Record<string, never>>(CHANNELS.encounterSaveDraft, (encounterId: string, draft: EncounterDraft) => {
+    if (db === null) throw new Error('a consultation was saved before the database was unlocked');
+    saveDraft(db, encounterId, draft, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.encounterMedications, (encounterId: string, lines: MedicationInput[]) => {
+    if (db === null) throw new Error('a prescription was written before the database was unlocked');
+    setMedications(db, encounterId, lines, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.encounterInvestigations, (encounterId: string, names: string[]) => {
+    if (db === null) throw new Error('tests were ordered before the database was unlocked');
+    setInvestigations(db, encounterId, names, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.encounterConfirm, (encounterId: string) => {
+    if (db === null) throw new Error('a consultation was confirmed before the database was unlocked');
+    confirmEncounter(db, encounterId, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.encounterUnconfirm, (encounterId: string, reason: string | null) => {
+    if (db === null) throw new Error('a confirmation was undone before the database was unlocked');
+    unconfirmEncounter(db, encounterId, atTheLaptop(), reason);
+    return {} as Record<string, never>;
   });
 
   handle<Record<string, never>>(CHANNELS.redFlagAcknowledge, (eventId: string) => {

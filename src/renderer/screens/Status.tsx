@@ -5,9 +5,13 @@ import { RedFlagAlert } from './RedFlagAlert';
 import { RecallCardScreen } from './RecallCard';
 import { PatientSearch } from './PatientSearch';
 import { Queue } from './Queue';
-import { ROLES, roleLabel, type Role } from '../../shared/roles';
+import { ChamberScreen } from './Chamber';
+import { SignIn, SetUpPeople } from './SignIn';
+import { roleLabel, type Role } from '../../shared/roles';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView, TabletStatus } from '../../shared/ipc';
 import type { RecallCard } from '../../shared/recall';
+import type { AuthState } from '../../shared/ipc';
+import type { ChamberView } from '../../shared/clinical';
 
 const LABELS: Record<string, string> = {
   patient: 'Patients',
@@ -42,15 +46,18 @@ export function Status() {
   const [findingPatient, setFindingPatient] = useState(false);
   const [showingQueue, setShowingQueue] = useState(false);
   const [tablet, setTablet] = useState<TabletStatus | null>(null);
-  const [role, setRole] = useState<Role | null>(null);
+  const [auth, setAuth] = useState<AuthState | null>(null);
+  const [showingPeople, setShowingPeople] = useState(false);
+  const [chamber, setChamber] = useState<ChamberView | null>(null);
 
-  useEffect(() => {
-    void (async () => {
-      const { value, failure } = unwrap(await api.laptopRole());
-      if (failure) { setFailure(failure); return; }
-      setRole(value!.role as Role);
-    })();
+  const readAuth = useCallback(async () => {
+    const { value, failure } = unwrap(await api.whoIsSignedIn());
+    if (failure) { setFailure(failure); return; }
+    setAuth(value!.auth);
   }, []);
+  useEffect(() => { void readAuth(); }, [readAuth]);
+
+  const role: Role | null = auth?.signedIn === null || auth === null ? null : (auth.signedIn.role as Role);
 
   useEffect(() => {
     void (async () => {
@@ -100,6 +107,13 @@ export function Status() {
     setCard(value!.card);
   }
 
+  async function openChamber(visitId: string) {
+    const { value, failure } = unwrap(await api.chamberOpen(visitId));
+    if (failure) { setFailure(failure); return; }
+    setCard(null);
+    setChamber(value!.view);
+  }
+
   /**
    * Re-reads the open card from the database. Called after the doctor
    * confirms or corrects anything, and on a timer while the card is
@@ -134,23 +148,68 @@ export function Status() {
     setPreviewing(value!.alert);
   }
 
-  if (failure) return <div className="page"><FailureNotice failure={failure} /></div>;
+  // A failure must never be a dead end. Before this there was no way
+  // off this screen at all, and the front desk pressing a button meant
+  // for the doctor left them looking at a red box with nowhere to go.
+  if (failure) {
+    return (
+      <div className="page">
+        <FailureNotice failure={failure} />
+        <button onClick={() => setFailure(null)}>Go back</button>
+      </div>
+    );
+  }
   if (summary === null) return <div className="page"><p className="muted">Reading the records…</p></div>;
 
   if (previewing !== null) {
     return <RedFlagAlert alert={previewing} onAcknowledged={() => setPreviewing(null)} />;
   }
 
-  // The card is not shown until the laptop role has been read. Which
-  // chair the laptop is speaking for decides whether Confirm works, so
-  // guessing it - even guessing "doctor", which is right nearly every
-  // time - would put a button on screen that lies about what it does.
-  if (card !== null && role !== null) {
-    return <RecallCardScreen card={card} role={role} onReload={reloadCard} onClose={() => setCard(null)} />;
+  // Nothing at all is shown until the program knows who is using it.
+  // A screen that works before anybody has signed in is a screen that
+  // writes a record with nobody's name on it.
+  if (auth === null) return <div className="page"><p className="muted">Reading…</p></div>;
+  if (auth.needsSetup || showingPeople) {
+    return <SetUpPeople demo={summary.dataMode === 'demo'} onDone={async () => { setShowingPeople(false); await readAuth(); }} />;
   }
+  if (auth.signedIn === null) {
+    return <SignIn demo={summary.dataMode === 'demo'} onSignedIn={readAuth} />;
+  }
+
+  // The card is checked BEFORE the consultation, so that opening
+  // somebody's history from the chamber puts it ON TOP of what is
+  // being typed and closing it comes straight back to it. With these
+  // the other way round - which is how this was first written - the
+  // "Their history" button silently did nothing at all.
+  if (card !== null && role !== null) {
+    return <RecallCardScreen
+      card={card}
+      role={role}
+      onReload={reloadCard}
+      onClose={() => setCard(null)}
+      onRecord={() => { void openChamber(card.today.visitId); }} />;
+  }
+
+  if (chamber !== null && role !== null) {
+    return <ChamberScreen
+      view={chamber}
+      role={role}
+      onClose={() => setChamber(null)}
+      onOpenCard={() => { void openCardForVisit(chamber.visitId); }}
+      onReload={async () => {
+        const { value, failure } = unwrap(await api.chamberView(chamber.visitId));
+        if (failure) { setFailure(failure); return; }
+        setChamber(value!.view);
+      }}
+    />;
+  }
+
   if (findingPatient) return <PatientSearch onClose={() => setFindingPatient(false)} />;
   if (showingQueue) {
-    return <Queue onClose={() => setShowingQueue(false)} onOpenCard={(visitId) => { void openCardForVisit(visitId); }} />;
+    return <Queue
+      onClose={() => setShowingQueue(false)}
+      onOpenCard={role === null || role === 'front_desk' ? undefined : (visitId) => { void openCardForVisit(visitId); }}
+      onRecord={role === null || role === 'front_desk' ? undefined : (visitId) => { void openChamber(visitId); }} />;
   }
 
   return (
@@ -161,41 +220,45 @@ export function Status() {
         </div>
       )}
 
-      <h1>Foundations</h1>
+      <h1>Chamber Recall</h1>
       <p className="subtitle">
-        Milestone 1: encrypted database, full schema, roles, append-only audit log, and seeded history.
+        The register and the queue, the patient records, the history taken at the front desk, and
+        the consultation. Everything is on this one laptop and nothing leaves it.
       </p>
 
       <div className="card">
-        <h2 style={{ marginTop: 0 }}>Who is at this laptop</h2>
+        <h2 style={{ marginTop: 0 }}>Signed in</h2>
         <p>
-          This is not a login. Nothing is proved and there is no password: it is a setting that
-          says which chair the laptop is speaking for, so that everything written from here is
-          recorded against somebody rather than against nobody. Signing in properly comes later.
+          <b>{auth.signedIn?.displayName}</b> — {roleLabel(role ?? 'front_desk').en} · {roleLabel(role ?? 'front_desk').bn}.
+          Everything written from here carries this name.
         </p>
-        <p>
-          It matters for one thing today: only the doctor can confirm a history the front desk
-          took, because confirming it makes it part of the patient’s medical record.
-        </p>
-        {role === null ? <p className="muted">Reading…</p> : (
-          <select
-            value={role}
-            aria-label="Who is at this laptop"
-            onChange={(e) => {
-              const chosen = e.target.value as Role;
-              void (async () => {
-                const { failure } = unwrap(await api.setLaptopRole(chosen));
-                if (failure) { setFailure(failure); return; }
-                setRole(chosen);
-              })();
-            }}
-          >
-            {ROLES.map((r) => <option key={r} value={r}>{roleLabel(r).en} · {roleLabel(r).bn}</option>)}
-          </select>
+        <button className="secondary" onClick={() => {
+          void (async () => {
+            const { failure } = unwrap(await api.signOut());
+            if (failure) { setFailure(failure); return; }
+            setCard(null); setChamber(null); setShowingQueue(false); setFindingPatient(false);
+            await readAuth();
+          })();
+        }}>Sign out</button>
+        {role === 'doctor' && (
+          <button className="secondary" onClick={() => setShowingPeople(true)} style={{ marginLeft: 8 }}>
+            Who works here
+          </button>
         )}
       </div>
 
-      <div className="card">
+      {role === 'front_desk' && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>What you can do here</h2>
+          <p>
+            Today's list and the patient records: give arriving patients their serial, find a
+            returning patient, and register somebody new. A patient's history is for the doctor
+            and the clinical assistant, so it is not on this screen.
+          </p>
+        </div>
+      )}
+
+      {role !== 'front_desk' && <div className="card">
         <h2 style={{ marginTop: 0 }}>The Recall Card</h2>
         <p>
           The patient who is with the doctor right now in today’s session. Confirm and Correct
@@ -204,7 +267,7 @@ export function Status() {
           other patient’s card, use today’s list.
         </p>
         <button onClick={openRecallCard}>Open the Recall Card</button>
-      </div>
+      </div>}
 
       {tablet !== null && <TabletSection status={tablet} onRevoke={async (id) => {
         unwrap(await api.tabletRevoke(id));

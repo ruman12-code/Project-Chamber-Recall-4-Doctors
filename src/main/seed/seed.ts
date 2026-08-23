@@ -31,6 +31,7 @@ import type { Db } from '../db/open';
 import { setMeta, dataMode } from '../db/open';
 import { newId } from '../db/ids';
 import { normaliseName, searchablePhone } from '../db/names';
+import { hashPin } from '../auth/pin';
 import { recordAudit } from '../db/audit';
 import { recordUsage } from '../db/usage';
 import { SeedRefusedError } from '../../shared/errors';
@@ -204,15 +205,21 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
     // ---------------- users ----------------
     // Two front desk assistants with deliberately different habits, so
     // the pilot report has a real difference to expose.
+    // Every practice user has a PIN so the demo can be signed into.
+    // These PINs are printed by the seed script and are only ever in a
+    // database marked demo, which cannot hold a real patient.
     const users = [
-      { id: newId(), display_name: 'Dr. Ashraful Haque', role: 'doctor' as const, speed: 1, skip: 0 },
-      { id: newId(), display_name: 'Nusrat (clinical assistant)', role: 'clinical_assistant' as const, speed: 1, skip: 0 },
-      { id: newId(), display_name: 'Jahid (front desk)', role: 'front_desk' as const, speed: 1.0, skip: 0.12 },
-      { id: newId(), display_name: 'Shopna (front desk)', role: 'front_desk' as const, speed: 0.45, skip: 0.55 },
+      { id: newId(), display_name: 'Dr. Ashraful Haque', role: 'doctor' as const, pin: '4021', speed: 1, skip: 0 },
+      { id: newId(), display_name: 'Nusrat (clinical assistant)', role: 'clinical_assistant' as const, pin: '5390', speed: 1, skip: 0 },
+      { id: newId(), display_name: 'Jahid (front desk)', role: 'front_desk' as const, pin: '6172', speed: 1.0, skip: 0.12 },
+      { id: newId(), display_name: 'Shopna (front desk)', role: 'front_desk' as const, pin: '7483', speed: 0.45, skip: 0.55 },
     ];
     for (const u of users) {
-      db.prepare('INSERT INTO app_user (id, display_name, role, is_active, created_at) VALUES (?, ?, ?, 1, ?)')
-        .run(u.id, u.display_name, u.role, isoAt(startDate, 9, 0));
+      const pin = hashPin(u.pin);
+      db.prepare(
+        `INSERT INTO app_user (id, display_name, role, pin_salt, pin_hash, pin_set_at, is_active, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
+      ).run(u.id, u.display_name, u.role, pin.salt, pin.hash, isoAt(startDate, 9, 0), isoAt(startDate, 9, 0));
       recordAudit(db, { actor: system, action: 'user_created', entity: 'app_user', entityId: u.id, details: { role: u.role, source: 'seed' } });
     }
     result.users = users.length;
@@ -345,6 +352,12 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
     const insMed = db.prepare(
       `INSERT INTO medication (id, encounter_id, drug_name, strength, dose, frequency, duration_days, instructions, sort_order, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    // Confirming is a separate step, because that is the order it
+    // happens in life and, since milestone 9, the order the database
+    // insists on: a confirmed consultation cannot have a medicine or a
+    // test added to it without the confirmation being undone first.
+    const signEnc = db.prepare(
+      'UPDATE encounter SET doctor_confirmed_by = ?, doctor_confirmed_at = ?, updated_at = ? WHERE id = ?');
     const insInv = db.prepare(
       `INSERT INTO investigation (id, encounter_id, test_name, ordered_date, result_summary, result_date, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -445,7 +458,7 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
             chance(rng, 0.6) ? 'PLACEHOLDER — decision and advice recorded by the clinician' : null,
             chance(rng, 0.55) ? pick(rng, [7, 14, 15, 30, 30, 90]) : null,
             enteredBy.id,
-            confirmed ? doctor.id : null, confirmed ? seenAt : null,
+            null, null,
             seenAt, seenAt,
           );
           recordAudit(db, { actor: system, action: 'encounter_created', entity: 'encounter', entityId: encId, details: { source: 'seed' } });
@@ -476,6 +489,8 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
             result.investigations++;
             if (!hasResult) result.outstandingInvestigations++;
           }
+
+          if (confirmed) signEnc.run(doctor.id, seenAt, seenAt, encId);
         }
       }
     }
@@ -596,7 +611,7 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
           pick(rng, V.PLACEHOLDER_DIAGNOSES),
           chance(rng, 0.6) ? 'PLACEHOLDER — decision and advice recorded by the clinician' : null,
           chance(rng, 0.55) ? pick(rng, [7, 14, 15, 30, 30, 90]) : null,
-          doctor.id, doctor.id, seenAt, seenAt ?? arrivedAt, seenAt ?? arrivedAt);
+          doctor.id, null, null, seenAt ?? arrivedAt, seenAt ?? arrivedAt);
         result.encounters++;
         for (let m = 0, n = intBetween(rng, 1, 3); m < n; m++) {
           const drug = pick(rng, V.PLACEHOLDER_DRUGS);
@@ -605,6 +620,7 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
             null, m, seenAt ?? arrivedAt, seenAt ?? arrivedAt);
           result.medications++;
         }
+        signEnc.run(doctor.id, seenAt, seenAt ?? arrivedAt, encId);
       }
     });
 

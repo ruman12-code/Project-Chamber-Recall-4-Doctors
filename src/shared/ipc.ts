@@ -66,6 +66,28 @@ export interface DatabaseSummary {
   }>;
 }
 
+export interface SignedInView {
+  id: string;
+  displayName: string;
+  role: string;
+  since: string;
+}
+
+export interface StaffView {
+  id: string;
+  displayName: string;
+  role: string;
+  canSignIn: boolean;
+  isActive: boolean;
+  lastSignedInAt: string | null;
+}
+
+export interface AuthState {
+  /** True when nobody can sign in yet and the setup screen is due. */
+  needsSetup: boolean;
+  signedIn: SignedInView | null;
+}
+
 /** How every failure crosses the boundary. Never a raw stack trace. */
 export interface FailureReport {
   ok: false;
@@ -101,6 +123,27 @@ export const CHANNELS = {
   intakeConfirm: 'intake:confirm',
   intakeUnconfirm: 'intake:unconfirm',
   intakeCorrect: 'intake:correct',
+  // Milestone 8's "who is at this laptop" setting. Replaced by real
+  // sign-in at milestone 9 and kept only so an installation from
+  // before then still opens.
   laptopRole: 'laptop:role',
   setLaptopRole: 'laptop:setRole',
+  // Signing in.
+  whoIsSignedIn: 'auth:who',
+  signInList: 'auth:list',
+  signIn: 'auth:signIn',
+  signOut: 'auth:signOut',
+  staffList: 'auth:staff',
+  staffAdd: 'auth:staffAdd',
+  staffSetPin: 'auth:staffSetPin',
+  staffSetActive: 'auth:staffSetActive',
+  // The chamber: vitals and the consultation.
+  chamberOpen: 'chamber:open',
+  chamberView: 'chamber:view',
+  vitalsSave: 'chamber:vitals',
+  encounterSaveDraft: 'chamber:draft',
+  encounterMedications: 'chamber:medications',
+  encounterInvestigations: 'chamber:investigations',
+  encounterConfirm: 'chamber:confirm',
+  encounterUnconfirm: 'chamber:unconfirm',
 } as const;

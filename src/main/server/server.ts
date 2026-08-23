@@ -26,6 +26,18 @@ import { dataMode } from '../db/open';
 import { consentAudioDir } from '../paths';
 import { PairingDesk, deviceForToken, PairingLockedError } from './pairing';
 import { unassignedActor } from '../db/users';
+import { signIn as verifySignIn, actorOf, SignInError, type SignedIn } from '../auth/session';
+import { signInList, needsSetup } from '../auth/staff';
+
+/**
+ * Who is signed in on each paired tablet, by device id.
+ *
+ * Memory only. Closing the program on the laptop signs every tablet
+ * out, which is the right end-of-evening behaviour and also means a
+ * crash can never leave somebody's name attached to a tablet they
+ * walked away from.
+ */
+const deskSessions = new Map<string, SignedIn>();
 import { ChamberRecallError } from '../../shared/errors';
 
 export const DEFAULT_PORT = 8137;
@@ -186,10 +198,52 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
       return;
     }
 
-    // Everything the tablet does is recorded against the front desk
-    // row. Once sign-in exists it becomes whoever is signed in on the
-    // tablet; until then the name says plainly that nobody was.
-    const actor = unassignedActor('front_desk');
+    // ---- who is at the desk ----
+    //
+    // The tablet is a shared device on a desk. Pairing says the tablet
+    // is allowed to talk to the laptop; it says nothing about which
+    // assistant is holding it, and "which assistant" is what goes into
+    // the record beside every answer they type.
+    //
+    // So the person signs in with their PIN once, and the laptop
+    // remembers it against that device. Nothing is written by a tablet
+    // that nobody has signed in on: it is refused with a message
+    // saying so, and the tablet keeps it in its buffer until somebody
+    // does - so a laptop restart in the middle of an evening costs one
+    // sign-in and loses nothing.
+    if (path === '/api/signin') {
+      const body = (await readBody(request)) as { userId?: string; pin?: string };
+      try {
+        const who = verifySignIn(db, String(body.userId ?? ''), String(body.pin ?? ''));
+        deskSessions.set(device.id, who);
+        sendJson(response, 200, { signedIn: { id: who.id, displayName: who.displayName, role: who.role } });
+      } catch (error) {
+        const bn = error instanceof SignInError ? error.bn : null;
+        sendJson(response, 401, {
+          error: error instanceof ChamberRecallError ? error.userMessage : 'That did not work.',
+          whatToDo: error instanceof ChamberRecallError ? error.whatToDo : 'Try again.',
+          errorBn: bn?.userMessage ?? null,
+          whatToDoBn: bn?.whatToDo ?? null,
+        });
+      }
+      return;
+    }
+
+    if (path === '/api/signout') {
+      deskSessions.delete(device.id);
+      sendJson(response, 200, { ok: true });
+      return;
+    }
+
+    const atTheDesk = deskSessions.get(device.id) ?? null;
+
+    // Before anybody has been given a PIN at all, the tablet carries on
+    // as it did before sign-in existed, recording against the
+    // placeholder whose name says exactly that. After setup, no.
+    const beforeSetup = needsSetup(db);
+    const actor = atTheDesk !== null ? actorOf(atTheDesk)
+      : beforeSetup ? unassignedActor('front_desk')
+      : null;
 
     // ---- everything the tablet needs to work, including offline
     if (path === '/api/session') {
@@ -213,6 +267,13 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
 
       sendJson(response, 200, {
         device,
+        // Names and roles only. No PIN, no hash, nothing that could be
+        // used to sign in as somebody - the PIN is checked on the
+        // laptop and never leaves it.
+        people: signInList(db).map((p) => ({ id: p.id, displayName: p.displayName, role: p.role })),
+        signedIn: atTheDesk === null ? null
+          : { id: atTheDesk.id, displayName: atTheDesk.displayName, role: atTheDesk.role },
+        signInRequired: !beforeSetup,
         chamber: { id: chamberId, name: all.find((c) => c.id === chamberId)?.name ?? null },
         visitDate: localDate(),
         dataMode: dataMode(db),
@@ -246,6 +307,18 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
       response.end(body);
       return;
     }
+
+    // Everything below this line writes to a patient's record, so it
+    // needs a name against it.
+    if (actor === null) {
+      sendJson(response, 401, {
+        error: 'Nobody is signed in on this tablet.',
+        whatToDo: 'Tap your name and type your PIN. Nothing has been lost — the tablet will send it as soon as you do.',
+        needsSignIn: true,
+      });
+      return;
+    }
+
 
     /**
      * Recording what a patient said. Sent through the tablet's buffer

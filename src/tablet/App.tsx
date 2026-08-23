@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, outbox, storedToken, NeedsPairingError } from './api';
 import { Outbox, type OutboxStatus } from './outbox';
 import { Pair } from './screens/Pair';
+import { DeskSignIn, type DeskPerson } from './screens/DeskSignIn';
 import { PickPatient, type QueueEntryWithConsent } from './screens/PickPatient';
 import { Ask } from './screens/Ask';
 import { Alarm } from './screens/Alarm';
@@ -31,7 +32,7 @@ const LANG_KEY = 'chamber-recall.lang.v1';
  * trusted. The cost is one trip to the laptop after an update; the
  * alternative is a tablet that looks fine and does nothing.
  */
-const CACHE_SHAPE = 3;
+const CACHE_SHAPE = 4;
 
 interface Answer { value: string | null; freeText: string | null; skipped: boolean }
 
@@ -71,6 +72,10 @@ interface CachedSession {
   dataMode: 'demo' | 'live';
   consent: ConsentConfig | null;
   consentBlocksLiveUse: Array<{ reason: string; whatToDo: string }>;
+  /** Who may sign in on the tablet, and who currently is. */
+  people: DeskPerson[];
+  signedIn: DeskPerson | null;
+  signInRequired: boolean;
   cachedAt: string;
 }
 
@@ -121,6 +126,7 @@ export function App() {
         queue: QueueEntryWithConsent[]; chamber: { name: string | null }; visitDate: string;
         dataMode: 'demo' | 'live'; consent: ConsentConfig | null;
         consentBlocksLiveUse: Array<{ reason: string; whatToDo: string }>;
+        people?: DeskPerson[]; signedIn?: DeskPerson | null; signInRequired?: boolean;
       };
       const next: CachedSession = {
         shape: CACHE_SHAPE,
@@ -128,6 +134,9 @@ export function App() {
         chamberName: raw.chamber.name, visitDate: raw.visitDate,
         dataMode: raw.dataMode, consent: raw.consent,
         consentBlocksLiveUse: raw.consentBlocksLiveUse ?? [],
+        people: raw.people ?? [],
+        signedIn: raw.signedIn ?? null,
+        signInRequired: raw.signInRequired === true,
         cachedAt: new Date().toISOString(),
       };
       setSession(next);
@@ -201,6 +210,13 @@ export function App() {
   }, [session, facts, draft]);
 
   if (!paired) return <Pair onPaired={() => { setPaired(true); void refresh(); }} />;
+
+  // Nobody writes anything from a tablet that nobody has signed in on.
+  // The laptop refuses it anyway; asking here means the assistant finds
+  // out at the start of the evening rather than after typing a history.
+  if (session !== null && session.signInRequired && session.signedIn === null) {
+    return <DeskSignIn people={session.people} bn={bn} onSignedIn={() => { void refresh(); }} />;
+  }
 
   const questionnaire = session?.questionnaire ?? null;
   const consentConfig = session?.consent ?? null;

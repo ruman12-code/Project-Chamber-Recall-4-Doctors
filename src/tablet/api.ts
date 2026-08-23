@@ -35,8 +35,15 @@ async function request(path: string, body: unknown, method: 'GET' | 'POST' = 'PO
     forgetToken();
     throw new NeedsPairingError(String(parsed.error ?? 'This tablet is not paired.'));
   }
-  const failure = new Error(String(parsed.error ?? 'The laptop refused that.')) as Error & { whatToDo?: string };
+  const failure = new Error(String(parsed.error ?? 'The laptop refused that.')) as Error & {
+    whatToDo?: string; errorBn?: string | null; whatToDoBn?: string | null; needsSignIn?: boolean;
+  };
   failure.whatToDo = String(parsed.whatToDo ?? 'Try again.');
+  // The tablet is Bangla first, so a refusal that has a Bangla version
+  // travels with it rather than arriving in English on a Bangla screen.
+  failure.errorBn = parsed.errorBn === undefined || parsed.errorBn === null ? null : String(parsed.errorBn);
+  failure.whatToDoBn = parsed.whatToDoBn === undefined || parsed.whatToDoBn === null ? null : String(parsed.whatToDoBn);
+  failure.needsSignIn = parsed.needsSignIn === true;
   throw failure;
 }
 

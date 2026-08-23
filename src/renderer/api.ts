@@ -2,7 +2,8 @@ import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertVi
 import type { RecallCard } from '../shared/recall';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 import type { QueueView, VisitStatus } from '../shared/queue';
-import type { TabletStatus } from '../shared/ipc';
+import type { TabletStatus, AuthState, SignedInView, StaffView } from '../shared/ipc';
+import type { ChamberView, VitalsInput, VitalsQuestion, EncounterDraft, MedicationInput } from '../shared/clinical';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -31,6 +32,22 @@ interface Api {
   intakeCorrect(intakeId: string, correction: unknown): Promise<Result<Record<string, never>>>;
   laptopRole(): Promise<Result<{ role: string }>>;
   setLaptopRole(role: string): Promise<Result<Record<string, never>>>;
+  whoIsSignedIn(): Promise<Result<{ auth: AuthState }>>;
+  signInList(): Promise<Result<{ people: StaffView[] }>>;
+  signIn(userId: string, pin: string): Promise<Result<{ signedIn: SignedInView }>>;
+  signOut(): Promise<Result<Record<string, never>>>;
+  staffList(): Promise<Result<{ people: StaffView[] }>>;
+  staffAdd(displayName: string, role: string, pin: string): Promise<Result<{ id: string }>>;
+  staffSetPin(userId: string, pin: string): Promise<Result<Record<string, never>>>;
+  staffSetActive(userId: string, active: boolean): Promise<Result<Record<string, never>>>;
+  chamberOpen(visitId: string): Promise<Result<{ view: ChamberView }>>;
+  chamberView(visitId: string): Promise<Result<{ view: ChamberView }>>;
+  vitalsSave(visitId: string, input: VitalsInput): Promise<Result<{ questions: VitalsQuestion[] }>>;
+  encounterSaveDraft(encounterId: string, draft: EncounterDraft): Promise<Result<Record<string, never>>>;
+  encounterMedications(encounterId: string, lines: MedicationInput[]): Promise<Result<Record<string, never>>>;
+  encounterInvestigations(encounterId: string, names: string[]): Promise<Result<Record<string, never>>>;
+  encounterConfirm(encounterId: string): Promise<Result<Record<string, never>>>;
+  encounterUnconfirm(encounterId: string, reason: string | null): Promise<Result<Record<string, never>>>;
 }
 
 declare global {
@@ -78,6 +95,22 @@ export const api: Api = {
   intakeCorrect: (id, c) => call((a) => a.intakeCorrect(id, c)),
   laptopRole: () => call((a) => a.laptopRole()),
   setLaptopRole: (role) => call((a) => a.setLaptopRole(role)),
+  whoIsSignedIn: () => call((a) => a.whoIsSignedIn()),
+  signInList: () => call((a) => a.signInList()),
+  signIn: (id, pin) => call((a) => a.signIn(id, pin)),
+  signOut: () => call((a) => a.signOut()),
+  staffList: () => call((a) => a.staffList()),
+  staffAdd: (name, role, pin) => call((a) => a.staffAdd(name, role, pin)),
+  staffSetPin: (id, pin) => call((a) => a.staffSetPin(id, pin)),
+  staffSetActive: (id, active) => call((a) => a.staffSetActive(id, active)),
+  chamberOpen: (visitId) => call((a) => a.chamberOpen(visitId)),
+  chamberView: (visitId) => call((a) => a.chamberView(visitId)),
+  vitalsSave: (visitId, input) => call((a) => a.vitalsSave(visitId, input)),
+  encounterSaveDraft: (id, draft) => call((a) => a.encounterSaveDraft(id, draft)),
+  encounterMedications: (id, lines) => call((a) => a.encounterMedications(id, lines)),
+  encounterInvestigations: (id, names) => call((a) => a.encounterInvestigations(id, names)),
+  encounterConfirm: (id) => call((a) => a.encounterConfirm(id)),
+  encounterUnconfirm: (id, reason) => call((a) => a.encounterUnconfirm(id, reason)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

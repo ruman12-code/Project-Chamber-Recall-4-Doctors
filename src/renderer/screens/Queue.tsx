@@ -21,7 +21,13 @@ import type { QueueEntry, QueueView } from '../../shared/queue';
  * Dragging on a touch screen misfires, and a misfire here silently
  * changes who the doctor sees next.
  */
-export function Queue({ onClose, onOpenCard }: { onClose: () => void; onOpenCard?: (visitId: string) => void }) {
+export function Queue(
+  { onClose, onOpenCard, onRecord }: {
+    onClose: () => void;
+    onOpenCard?: (visitId: string) => void;
+    onRecord?: (visitId: string) => void;
+  },
+) {
   const [view, setView] = useState<QueueView | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [adding, setAdding] = useState(false);
@@ -172,6 +178,7 @@ export function Queue({ onClose, onOpenCard }: { onClose: () => void; onOpenCard
             canMoveDown={waitingIds.indexOf(entry.visitId) >= 0 && waitingIds.indexOf(entry.visitId) < waitingIds.length - 1}
             onSelect={() => setSelected(index)}
             onOpenCard={onOpenCard === undefined ? undefined : () => onOpenCard(entry.visitId)}
+            onRecord={onRecord === undefined ? undefined : () => onRecord(entry.visitId)}
             onMove={(direction) => { void act(api.queueMove(entry.visitId, direction)); }}
             onStatus={(status) => {
           // A patient the questions flagged cannot be taken off the
@@ -192,7 +199,8 @@ export function Queue({ onClose, onOpenCard }: { onClose: () => void; onOpenCard
 
       <p className="queue-foot no-print">
         Arrow keys move down the list · Alt and an arrow moves a patient up or down the order ·
-        Enter calls the highlighted patient in · C opens the highlighted patient's card.
+        Enter calls the highlighted patient in
+        {onOpenCard !== undefined && " · C opens the highlighted patient's card"}.
         Serial numbers never change when the order does.
       </p>
     </div>
@@ -200,9 +208,9 @@ export function Queue({ onClose, onOpenCard }: { onClose: () => void; onOpenCard
 }
 
 function Row(
-  { entry, selected, canMoveUp, canMoveDown, onSelect, onOpenCard, onMove, onStatus }: {
+  { entry, selected, canMoveUp, canMoveDown, onSelect, onOpenCard, onRecord, onMove, onStatus }: {
     entry: QueueEntry; selected: boolean; canMoveUp: boolean; canMoveDown: boolean;
-    onSelect: () => void; onOpenCard?: () => void;
+    onSelect: () => void; onOpenCard?: () => void; onRecord?: () => void;
     onMove: (d: 'up' | 'down') => void; onStatus: (s: QueueEntry['status']) => void;
   },
 ) {
@@ -257,6 +265,9 @@ function Row(
             <button onClick={(e) => { e.stopPropagation(); onStatus('in_chamber'); }}>Call in</button>
             <button className="secondary" onClick={(e) => { e.stopPropagation(); onStatus('left'); }}>Left</button>
           </>
+        )}
+        {entry.status === 'in_chamber' && onRecord !== undefined && (
+          <button onClick={(e) => { e.stopPropagation(); onRecord(); }}>Record</button>
         )}
         {entry.status === 'in_chamber' && (
           <>

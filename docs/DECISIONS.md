@@ -718,6 +718,136 @@ without anybody reopening anything.
 
 ---
 
+## Milestone 9: sign-in, vitals and the consultation
+
+### 53. The PIN is honest about what it protects
+
+Signing in at a chamber is not signing in to a bank. The people doing it
+are standing at a desk with a patient in front of them, twenty times an
+evening, and a password long enough to resist a determined attacker would
+be written on a sticky note by the second evening. A written-down password
+is worse than a short one.
+
+So it is a PIN, and what it does is stated plainly rather than implied:
+
+- **What it protects:** the record of who did what. Mr Biplob cannot
+  confirm a history as the doctor by walking up to the laptop, and a
+  patient left alone in the chamber for a minute cannot read the previous
+  patient's history.
+- **What it does not protect:** the database. That is protected by the
+  passphrase and by SQLCipher, and it is already unlocked by the time
+  anybody signs in. Somebody who steals a running, unlocked laptop is not
+  stopped by four digits and nothing here pretends otherwise.
+
+The hash is scrypt with a per-user salt, so the stored value is useless to
+somebody reading the database file, and two people who pick the same PIN do
+not share a hash. `1234`, `0000` and a repeated digit are refused: the whole
+point is that one person cannot act as another, and that fails completely
+the moment the PIN is guessable by somebody standing next to them.
+
+### 54. There is no automatic sign-out, deliberately
+
+A screen that logs the doctor out mid-consultation, with a patient in front
+of him and half an examination typed, is a screen that gets worked around
+within a week — the PIN written on the desk, or the sign-out button avoided.
+The laptop is in the doctor's own room and the database is encrypted; what
+is being protected is the truth of "who wrote this", and a timer does not
+help it. Closing the program signs everybody out, including every tablet.
+
+### 55. The tablet asks who is holding it
+
+Pairing says a tablet is allowed to talk to the laptop. It says nothing
+about which assistant is using it, and that is what goes into the record
+beside every answer a patient gives.
+
+So each assistant signs in on the tablet once at the start of the evening.
+The PIN is checked on the laptop and never leaves it; the tablet is sent
+names and roles only. A tablet nobody has signed in on is refused, and
+the refusal is in Bangla, because it is read by the person at the desk.
+
+Nothing is lost when this happens: the tablet's buffer keeps everything
+until somebody signs in, so a laptop restart in the middle of an evening
+costs one sign-in and no data.
+
+### 56. The front desk does not open the Recall Card
+
+The line between the front desk and the two clinical roles is drawn twice,
+for two different reasons.
+
+**Writing** was already decided by your brief: a front desk user may run the
+register and take the intake, and may not enter vitals, findings, a
+diagnosis, a decision or a medicine. That is enforced in the data layer.
+
+**Reading** is new here. The Recall Card is a consolidated view of
+somebody's medical history — four years of diagnoses, medicines and results
+— assembled for the person treating them. The desk needs to know who is
+here, who is waiting and who is next, and the register and queue give them
+all of it. In a chamber where the assistant lives in the same neighbourhood
+as the patients, "does not need" is the whole argument.
+
+So the card is refused in the data layer, and the button for it is not on
+their screen at all. A button that refuses is a worse design than a button
+that is not there.
+
+### 57. A reading that looks wrong is questioned, never refused and never corrected
+
+The plausibility ranges are deliberately far wider than any clinical normal
+range: 50–300 for the upper blood pressure number, 20–250 for the pulse.
+The only thing being caught is a typing mistake, and the value is stored
+exactly as typed either way. Refusing to save what somebody actually typed
+is how a reading ends up on a scrap of paper instead of in the record.
+
+Every question is about the typing and never about the patient. "The lower
+number is the same or bigger than the upper one — check whether they are the
+right way round." Never "that is high". A test in the suite asserts that no
+vitals question contains a word of interpretation.
+
+### 58. Confirming a consultation is a signature, and the database enforces it
+
+After the doctor confirms, the encounter and its prescription are locked by
+SQLite triggers, not merely by the code around them. Changing a confirmed
+consultation is still possible and sometimes necessary; it takes an undo
+that is recorded, then the change, then a new confirmation. The audit log
+ends up holding the whole sequence, which is the difference between an
+amended record and a falsified one.
+
+The text as it stood at the moment of signing is copied into the audit
+entry, so what was signed stays readable even after an amendment.
+
+Investigations are the one exception, and the exception matters: **which**
+tests were ordered is part of the signed record and is frozen, but the
+**result** comes back days or weeks later, long after the consultation was
+confirmed. Recording it must never require undoing a signature on a
+consultation that is finished, so the result columns stay open for ever.
+
+### 59. Autosave, because the enemy is a power cut and not a change of mind
+
+There is no Save button. Every box writes itself to the encrypted database
+about a second after typing stops, and opening the screen creates the draft
+row immediately, so a power cut thirty seconds into a consultation leaves a
+row with the doctor's name on it rather than nothing at all.
+
+Draft autosaves do not each write an audit entry — a draft is not yet a
+record, and a hundred log rows per consultation would bury the entries that
+matter. Vitals are different and every change to one is logged with what it
+was and what it became: a blood pressure that changes after the fact is
+exactly the sort of thing somebody may have to account for later.
+
+### 60. The screen shows last time's medicines, and suggests nothing
+
+"Continue the same medicine" is the commonest sentence in a chamber, and
+retyping a dose from memory is how a dose changes by accident. So the
+consultation screen carries last visit's diagnosis and prescription, with
+one button that copies them in.
+
+That is the only help this screen gives, and it is not clinical help: it is
+a copy of what this doctor himself wrote before. There is no drug list, no
+dose calculator, no interaction check, no diagnosis suggestion and no
+autocomplete on any clinical field. Every word in the record is typed by a
+person.
+
+---
+
 ## Two bugs from milestone 7
 
 **The tablet crashed on the first tap after the update.** It keeps a copy of
@@ -973,7 +1103,7 @@ record keeps the words the assistant saw. I would do it at milestone 6, when
 alerts start being raised for real rather than by the practice data. Say if
 you would rather I did it sooner.
 
-### J. Nothing is attributed to a person yet, and the rule says it must be
+### J. Attribution — ANSWERED, and built at milestone 9
 
 Your brief is explicit: every clinical field records who entered it, and
 attribution is never optional. The database enforces that — those columns
@@ -995,12 +1125,14 @@ If you want to start the pilot earlier than milestone 9, tell me and I will
 move the sign-in forward. It is a small piece of work in the wrong order
 rather than a hard problem.
 
-**Milestone 8 narrowed this, but did not close it.** The laptop now says
-which chair it is speaking for (decision 51), so an action is recorded
-against a doctor rather than against a front desk user pretending to be
-one, and the doctor-only rule has something real behind it. It is still a
-setting rather than a person. The paragraph above stands unchanged: no real
-patient before milestone 9.
+**Milestone 8 narrowed this. Milestone 9 closed it.** Everybody who works
+here now has an account and a PIN, and nothing clinical can be recorded
+until at least one doctor exists. Every record written from the laptop or
+the tablet carries the name of the person who wrote it. The paragraph above
+described the state of things up to milestone 8; it no longer applies.
+
+What remains before a real patient is the consent wording and the spoken
+recording (see CONSENT.md), not attribution.
 
 ### K. Consent — ANSWERED, and built at milestone 7
 

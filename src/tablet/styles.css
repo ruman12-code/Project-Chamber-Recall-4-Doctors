@@ -109,6 +109,31 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
   -webkit-user-select: text; user-select: text;
 }
 
+/* Who is holding the tablet. Names are big because this is tapped
+   with a thumb at a desk, not clicked with a mouse. */
+.pair .lede { font-size: 17px; line-height: 1.4; color: var(--muted); margin: 0 0 16px; }
+.desk-people { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.desk-person {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 13px 16px; text-align: left; font: inherit;
+  background: #fff; color: var(--ink); border: 3px solid var(--line); border-radius: 12px;
+}
+.desk-person.on { border-color: var(--ink); background: #f2f5ff; }
+.desk-person .n { font-size: 19px; font-weight: 800; line-height: 1.2; }
+.desk-person .r { font-size: 15px; color: var(--muted); }
+.desk-pin { display: flex; flex-direction: column; gap: 10px; }
+.desk-pin label { font-size: 18px; font-weight: 700; }
+.desk-pin input {
+  width: 100%; font: inherit; font-size: 30px; font-weight: 800; letter-spacing: 10px;
+  text-align: center; padding: 12px; border: 3px solid var(--line); border-radius: 12px;
+}
+.pair-problem {
+  margin-top: 18px; border: 3px solid var(--alarm); background: #fdeceb; border-radius: 12px;
+  padding: 14px 18px; display: flex; flex-direction: column; gap: 6px;
+}
+.pair-problem b { font-size: 19px; }
+.pair-problem span { font-size: 16px; line-height: 1.4; }
+
 .notice { border: 3px solid var(--warn-line); background: var(--warn-bg); border-radius: 12px; padding: 14px 18px; }
 .notice.bad { border-color: var(--alarm); background: #fdeceb; }
 .notice .t { font-size: 20px; font-weight: 800; margin-bottom: 4px; }

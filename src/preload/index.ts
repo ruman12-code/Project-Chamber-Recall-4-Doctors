@@ -20,7 +20,8 @@ import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertVi
 import type { RecallCard } from '../shared/recall';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 import type { QueueView, VisitStatus } from '../shared/queue';
-import type { TabletStatus } from '../shared/ipc';
+import type { TabletStatus, AuthState, SignedInView, StaffView } from '../shared/ipc';
+import type { ChamberView, VitalsInput, EncounterDraft, MedicationInput, VitalsQuestion } from '../shared/clinical';
 
 contextBridge.exposeInMainWorld('chamberRecall', {
   status: (): Promise<Result<{ status: InstallationStatus }>> =>
@@ -75,4 +76,38 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('laptop:role'),
   setLaptopRole: (role: string): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('laptop:setRole', role),
+
+  whoIsSignedIn: (): Promise<Result<{ auth: AuthState }>> =>
+    ipcRenderer.invoke('auth:who'),
+  signInList: (): Promise<Result<{ people: StaffView[] }>> =>
+    ipcRenderer.invoke('auth:list'),
+  signIn: (userId: string, pin: string): Promise<Result<{ signedIn: SignedInView }>> =>
+    ipcRenderer.invoke('auth:signIn', userId, pin),
+  signOut: (): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('auth:signOut'),
+  staffList: (): Promise<Result<{ people: StaffView[] }>> =>
+    ipcRenderer.invoke('auth:staff'),
+  staffAdd: (displayName: string, role: string, pin: string): Promise<Result<{ id: string }>> =>
+    ipcRenderer.invoke('auth:staffAdd', displayName, role, pin),
+  staffSetPin: (userId: string, pin: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('auth:staffSetPin', userId, pin),
+  staffSetActive: (userId: string, active: boolean): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('auth:staffSetActive', userId, active),
+
+  chamberOpen: (visitId: string): Promise<Result<{ view: ChamberView }>> =>
+    ipcRenderer.invoke('chamber:open', visitId),
+  chamberView: (visitId: string): Promise<Result<{ view: ChamberView }>> =>
+    ipcRenderer.invoke('chamber:view', visitId),
+  vitalsSave: (visitId: string, input: VitalsInput): Promise<Result<{ questions: VitalsQuestion[] }>> =>
+    ipcRenderer.invoke('chamber:vitals', visitId, input),
+  encounterSaveDraft: (encounterId: string, draft: EncounterDraft): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('chamber:draft', encounterId, draft),
+  encounterMedications: (encounterId: string, lines: MedicationInput[]): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('chamber:medications', encounterId, lines),
+  encounterInvestigations: (encounterId: string, names: string[]): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('chamber:investigations', encounterId, names),
+  encounterConfirm: (encounterId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('chamber:confirm', encounterId),
+  encounterUnconfirm: (encounterId: string, reason: string | null): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('chamber:unconfirm', encounterId, reason),
 });

@@ -185,7 +185,11 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .rc-gap b { font-weight: 800; }
 
 /* 2 - who this is. */
-.rc-id { display: flex; align-items: baseline; gap: 14px; padding: 0 4px; }
+/* One line, always. The identity of the patient in front of the
+   doctor is not allowed to reflow because a button was added. */
+.rc-id { display: flex; align-items: baseline; gap: 12px; padding: 0 4px; }
+.rc-id .name, .rc-id .name-alt, .rc-id .facts { white-space: nowrap; }
+.rc-id .right span { white-space: nowrap; }
 .rc-id .name { font-size: 25px; font-weight: 800; line-height: 1.1; }
 .rc-id .name-alt { font-size: 15px; color: var(--muted); font-weight: 600; }
 .rc-id .facts { font-size: 15px; font-weight: 600; }
@@ -495,7 +499,10 @@ table.vitals th, table.vitals td { padding: 1px 5px; }
 .qrow .waited { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .qrow .waited small { display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
 .qrow .waited.long { color: #8a5a00; }
-.qrow .acts { display: flex; gap: 6px; justify-content: flex-end; }
+/* The in-chamber row carries one more button than the rest (Record).
+   It is one row at a time and it is the row being acted on, so it is
+   allowed to be taller rather than squeezing every other row. */
+.qrow .acts { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
 .qrow .acts button { margin: 0; padding: 10px 14px; font-size: 14px; min-height: 44px; white-space: nowrap; }
 .qrow .nudge { display: flex; flex-direction: column; gap: 3px; }
 .qrow .nudge button { margin: 0; padding: 0; width: 38px; height: 21px; font-size: 12px; line-height: 1; }
@@ -537,3 +544,114 @@ table.vitals th, table.vitals td { padding: 1px 5px; }
 .consent-line.ok { background: #eef7f0; color: #1d6b2f; border: 1px solid #b6d6bd; }
 .consent-line.warn { background: var(--demo-bg); color: #6b4708; border: 1px solid #d9a441; }
 .consent-line.bad { background: var(--alarm-bg); color: var(--alarm); border: 1px solid var(--alarm); }
+
+
+/* ===============================================================
+   SIGNING IN
+   Three or four people who know each other. Tap your name, type
+   four digits. Big targets: this is done twenty times an evening,
+   often with a patient standing in front of the desk.
+   =============================================================== */
+.signin { max-width: 760px; margin: 0 auto; padding: 48px 24px; }
+.signin h1 { margin: 0 0 6px; }
+.si-people { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 26px 0 20px; }
+.si-person {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  margin: 0; padding: 16px 18px; text-align: left;
+  background: var(--paper); color: var(--ink); border: 2px solid var(--line); border-radius: 8px;
+}
+.si-person:hover { border-color: var(--ink); }
+.si-person.on { border-color: #2c5fd1; outline: 3px solid rgba(44, 95, 209, 0.25); }
+.si-person .n { font-size: 18px; font-weight: 700; }
+.si-person .r { font-size: 12.5px; color: var(--muted); }
+.si-pin { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.si-pin label { font-size: 16px; font-weight: 600; }
+.si-pin input {
+  font-size: 26px; letter-spacing: 8px; width: 190px; padding: 10px 14px; margin: 0;
+  border: 2px solid var(--line); border-radius: 6px; text-align: center;
+}
+.si-pin button { margin: 0; }
+.staff-list { list-style: none; padding: 0; margin: 0 0 14px; }
+.staff-list li { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.staff-list li:last-child { border-bottom: none; }
+.staff-list .warn { color: #8a5a00; font-weight: 600; }
+
+/* ===============================================================
+   THE CHAMBER
+   One screen, no tabs, everything saving as it is typed. The
+   patient is in the room; the doctor should be looking at them,
+   not hunting for a Save button.
+   =============================================================== */
+.chamber {
+  position: fixed; inset: 0; display: flex; flex-direction: column; gap: 7px;
+  padding: 8px 10px; overflow: hidden; background: var(--page);
+}
+.ch-head { display: flex; align-items: baseline; gap: 12px; padding: 0 4px; }
+.ch-head .name { font-size: 23px; font-weight: 800; }
+.ch-head .name-alt { font-size: 14px; color: var(--muted); font-weight: 600; }
+.ch-head .facts { font-size: 14px; font-weight: 600; }
+.ch-head .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.ch-head button { margin: 0; padding: 7px 14px; font-size: 13px; }
+.ch-save { font-size: 12px; color: var(--muted); font-weight: 600; }
+.ch-save.ok { color: #1c6b3a; }
+.ch-save.signed { color: #1c6b3a; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+.ch-signed {
+  background: #eaf5ee; border: 1px solid #1c6b3a; color: #14512c;
+  border-radius: 6px; padding: 7px 12px; font-size: 13px; line-height: 1.4;
+}
+.ch-body { flex: 1; display: grid; grid-template-columns: 27fr 38fr 35fr; gap: 8px; min-height: 0; }
+.ch-col { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.chamber .panel { overflow: hidden; }
+.chamber .q { margin-bottom: 8px; }
+.chamber .k {
+  display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--muted); font-weight: 700; margin-bottom: 2px;
+}
+.chamber input[type="text"], .chamber textarea, .chamber select {
+  width: 100%; margin: 0; font: inherit; font-size: 14px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 5px; background: #fff;
+}
+.chamber textarea { resize: vertical; line-height: 1.35; }
+.chamber input.big, .chamber textarea.big { font-size: 16px; font-weight: 600; }
+.chamber input:read-only, .chamber textarea:read-only { background: #f4f5f7; color: #444; }
+/* The follow-up box only. Scoped, because an unscoped rule also hit
+   the "days" box in every prescription line and pushed the whole
+   prescription into a horizontal scrollbar. */
+.chamber .q input.days { width: 90px; }
+.chamber .last-time {
+  font-size: 12px; color: var(--muted); background: #f4f5f7; border-radius: 4px;
+  padding: 4px 7px; margin: -4px 0 8px; line-height: 1.35;
+}
+
+.vt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
+.vt .k span { text-transform: none; letter-spacing: 0; margin-left: 4px; opacity: 0.8; }
+.vt input { text-align: right; font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 700; }
+.vt-temp { margin-top: 9px; }
+.vt-temp .row { display: flex; gap: 6px; align-items: center; }
+.vt-temp input { text-align: right; font-size: 15px; font-weight: 700; }
+.vt-temp .units { display: flex; gap: 3px; }
+.vt-temp .unit {
+  margin: 0; padding: 6px 9px; font-size: 13px; font-weight: 700;
+  background: #fff; color: var(--muted); border: 1px solid var(--line);
+}
+.vt-temp .unit.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.vt-temp .echo { font-size: 12px; color: #1c6b3a; font-weight: 700; margin-top: 3px; }
+.ask, .vt-temp .ask {
+  font-size: 12px; line-height: 1.35; color: #6b4708;
+  background: var(--demo-bg); border: 1px solid #d9a441; border-radius: 4px;
+  padding: 5px 7px; margin-top: 4px;
+}
+.vt-questions { margin-top: 8px; }
+.chamber #vnotes { margin-top: 2px; }
+
+.rx-row { display: grid; grid-template-columns: minmax(0, 1fr) 54px 48px 58px 40px 20px; gap: 3px; margin-bottom: 4px; }
+/* Without min-width an input keeps its default size and pushes the
+   whole row into a horizontal scrollbar. */
+.rx-row input { width: 100%; font-size: 12.5px; padding: 5px 6px; min-width: 0; }
+.rx-row input.drug { font-weight: 700; }
+.rx-row .tiny { margin: 0; padding: 0; width: 20px; font-size: 13px; line-height: 1; }
+button.small { margin: 6px 0 0; padding: 6px 10px; font-size: 12px; }
+
+.ch-foot { flex: none; display: flex; align-items: center; gap: 12px; padding: 0 4px; }
+.ch-foot button { margin: 0; }
+.ch-foot .note { font-size: 12.5px; color: var(--muted); }

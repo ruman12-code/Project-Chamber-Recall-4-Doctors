@@ -12,6 +12,8 @@ import { PairingDesk, normalisePairingCode } from '../src/main/server/pairing';
 import { tempDir } from './helpers';
 
 import { unassignedActor } from '../src/main/db/users';
+import { addStaff } from '../src/main/auth/staff';
+import { resetSignInAttempts } from '../src/main/auth/session';
 
 // Deliberately the SAME actor the running application uses, so this
 // test exercises the path the front desk screen actually takes.
@@ -268,5 +270,103 @@ describe('the pairing code', () => {
     const row = db.prepare(`SELECT count(*) AS n FROM audit_log WHERE action = 'tablet_pairing_failed'`).get() as { n: number };
     assert.equal(row.n, 1);
     db.close(); t.cleanup();
+  });
+});
+
+/**
+ * Who is holding the tablet.
+ *
+ * Pairing says a tablet may talk to the laptop. It says nothing about
+ * which assistant is using it, and that is what goes into the record
+ * beside every answer a patient gives. So once anybody has been set up
+ * with a PIN, a tablet nobody has signed in on cannot write.
+ */
+describe('signing in at the front desk', () => {
+  let db: Db; let cleanup: () => void; let server: RunningServer; let base: string;
+  let token = ''; let visitId = ''; let deskId = '';
+
+  before(async () => {
+    const t = tempDir();
+    cleanup = t.cleanup;
+    db = provision(t.dir, 'passphrase', 'demo').db;
+    db.prepare('INSERT INTO chamber (id, name, created_at) VALUES (?, ?, ?)').run('ch-a', 'Test Chamber', nowIso());
+    setActiveChamber(db, 'ch-a');
+
+    const doctorId = addStaff(db, { displayName: 'Dr Ashraful', role: 'doctor', pin: '4021' }, { id: null, role: 'system' });
+    deskId = addStaff(db, { displayName: 'Biplob', role: 'front_desk', pin: '6172' }, { id: doctorId, role: 'doctor' });
+    resetSignInAttempts();
+
+    const patientId = registerPatient(db, { fullNameBn: 'পরীক্ষা', fullNameEn: 'Test', phone: '01712222222',
+      dob: null, approxAgeYears: 30, sex: 'female', addressFreeText: null }, { id: deskId, role: 'front_desk' });
+    visitId = registerArrival(db, patientId, 'ch-a', { id: deskId, role: 'front_desk' }).visitId;
+
+    server = await startTabletServer({ db, dataDir: t.dir, webRoot: WEB_ROOT, port: 0 });
+    base = `http://127.0.0.1:${server.port}`;
+
+    const paired = await fetch(`${base}/api/pair`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code: server.pairingCode, label: 'desk tablet' }),
+    });
+    token = String(((await paired.json()) as { token: string }).token);
+  });
+  after(async () => { await server.close(); db.close(); cleanup(); });
+
+  const post = async (path: string, body: unknown) => {
+    const response = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-chamber-token': token },
+      body: JSON.stringify(body ?? {}),
+    });
+    return { status: response.status, body: await response.json() as Record<string, unknown> };
+  };
+  const session = async () => {
+    const response = await fetch(`${base}/api/session`, { headers: { 'x-chamber-token': token } });
+    return await response.json() as Record<string, unknown>;
+  };
+
+  test('the tablet is told who may sign in, and never anything to sign in with', async () => {
+    const body = await session();
+    const people = body.people as Array<Record<string, unknown>>;
+    assert.equal(people.length, 2);
+    const raw = JSON.stringify(body);
+    assert.ok(!raw.includes('pin_hash') && !raw.includes('pin_salt') && !raw.includes('6172'),
+      'nothing that could be used to sign in as somebody may cross the wifi');
+  });
+
+  test('a tablet nobody has signed in on cannot write', async () => {
+    const result = await post('/api/intake/start', { visitId });
+    assert.equal(result.status, 401);
+    assert.equal(result.body.needsSignIn, true);
+    assert.match(String(result.body.whatToDo), /nothing has been lost/i);
+  });
+
+  test('a wrong PIN does not sign anybody in', async () => {
+    const result = await post('/api/signin', { userId: deskId, pin: '0001' });
+    assert.equal(result.status, 401);
+    assert.equal((await session()).signedIn, null);
+  });
+
+  test('the right PIN does, and the laptop remembers which tablet', async () => {
+    resetSignInAttempts();
+    const result = await post('/api/signin', { userId: deskId, pin: '6172' });
+    assert.equal(result.status, 200);
+    const who = (await session()).signedIn as { displayName: string };
+    assert.equal(who.displayName, 'Biplob');
+  });
+
+  test('and what the patient says is recorded against that person by name', async () => {
+    const started = await post('/api/intake/start', { visitId });
+    assert.equal(started.status, 200);
+    const row = db.prepare(
+      `SELECT u.display_name AS name FROM intake i JOIN app_user u ON u.id = i.recorded_by WHERE i.visit_id = ?`,
+    ).get(visitId) as { name: string };
+    assert.equal(row.name, 'Biplob');
+  });
+
+  test('signing out stops the tablet writing again', async () => {
+    await post('/api/signout', {});
+    const result = await post('/api/intake/answers', { visitId, answers: [] });
+    assert.equal(result.status, 401);
+    assert.equal(result.body.needsSignIn, true);
   });
 });
