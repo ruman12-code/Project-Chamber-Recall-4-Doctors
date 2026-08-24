@@ -45,6 +45,12 @@ import { prescriptionPath } from './paths';
 import type { PrescriptionView, PrescriptionStatus } from '../shared/prescription';
 import { addAttachment, attachmentsFor, attachmentContent, removeAttachment } from './attachments/store';
 import type { AttachmentView as AttachmentRow, AttachmentKind } from './attachments/store';
+import { makeBackup, backupStatus, inspectBackup, type BackupStatus, type BackupResult, type BackupInspection }
+  from './backup/backup';
+import { buildPatientCopy, patientCopyFiles, recordPatientCopyGiven } from './export/patientCopy';
+import type { PatientCopy } from '../shared/patientCopy';
+import { dekOf } from './db/provision';
+import { writeFileSync, mkdirSync } from 'node:fs';
 
 let db: Db | null = null;
 let installDir = '';
@@ -569,6 +575,83 @@ function registerHandlers(): void {
   handle<Record<string, never>>(CHANNELS.attachmentRemove, (id: string, reason: string) => {
     if (db === null) throw new Error('an attachment was removed before the database was unlocked');
     removeAttachment(db, id, reason, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  // ---------------- backups, and a patient's own copy ----------------
+
+  handle<{ status: BackupStatus }>(CHANNELS.backupStatus, () => {
+    if (db === null) throw new Error('the backup status was asked for before the database was unlocked');
+    return { status: backupStatus(db) };
+  });
+
+  handleAsync<{ result: BackupResult | null }>(CHANNELS.backupNow, async () => {
+    if (db === null) throw new Error('a backup was taken before the database was unlocked');
+    const actor = atTheLaptop();
+    const chosen = await dialog.showOpenDialog({
+      title: 'Where should the backup go? Choose a USB stick, not this laptop.',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (chosen.canceled || chosen.filePaths[0] === undefined) return { result: null };
+    return { result: makeBackup(db, installDir, chosen.filePaths[0], actor, dekOf(db)) };
+  });
+
+  handleAsync<{ inspection: BackupInspection | null }>(CHANNELS.backupInspect, async () => {
+    const chosen = await dialog.showOpenDialog({
+      title: 'Which backup folder should be checked?',
+      properties: ['openDirectory'],
+    });
+    if (chosen.canceled || chosen.filePaths[0] === undefined) return { inspection: null };
+    return { inspection: inspectBackup(chosen.filePaths[0]) };
+  });
+
+  handle<{ copy: PatientCopy }>(CHANNELS.patientCopyView, (patientId: string) => {
+    if (db === null) throw new Error('a patient copy was built before the database was unlocked');
+    requireClinicalRole(atTheLaptop(), 'give a patient a copy of their record');
+    return { copy: buildPatientCopy(db, patientId) };
+  });
+
+  handleAsync<{ folder: string | null; papers: number }>(CHANNELS.patientCopyToFile, async (patientId: string) => {
+    if (db === null) throw new Error('a patient copy was written before the database was unlocked');
+    const actor = atTheLaptop();
+    requireClinicalRole(actor, 'give a patient a copy of their record');
+
+    const chosen = await dialog.showOpenDialog({
+      title: 'Where should the copy be written?',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (chosen.canceled || chosen.filePaths[0] === undefined) return { folder: null, papers: 0 };
+
+    const copy = buildPatientCopy(db, patientId);
+    const name = (copy.patient.nameEn ?? copy.patient.nameBn ?? 'patient').replace(/[^A-Za-z0-9]+/g, '-').slice(0, 30);
+    const folder = join(chosen.filePaths[0], `record-${name}-${copy.madeAt.slice(0, 10)}`);
+    mkdirSync(folder, { recursive: true });
+
+    writeFileSync(join(folder, 'record.json'), JSON.stringify(copy, null, 2), 'utf8');
+    const files = patientCopyFiles(db, copy);
+    for (const file of files) writeFileSync(join(folder, file.name), file.content);
+    writeFileSync(join(folder, 'README.txt'),
+      [
+        'YOUR RECORD FROM THIS CHAMBER',
+        '',
+        'record.json holds everything this chamber has recorded about you:',
+        'every visit, what you told the front desk, what was measured, what',
+        'the doctor wrote, what was prescribed and what was ordered.',
+        '',
+        'The picture files are photographs of papers you brought in.',
+        '',
+        'This copy is not encrypted, because it is yours to keep and to show',
+        'to whoever you choose. Anybody who has this folder can read it.',
+        `Made on ${copy.madeAt.slice(0, 10)}.`,
+      ].join('\n'), 'utf8');
+
+    recordPatientCopyGiven(db, patientId, 'file', actor);
+    return { folder, papers: files.length };
+  });
+
+  handle<Record<string, never>>(CHANNELS.patientCopyPrinted, (patientId: string) => {
+    if (db === null) throw new Error('a patient copy was printed before the database was unlocked');
+    recordPatientCopyGiven(db, patientId, 'printed', atTheLaptop());
     return {} as Record<string, never>;
   });
 

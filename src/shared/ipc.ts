@@ -155,4 +155,11 @@ export const CHANNELS = {
   attachmentContent: 'attachments:content',
   attachmentAdd: 'attachments:add',
   attachmentRemove: 'attachments:remove',
+  // Backups, and a patient's own copy of their record.
+  backupStatus: 'backup:status',
+  backupNow: 'backup:now',
+  backupInspect: 'backup:inspect',
+  patientCopyView: 'export:patientCopy',
+  patientCopyToFile: 'export:patientCopyFile',
+  patientCopyPrinted: 'export:patientCopyPrinted',
 } as const;

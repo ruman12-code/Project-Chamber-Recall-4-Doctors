@@ -1045,6 +1045,80 @@ paper, filed under a heading a person chose.
 
 ---
 
+## Milestone 12: backups, and a patient's own copy
+
+### 75. A copy nobody has ever opened is not a backup
+
+So the copy is opened, integrity-checked, and its row counts compared with
+the records it came from, before the program says a word about success. If
+any of that fails it says plainly that files were copied but there is no
+backup, and names the folder so the doctor can try a different stick.
+
+This is the whole difference between a backup and a habit of copying files.
+Everybody who has lost data had been copying files.
+
+### 76. The date is on the main screen, and the card changes colour
+
+A backup taken three months ago is a backup that has already failed. The
+main screen says when the last one was, in days, and the card turns amber
+after three and red after seven — and red before there has ever been one.
+
+Nothing about a backup is technical. What makes it happen is being asked
+every evening by the screen you already have open.
+
+### 77. How the copy is taken, and why it is safe
+
+The WAL is checkpointed into the database file and the file is copied byte
+for byte. That is only safe if nothing writes in between, and nothing can:
+better-sqlite3 is synchronous, and this whole program — including the
+server the tablet talks to — runs on one thread. Between the checkpoint and
+the end of the copy there is no point at which any other code runs.
+
+A byte copy also means the backup can be checksummed against what was
+written, which is what catches a USB stick that has quietly gone bad in a
+drawer. "Check a backup" re-reads that checksum and says so.
+
+### 78. The backup folder explains itself to somebody who has nothing
+
+It carries HOW-TO-RESTORE.txt in plain words, because the person reading it
+may have a dead laptop, no software, and no idea what any of this is. It
+says what the folder is, that the stick is as sensitive as the laptop, that
+nothing should be deleted, and that a lost passphrase AND a lost recovery
+key mean the records cannot be opened by anybody — including whoever wrote
+this software.
+
+### 79. Restoring never deletes what is already there
+
+The records that are being replaced are renamed aside and left on the disk,
+and a broken backup is refused before anything is touched. A restore is
+done in a hurry by somebody who has already lost something; it is the one
+operation here that could destroy records rather than protect them.
+
+### 80. The copy a patient can ask for, because we promised it
+
+The consent wording says "you can ask for a copy of your information at any
+time", and the Personal Data Protection Act requires it. A promise that
+takes ten minutes at a busy desk is a promise that will not be kept, so it
+is one screen and one button.
+
+There are two forms, and they differ on purpose:
+
+- **The file** is the complete record — everything held about them,
+  including the front desk screening and every warning it raised, with the
+  photographs of their own papers handed back as picture files. That is what
+  the right of access means and it is answered in full.
+- **The printed sheet** is a summary, and deliberately leaves the screening
+  warnings off. A warning is an instruction to an assistant to fetch the
+  doctor sooner; printing it for the patient turns it into a statement about
+  how ill they are, which this software does not make. The sheet says on it
+  that a complete copy can be given as a file, so nothing is hidden — it is
+  put in the form where it means what it says.
+
+The file is not encrypted, and the note inside it says so: it is theirs to
+keep and to show to whoever they choose.
+
+---
+
 ## Two bugs from milestone 7
 
 **The tablet crashed on the first tap after the update.** It keeps a copy of

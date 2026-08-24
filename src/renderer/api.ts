@@ -6,6 +6,8 @@ import type { TabletStatus, AuthState, SignedInView, StaffView } from '../shared
 import type { ChamberView, VitalsInput, VitalsQuestion, EncounterDraft, MedicationInput } from '../shared/clinical';
 import type { PrescriptionView, PrescriptionStatus } from '../shared/prescription';
 import type { AttachmentView, AttachmentKind } from '../shared/attachments';
+import type { PatientCopy } from '../shared/patientCopy';
+import type { BackupStatus, BackupResult, BackupInspection } from '../shared/backup';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -57,6 +59,12 @@ interface Api {
   attachmentContent(id: string): Promise<Result<{ dataUrl: string; view: AttachmentView }>>;
   attachmentAdd(patientId: string, visitId: string | null, kind: AttachmentKind, caption: string | null): Promise<Result<{ added: number }>>;
   attachmentRemove(id: string, reason: string): Promise<Result<Record<string, never>>>;
+  backupStatus(): Promise<Result<{ status: BackupStatus }>>;
+  backupNow(): Promise<Result<{ result: BackupResult | null }>>;
+  backupInspect(): Promise<Result<{ inspection: BackupInspection | null }>>;
+  patientCopyView(patientId: string): Promise<Result<{ copy: PatientCopy }>>;
+  patientCopyToFile(patientId: string): Promise<Result<{ folder: string | null; papers: number }>>;
+  patientCopyPrinted(patientId: string): Promise<Result<Record<string, never>>>;
 }
 
 declare global {
@@ -127,6 +135,12 @@ export const api: Api = {
   attachmentContent: (id) => call((a) => a.attachmentContent(id)),
   attachmentAdd: (patientId, visitId, kind, caption) => call((a) => a.attachmentAdd(patientId, visitId, kind, caption)),
   attachmentRemove: (id, reason) => call((a) => a.attachmentRemove(id, reason)),
+  backupStatus: () => call((a) => a.backupStatus()),
+  backupNow: () => call((a) => a.backupNow()),
+  backupInspect: () => call((a) => a.backupInspect()),
+  patientCopyView: (patientId) => call((a) => a.patientCopyView(patientId)),
+  patientCopyToFile: (patientId) => call((a) => a.patientCopyToFile(patientId)),
+  patientCopyPrinted: (patientId) => call((a) => a.patientCopyPrinted(patientId)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

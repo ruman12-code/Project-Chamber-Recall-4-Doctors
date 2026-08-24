@@ -779,3 +779,45 @@ button.small { margin: 6px 0 0; padding: 6px 10px; font-size: 12px; }
 .att-actions { display: flex; align-items: center; gap: 12px; }
 .att-actions .muted { font-size: 12px; color: #b9bec6; }
 .att-actions button { margin: 0; padding: 6px 12px; font-size: 12.5px; }
+
+
+/* ===============================================================
+   BACKUPS
+   The date is the point of this card, so the card itself changes
+   colour rather than putting a small warning somewhere in it.
+   =============================================================== */
+.card.backup .backup-when { font-size: 17px; font-weight: 700; margin: 0 0 10px; }
+.card.backup.due { border-color: #d9a441; background: var(--demo-bg); }
+.card.backup.due .backup-when { color: #6b4708; }
+.card.backup.overdue, .card.backup.never { border-color: var(--alarm); background: var(--alarm-bg); }
+.card.backup.overdue .backup-when, .card.backup.never .backup-when { color: var(--alarm); }
+.card.backup .backup-note {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
+  padding: 9px 12px; font-size: 14px; line-height: 1.4; word-break: break-word;
+}
+
+/* ===============================================================
+   A PATIENT'S OWN COPY
+   A4, because it is a document somebody keeps rather than a
+   prescription pad slip.
+   =============================================================== */
+.pc-head { display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: 1.5pt solid #000; padding-bottom: 3mm; margin-bottom: 3mm; }
+.pc-head .t { font-size: 16pt; font-weight: 800; }
+.pc-head .s { font-size: 12pt; }
+.pc-head .when { font-size: 9pt; }
+.pc-who { display: flex; flex-direction: column; gap: 1mm; margin-bottom: 5mm; font-size: 10.5pt; }
+.pc-who .n { font-size: 14pt; font-weight: 800; }
+.pc-who .n .alt { font-size: 10pt; font-weight: 600; }
+.pc-who .dim, .sheet .dim { color: #555; }
+.pc-none { font-size: 11pt; font-style: italic; }
+.pc-visit { border-top: 0.5pt solid #999; padding: 3mm 0; break-inside: avoid; }
+.pc-when { font-size: 11.5pt; font-weight: 800; margin-bottom: 1.5mm; }
+.pc-block { margin-bottom: 2.5mm; }
+.pc-block .k { font-size: 8pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5pt; color: #444; }
+.pc-line { display: flex; gap: 4mm; font-size: 10pt; line-height: 1.35; }
+.pc-line .q { flex: none; width: 42mm; color: #444; }
+.pc-vitals { font-size: 10pt; }
+.pc-med { font-size: 10.5pt; line-height: 1.4; }
+.pc-foot { margin-top: 6mm; padding-top: 3mm; border-top: 0.5pt solid #999; font-size: 9pt; line-height: 1.45; }
+.pc-foot .bn { margin-top: 1.5mm; }

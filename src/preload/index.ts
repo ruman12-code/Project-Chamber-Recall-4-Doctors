@@ -24,6 +24,8 @@ import type { TabletStatus, AuthState, SignedInView, StaffView } from '../shared
 import type { ChamberView, VitalsInput, EncounterDraft, MedicationInput, VitalsQuestion } from '../shared/clinical';
 import type { PrescriptionView, PrescriptionStatus } from '../shared/prescription';
 import type { AttachmentView, AttachmentKind } from '../shared/attachments';
+import type { PatientCopy } from '../shared/patientCopy';
+import type { BackupStatus, BackupResult, BackupInspection } from '../shared/backup';
 
 contextBridge.exposeInMainWorld('chamberRecall', {
   status: (): Promise<Result<{ status: InstallationStatus }>> =>
@@ -128,4 +130,17 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('attachments:add', patientId, visitId, kind, caption),
   attachmentRemove: (id: string, reason: string): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('attachments:remove', id, reason),
+
+  backupStatus: (): Promise<Result<{ status: BackupStatus }>> =>
+    ipcRenderer.invoke('backup:status'),
+  backupNow: (): Promise<Result<{ result: BackupResult | null }>> =>
+    ipcRenderer.invoke('backup:now'),
+  backupInspect: (): Promise<Result<{ inspection: BackupInspection | null }>> =>
+    ipcRenderer.invoke('backup:inspect'),
+  patientCopyView: (patientId: string): Promise<Result<{ copy: PatientCopy }>> =>
+    ipcRenderer.invoke('export:patientCopy', patientId),
+  patientCopyToFile: (patientId: string): Promise<Result<{ folder: string | null; papers: number }>> =>
+    ipcRenderer.invoke('export:patientCopyFile', patientId),
+  patientCopyPrinted: (patientId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('export:patientCopyPrinted', patientId),
 });

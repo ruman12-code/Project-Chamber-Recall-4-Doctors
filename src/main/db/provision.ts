@@ -51,6 +51,7 @@ export function provision(dir: string, passphrase: string, mode: DataMode): Prov
   writeFileAtomic(keystorePath(dir), JSON.stringify(keystore, null, 2));
 
   const db = openEncrypted(dbPath(dir), dekHex);
+  keyOf.set(db, dekHex);
   if (!isEmptyDatabase(db)) {
     db.close();
     throw new Error(`A database already exists at ${dbPath(dir)}`);
@@ -111,8 +112,28 @@ function readKeystoreFile(dir: string) {
  * had never been added to a database created before that migration
  * existed.
  */
+/**
+ * The key each open database was opened with.
+ *
+ * Held in a WeakMap rather than a variable so it disappears when the
+ * connection does. This is not a new exposure: the same key is already
+ * inside the SQLite connection for as long as the records are open.
+ * It is kept because verifying a backup means opening the copy, and
+ * opening the copy needs the key the original was written with.
+ */
+const keyOf = new WeakMap<Db, string>();
+
+export function dekOf(db: Db): string {
+  const dek = keyOf.get(db);
+  if (dek === undefined) {
+    throw new Error('the key for this database is not known to this process');
+  }
+  return dek;
+}
+
 function openAndUpgrade(dir: string, dekHex: string): Db {
   const db = openEncrypted(dbPath(dir), dekHex);
+  keyOf.set(db, dekHex);
   try {
     migrate(db);
   } catch (cause) {

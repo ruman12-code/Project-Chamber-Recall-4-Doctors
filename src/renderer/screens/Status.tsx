@@ -9,11 +9,13 @@ import { ChamberScreen } from './Chamber';
 import { SignIn, SetUpPeople } from './SignIn';
 import { PrescriptionSheet } from './PrescriptionSheet';
 import { Attachments } from './Attachments';
+import { PatientCopySheet } from './PatientCopySheet';
 import { roleLabel, type Role } from '../../shared/roles';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView, TabletStatus } from '../../shared/ipc';
 import type { RecallCard } from '../../shared/recall';
 import type { AuthState } from '../../shared/ipc';
 import type { ChamberView } from '../../shared/clinical';
+import type { BackupStatus } from '../../shared/backup';
 
 const LABELS: Record<string, string> = {
   patient: 'Patients',
@@ -35,10 +37,10 @@ const LABELS: Record<string, string> = {
 };
 
 /**
- * Milestone 1 only. This screen exists to prove the foundations are
- * real: the database opened, the schema is there, the seeded history
- * is the right size, and the audit log is recording. It is scaffolding
- * for the build, not a screen anyone will use in a chamber.
+ * The screen the program opens on: what is in the records, how to
+ * reach each part of the chamber's evening, and - the one thing on
+ * here that is nobody's job unless the screen makes it somebody's -
+ * when this was last backed up.
  */
 export function Status() {
   const [summary, setSummary] = useState<DatabaseSummary | null>(null);
@@ -54,6 +56,17 @@ export function Status() {
   const [printingVisitId, setPrintingVisitId] = useState<string | null>(null);
   const [papersFor, setPapersFor] = useState<
     { patientId: string; visitId: string | null; name: string } | null>(null);
+  const [backup, setBackup] = useState<BackupStatus | null>(null);
+  const [backupNote, setBackupNote] = useState<string | null>(null);
+  const [copyFor, setCopyFor] = useState<string | null>(null);
+  const [findingForCopy, setFindingForCopy] = useState(false);
+
+  const readBackup = useCallback(async () => {
+    const { value, failure } = unwrap(await api.backupStatus());
+    if (failure) { setFailure(failure); return; }
+    setBackup(value!.status);
+  }, []);
+  useEffect(() => { void readBackup(); }, [readBackup]);
 
   const readAuth = useCallback(async () => {
     const { value, failure } = unwrap(await api.whoIsSignedIn());
@@ -193,6 +206,16 @@ export function Status() {
     return <SignIn demo={summary.dataMode === 'demo'} onSignedIn={readAuth} />;
   }
 
+  if (copyFor !== null) {
+    return <PatientCopySheet patientId={copyFor} onClose={() => setCopyFor(null)} />;
+  }
+  if (findingForCopy) {
+    return <PatientSearch
+      onClose={() => setFindingForCopy(false)}
+      pickLabel="Give them their copy"
+      onPick={(patient) => { setFindingForCopy(false); setCopyFor(patient.id); }} />;
+  }
+
   // The papers and the prescription both sit above whatever is open
   // underneath, because both are something being looked at rather than
   // a screen being worked in. Closing comes back to what was there.
@@ -316,11 +339,40 @@ export function Status() {
         if (value) setTablet(value.status);
       }} />}
 
+      <BackupCard
+        status={backup}
+        note={backupNote}
+        canGiveCopies={role !== 'front_desk'}
+        onBackup={() => {
+          void (async () => {
+            setBackupNote('Copying and checking…');
+            const { value, failure } = unwrap(await api.backupNow());
+            if (failure) { setBackupNote(null); setFailure(failure); return; }
+            if (value!.result === null) { setBackupNote(null); return; }
+            setBackupNote(`Backed up and checked: ${value!.result.folder}`);
+            await readBackup();
+          })();
+        }}
+        onCheck={() => {
+          void (async () => {
+            const { value, failure } = unwrap(await api.backupInspect());
+            if (failure) { setFailure(failure); return; }
+            const inspection = value!.inspection;
+            if (inspection === null) return;
+            setBackupNote(inspection.problems.length === 0
+              ? `That backup is sound: taken ${inspection.manifest?.takenAt.slice(0, 16).replace('T', ' ')}, `
+                + `${inspection.manifest?.counts.patient ?? 0} patients, records file unchanged since.`
+              : `That backup has problems — ${inspection.problems.join(' ')}`);
+          })();
+        }}
+        onGiveCopy={() => setFindingForCopy(true)}
+      />
+
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Today's list</h2>
         <p>
-          Milestone 5: the serial register and the live queue. Give arriving patients their
-          number, see who is waiting and for how long, and change who is seen next.
+          The serial register and the live queue: who has arrived, who is waiting and for how
+          long, and who is seen next. The front desk gives out the numbers on the tablet.
         </p>
         <button onClick={() => setShowingQueue(true)}>Open today's list</button>
       </div>
@@ -328,8 +380,8 @@ export function Status() {
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Patients</h2>
         <p>
-          Milestone 4: search by phone or name, register someone new, and put duplicate records
-          together. The practice database contains deliberate duplicates to try it on.
+          Search by phone or name, register someone new, and put duplicate records together.
+          The practice database contains deliberate duplicates to try the merge tool on.
         </p>
         <button onClick={() => setFindingPatient(true)}>Find a patient</button>
       </div>
@@ -511,5 +563,53 @@ function RedFlagSection({ status, onShowAlert }: { status: RedFlagStatus; onShow
         </p>
       </div>
     </>
+  );
+}
+
+
+/**
+ * Backups, on the main screen rather than hidden in a settings page.
+ *
+ * A backup taken three months ago is a backup that has already failed,
+ * so the thing this card is really for is the DATE. It goes amber
+ * after three days and red after seven, and it is on the screen the
+ * doctor opens every evening.
+ */
+function BackupCard(
+  { status, note, canGiveCopies, onBackup, onCheck, onGiveCopy }: {
+    status: BackupStatus | null; note: string | null; canGiveCopies: boolean;
+    onBackup: () => void; onCheck: () => void; onGiveCopy: () => void;
+  },
+) {
+  const urgency = status?.urgency ?? 'never';
+  const when = (): string => {
+    if (status === null) return 'reading…';
+    if (status.lastBackupAt === null) return 'This has never been backed up.';
+    const days = status.daysSince ?? 0;
+    const ago = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+    return status.lastBackupOk
+      ? `Last backed up ${ago}, on ${status.lastBackupAt.slice(0, 10)}.`
+      : `The last attempt, ${ago}, could not be read back. There is no backup you can rely on.`;
+  };
+
+  return (
+    <div className={`card backup ${urgency}`}>
+      <h2 style={{ marginTop: 0 }}>Backups</h2>
+      <p className="backup-when">{when()}</p>
+      <p>
+        Everything this chamber knows about its patients is on this one laptop. A backup goes on a
+        USB stick, and it is opened and checked before the program says it worked — a copy nobody
+        has ever read is not a backup. Keep the stick somewhere the laptop is not: it holds the
+        same records and the same locked-up key.
+      </p>
+      {note !== null && <p className="backup-note">{note}</p>}
+      <button onClick={onBackup}>Back up now</button>
+      <button className="secondary" style={{ marginLeft: 8 }} onClick={onCheck}>Check a backup</button>
+      {canGiveCopies && (
+        <button className="secondary" style={{ marginLeft: 8 }} onClick={onGiveCopy}>
+          Give a patient their copy
+        </button>
+      )}
+    </div>
   );
 }

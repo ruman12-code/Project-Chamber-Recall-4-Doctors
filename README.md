@@ -3,11 +3,12 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 11 of 13.** Foundations, the safety layer, patient
+**Status: milestone 12 of 13.** Foundations, the safety layer, patient
 search and merging, the serial register with its live queue, the tablet
 intake, consent, the Recall Card with Confirm and Correct, and — new —
 sign-in for everybody who works here, vitals, the consultation, the
-printed prescription, and photographs of the paper patients bring in.
+printed prescription, photographs of the paper patients bring in, verified
+backups, and the copy of their record a patient can ask for.
 
 **Before any real patient:** the red flag rules and the consent wording
 need approving by the supervising physician, a lawyer in Bangladesh needs
@@ -77,12 +78,20 @@ refuses to take an intake until the consent wording is. See
   doctor looks at them beside the Recall Card. The pictures live inside
   the encrypted database, are never altered, and are never taken for a
   patient who said no.
-- 539 tests covering key custody, the database layer, the practice data,
+- **Backups that are checked.** A copy goes to a USB stick, is opened and
+  read back before the program calls it a backup, and carries plain
+  instructions for putting it back. The main screen says how many days it
+  has been and turns red when that is too many.
+- **A patient's own copy.** Printed as a summary or written out as a
+  complete file with their photographed reports — the thing the consent
+  wording promises and the Personal Data Protection Act requires.
+- 572 tests covering key custody, the database layer, the practice data,
   the rule evaluator, the refuse-to-run guard, the Recall Card, patient
   matching, the merge tool, temperature entry, the register, the queue,
   the question engine, the network server, the offline buffer, confirming
   and correcting an intake, PINs and sign-in, the consultation, and the
-  printed prescription, and photographs of paper.
+  printed prescription, photographs of paper, backups, and a patient's
+  own copy of their record.
 
 ## Running it
 
@@ -128,6 +137,8 @@ src/main/auth/            PINs, who works here, signing in
 src/main/clinical/        vitals, the consultation, and who may write what
 src/main/prescription/    the letterhead, and building the printed sheet
 src/main/attachments/     photographs of the paper a patient brings in
+src/main/backup/          taking a backup, checking one, putting one back
+src/main/export/          the copy of their record a patient can ask for
 config/prescription.yaml  the letterhead, written for the doctor to fill in
 config/red_flags.yaml     the rules template, written for a doctor to edit
 src/main/seed/            the practice data generator
