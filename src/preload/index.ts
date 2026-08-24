@@ -26,6 +26,7 @@ import type { PrescriptionView, PrescriptionStatus } from '../shared/prescriptio
 import type { AttachmentView, AttachmentKind } from '../shared/attachments';
 import type { PatientCopy } from '../shared/patientCopy';
 import type { BackupStatus, BackupResult, BackupInspection } from '../shared/backup';
+import type { PilotReport } from '../shared/pilot';
 
 contextBridge.exposeInMainWorld('chamberRecall', {
   status: (): Promise<Result<{ status: InstallationStatus }>> =>
@@ -143,4 +144,9 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('export:patientCopyFile', patientId),
   patientCopyPrinted: (patientId: string): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('export:patientCopyPrinted', patientId),
+
+  pilotReport: (): Promise<Result<{ report: PilotReport }>> =>
+    ipcRenderer.invoke('report:pilot'),
+  researchExport: (): Promise<Result<{ folder: string | null; patients: number; rows: number; excluded: number }>> =>
+    ipcRenderer.invoke('report:research'),
 });

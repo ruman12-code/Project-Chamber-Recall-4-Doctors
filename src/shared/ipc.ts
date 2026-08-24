@@ -162,4 +162,7 @@ export const CHANNELS = {
   patientCopyView: 'export:patientCopy',
   patientCopyToFile: 'export:patientCopyFile',
   patientCopyPrinted: 'export:patientCopyPrinted',
+  // The pilot report, and the export the research consent was for.
+  pilotReport: 'report:pilot',
+  researchExport: 'report:research',
 } as const;

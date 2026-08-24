@@ -10,6 +10,7 @@ import { resolve } from 'node:path';
 import { provision, isProvisioned } from '../db/provision';
 import { loadRulebookFromDisk } from '../redflags/store';
 import { seedDatabase } from './seed';
+import { loadConsentConfig } from '../consent/config';
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -47,7 +48,15 @@ function main(): void {
     process.exit(1);
   }
 
-  const result = seedDatabase(db, { patientCount, rulebook, onProgress: (m) => console.log(`  ${m}`) });
+  // The consent wording that provision() has just installed. The
+  // practice patients agree (or refuse) against the real version, so
+  // the pilot report and the research export count something true.
+  const consent = loadConsentConfig(dir);
+  const result = seedDatabase(db, {
+    patientCount, rulebook,
+    consentVersion: consent.config?.version ?? null,
+    onProgress: (m) => console.log(`  ${m}`),
+  });
   db.close();
 
   const seconds = ((Date.now() - started) / 1000).toFixed(1);

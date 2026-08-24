@@ -10,6 +10,7 @@ import { SignIn, SetUpPeople } from './SignIn';
 import { PrescriptionSheet } from './PrescriptionSheet';
 import { Attachments } from './Attachments';
 import { PatientCopySheet } from './PatientCopySheet';
+import { PilotReportScreen } from './PilotReportScreen';
 import { roleLabel, type Role } from '../../shared/roles';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView, TabletStatus } from '../../shared/ipc';
 import type { RecallCard } from '../../shared/recall';
@@ -60,6 +61,7 @@ export function Status() {
   const [backupNote, setBackupNote] = useState<string | null>(null);
   const [copyFor, setCopyFor] = useState<string | null>(null);
   const [findingForCopy, setFindingForCopy] = useState(false);
+  const [showingReport, setShowingReport] = useState(false);
 
   const readBackup = useCallback(async () => {
     const { value, failure } = unwrap(await api.backupStatus());
@@ -206,6 +208,9 @@ export function Status() {
     return <SignIn demo={summary.dataMode === 'demo'} onSignedIn={readAuth} />;
   }
 
+  if (showingReport) {
+    return <PilotReportScreen onClose={() => setShowingReport(false)} />;
+  }
   if (copyFor !== null) {
     return <PatientCopySheet patientId={copyFor} onClose={() => setCopyFor(null)} />;
   }
@@ -367,6 +372,19 @@ export function Status() {
         }}
         onGiveCopy={() => setFindingForCopy(true)}
       />
+
+      {role !== 'front_desk' && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>The pilot report</h2>
+          <p>
+            What has actually happened since this started: who was seen, what the questions caught,
+            what was written down, and what did not work. It counts and it does not conclude —
+            whether this is worth carrying on with is a judgement about patients and about a
+            chamber, and the last part of the page is the questions it cannot answer.
+          </p>
+          <button onClick={() => setShowingReport(true)}>Open the pilot report</button>
+        </div>
+      )}
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Today's list</h2>

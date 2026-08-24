@@ -8,6 +8,7 @@ import type { PrescriptionView, PrescriptionStatus } from '../shared/prescriptio
 import type { AttachmentView, AttachmentKind } from '../shared/attachments';
 import type { PatientCopy } from '../shared/patientCopy';
 import type { BackupStatus, BackupResult, BackupInspection } from '../shared/backup';
+import type { PilotReport } from '../shared/pilot';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -65,6 +66,8 @@ interface Api {
   patientCopyView(patientId: string): Promise<Result<{ copy: PatientCopy }>>;
   patientCopyToFile(patientId: string): Promise<Result<{ folder: string | null; papers: number }>>;
   patientCopyPrinted(patientId: string): Promise<Result<Record<string, never>>>;
+  pilotReport(): Promise<Result<{ report: PilotReport }>>;
+  researchExport(): Promise<Result<{ folder: string | null; patients: number; rows: number; excluded: number }>>;
 }
 
 declare global {
@@ -141,6 +144,8 @@ export const api: Api = {
   patientCopyView: (patientId) => call((a) => a.patientCopyView(patientId)),
   patientCopyToFile: (patientId) => call((a) => a.patientCopyToFile(patientId)),
   patientCopyPrinted: (patientId) => call((a) => a.patientCopyPrinted(patientId)),
+  pilotReport: () => call((a) => a.pilotReport()),
+  researchExport: () => call((a) => a.researchExport()),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

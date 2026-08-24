@@ -821,3 +821,40 @@ button.small { margin: 6px 0 0; padding: 6px 10px; font-size: 12px; }
 .pc-med { font-size: 10.5pt; line-height: 1.4; }
 .pc-foot { margin-top: 6mm; padding-top: 3mm; border-top: 0.5pt solid #999; font-size: 9pt; line-height: 1.45; }
 .pc-foot .bn { margin-top: 1.5mm; }
+
+
+/* ===============================================================
+   THE PILOT REPORT
+   A4, printable, and readable by somebody who was not here. The
+   failures are a section near the top, not a footnote.
+   =============================================================== */
+.pr-lede { font-size: 9.5pt; line-height: 1.5; color: #333; margin: 3mm 0 4mm; }
+.pr-demo {
+  border: 1pt solid #d9a441; background: #fdf6e5; color: #6b4708;
+  padding: 2mm 3mm; font-size: 9.5pt; font-weight: 700; margin-bottom: 3mm;
+}
+.pr-block { margin-bottom: 5mm; break-inside: avoid; }
+.pr-block h3 {
+  font-size: 11pt; font-weight: 800; margin: 0 0 2mm;
+  border-bottom: 0.75pt solid #000; padding-bottom: 1mm;
+}
+.pr-row { display: flex; align-items: baseline; gap: 3mm; font-size: 10pt; padding: 0.8mm 0; }
+.pr-row .k { flex: 1; }
+.pr-row .v { font-weight: 800; white-space: nowrap; }
+.pr-row .n { flex: none; width: 52mm; font-size: 8.5pt; color: #555; text-align: right; }
+.pr-none { font-size: 10pt; font-style: italic; }
+.pr-note { font-size: 8.5pt; line-height: 1.45; color: #444; margin: 2mm 0 0; }
+
+.pr-block.gaps h3 { color: var(--alarm); border-color: var(--alarm); }
+.pr-gap { margin-bottom: 2.5mm; }
+.pr-gap .head { font-size: 10.5pt; }
+.pr-gap .head b { font-size: 12pt; }
+.pr-gap .why { font-size: 8.5pt; color: #444; line-height: 1.4; }
+
+.pr-table { width: 100%; border-collapse: collapse; margin: 2mm 0; font-size: 9.5pt; }
+.pr-table th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.4pt;
+  border-bottom: 0.5pt solid #999; padding: 1mm 2mm; }
+.pr-table td { padding: 1mm 2mm; border-bottom: 0.3pt solid #ddd; }
+.pr-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.pr-block.questions ol { margin: 0; padding-left: 6mm; font-size: 10pt; line-height: 1.6; }

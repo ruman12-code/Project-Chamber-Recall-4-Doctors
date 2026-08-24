@@ -36,7 +36,8 @@ import { recordAudit } from '../db/audit';
 import { recordUsage } from '../db/usage';
 import { SeedRefusedError } from '../../shared/errors';
 import type { Rulebook } from '../redflags/rulebook';
-import { screenIntake } from '../redflags/store';
+import { screenIntake, acknowledgeRedFlag } from '../redflags/store';
+import { recordConsent } from '../consent/store';
 import { MALE_GIVEN, MALE_FAMILY, FEMALE_GIVEN, FEMALE_FAMILY, AREAS } from './names';
 import * as V from './demo-vocabulary';
 
@@ -101,6 +102,13 @@ export interface SeedOptions {
   years?: number;
   onProgress?: (message: string) => void;
   /**
+   * The version of the consent wording in force. When given, every
+   * practice patient gets a recorded decision - most agreeing, some
+   * not - through the real consent code, so the pilot report and the
+   * research export have something true to count.
+   */
+  consentVersion?: string | null;
+  /**
    * When given, every seeded intake is screened with the REAL rule
    * evaluator, exactly as a live intake would be. Nothing is faked:
    * the alerts in the practice database are produced by running the
@@ -124,6 +132,8 @@ export interface SeedResult {
   sharedPhoneGroups: number;
   ruleEvaluations: number;
   redFlagsFired: number;
+  redFlagsAcknowledged: number;
+  consentRecorded: number;
   screeningsIncomplete: number;
 }
 
@@ -186,7 +196,7 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
     chambers: 0, users: 0, patients: 0, visits: 0, encounters: 0, vitals: 0,
     medications: 0, investigations: 0, outstandingInvestigations: 0, intakes: 0,
     duplicatePairs: 0, sharedPhoneGroups: 0,
-    ruleEvaluations: 0, redFlagsFired: 0, screeningsIncomplete: 0,
+    ruleEvaluations: 0, redFlagsFired: 0, redFlagsAcknowledged: 0, consentRecorded: 0, screeningsIncomplete: 0,
   };
 
   const insertAll = db.transaction(() => {
@@ -638,6 +648,9 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
   // the first time the evaluator is exercised at realistic volume.
   if (options.rulebook != null) {
     const system = { id: null, role: 'system' as const };
+    const deskUsers = db.prepare(
+      `SELECT id FROM app_user WHERE role = 'front_desk' AND deleted_at IS NULL`,
+    ).all() as Array<{ id: string }>;
     const intakes = db.prepare(
       `SELECT i.id AS intakeId, i.started_at AS startedAt FROM intake i ORDER BY i.started_at`,
     ).all() as Array<{ intakeId: string; startedAt: string }>;
@@ -647,8 +660,65 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
       result.ruleEvaluations += outcome.results.length;
       result.redFlagsFired += outcome.firedFlags.length;
       if (outcome.screeningIncomplete) result.screeningsIncomplete += 1;
+
+      // Most warnings get acknowledged at the desk, and some do not.
+      // Both happen in a real chamber, and the pilot report is built
+      // to show the difference - so the practice data has to contain
+      // it rather than showing a tidy hundred per cent or a flat zero.
+      const desk = deskUsers.length === 0 ? null : pick(rng, deskUsers);
+      if (desk === null) continue;
+      for (const flag of outcome.firedFlags) {
+        if (!chance(rng, 0.86)) continue;
+        acknowledgeRedFlag(db, flag.eventId, { id: desk.id, role: 'front_desk' },
+          new Date(new Date(intake.startedAt).getTime() + intBetween(rng, 20, 240) * 1000).toISOString());
+        result.redFlagsAcknowledged += 1;
+      }
     }
     report(`${result.ruleEvaluations} rule evaluations`);
+  }
+
+  // ---------------- permission ----------------
+  // Through the real consent code, at each patient's first visit, by
+  // whichever assistant was on that evening.
+  if (options.consentVersion != null && options.consentVersion !== '') {
+    const deskForConsent = db.prepare(
+      `SELECT id FROM app_user WHERE role = 'front_desk' AND deleted_at IS NULL`,
+    ).all() as Array<{ id: string }>;
+    const firstVisits = db.prepare(
+      `SELECT patient_id AS patientId, min(visit_date) AS firstDate FROM visit
+       WHERE deleted_at IS NULL GROUP BY patient_id`,
+    ).all() as Array<{ patientId: string; firstDate: string }>;
+
+    for (const first of firstVisits) {
+      const desk = deskForConsent.length === 0 ? null : pick(rng, deskForConsent);
+      if (desk === null) break;
+      const actor = { id: desk.id, role: 'front_desk' as const };
+      const at = `${first.firstDate}T17:05:00.000Z`;
+
+      // A few patients say no to a history being kept, and rather
+      // more say no to research. Both happen, and a practice database
+      // where everybody agrees teaches the wrong lesson.
+      const keepsHistory = chance(rng, 0.94);
+      recordConsent(db, {
+        patientId: first.patientId, kind: 'care_record', version: options.consentVersion,
+        decision: keepsHistory ? 'given' : 'declined',
+        givenBy: chance(rng, 0.22) ? 'family_member' : 'self',
+        givenByName: null, relationship: null,
+        method: 'read_aloud', language: 'bn',
+      }, actor, at);
+      result.consentRecorded += 1;
+
+      if (keepsHistory) {
+        recordConsent(db, {
+          patientId: first.patientId, kind: 'research', version: options.consentVersion,
+          decision: chance(rng, 0.62) ? 'given' : 'declined',
+          givenBy: 'self', givenByName: null, relationship: null,
+          method: 'read_aloud', language: 'bn',
+        }, actor, at);
+        result.consentRecorded += 1;
+      }
+    }
+    report(`${result.consentRecorded} permission decisions recorded`);
   }
 
   report('done');

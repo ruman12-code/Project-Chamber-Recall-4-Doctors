@@ -3,12 +3,16 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 12 of 13.** Foundations, the safety layer, patient
-search and merging, the serial register with its live queue, the tablet
-intake, consent, the Recall Card with Confirm and Correct, and — new —
-sign-in for everybody who works here, vitals, the consultation, the
-printed prescription, photographs of the paper patients bring in, verified
-backups, and the copy of their record a patient can ask for.
+**Status: all thirteen milestones built.** Foundations and the safety
+layer; patient search, registration and merging; the serial register and
+its live queue; the tablet intake; consent; the Recall Card with Confirm
+and Correct; sign-in for everybody who works here; vitals and the
+consultation; the printed prescription; photographs of the paper patients
+bring in; verified backups; the copy of their record a patient can ask
+for; and the pilot report.
+
+**It has not been used by a patient yet.** What has to happen before it is
+is listed below, and the software refuses to run past most of it.
 
 **Before any real patient:** the red flag rules and the consent wording
 need approving by the supervising physician, a lawyer in Bangladesh needs
@@ -85,13 +89,20 @@ refuses to take an intake until the consent wording is. See
 - **A patient's own copy.** Printed as a summary or written out as a
   complete file with their photographed reports — the thing the consent
   wording promises and the Personal Data Protection Act requires.
-- 572 tests covering key custody, the database layer, the practice data,
+- **The pilot report.** What has happened since this started — who was
+  seen, what the questions caught, what was written down, and what did
+  not work — counted per assistant, with no percentages below twenty
+  cases and no verdict anywhere on it. It ends with the six questions it
+  cannot answer.
+- **A de-identified export** for the research those patients agreed to
+  separately, carrying coded answers and numbers and no free text at all.
+- 593 tests covering key custody, the database layer, the practice data,
   the rule evaluator, the refuse-to-run guard, the Recall Card, patient
   matching, the merge tool, temperature entry, the register, the queue,
   the question engine, the network server, the offline buffer, confirming
   and correcting an intake, PINs and sign-in, the consultation, and the
   printed prescription, photographs of paper, backups, and a patient's
-  own copy of their record.
+  own copy of their record, and the pilot report.
 
 ## Running it
 
@@ -139,6 +150,7 @@ src/main/prescription/    the letterhead, and building the printed sheet
 src/main/attachments/     photographs of the paper a patient brings in
 src/main/backup/          taking a backup, checking one, putting one back
 src/main/export/          the copy of their record a patient can ask for
+src/main/report/          the pilot report, and the research export
 config/prescription.yaml  the letterhead, written for the doctor to fill in
 config/red_flags.yaml     the rules template, written for a doctor to edit
 src/main/seed/            the practice data generator

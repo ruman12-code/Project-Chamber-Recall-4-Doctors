@@ -49,6 +49,9 @@ import { makeBackup, backupStatus, inspectBackup, type BackupStatus, type Backup
   from './backup/backup';
 import { buildPatientCopy, patientCopyFiles, recordPatientCopyGiven } from './export/patientCopy';
 import type { PatientCopy } from '../shared/patientCopy';
+import { buildPilotReport } from './report/pilot';
+import { buildResearchExport, toCsv, researchReadme, recordResearchExport } from './report/research';
+import type { PilotReport } from '../shared/pilot';
 import { dekOf } from './db/provision';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
@@ -654,6 +657,52 @@ function registerHandlers(): void {
     recordPatientCopyGiven(db, patientId, 'printed', atTheLaptop());
     return {} as Record<string, never>;
   });
+
+  // ---------------- the pilot report ----------------
+
+  handle<{ report: PilotReport }>(CHANNELS.pilotReport, () => {
+    if (db === null) throw new Error('the pilot report was built before the database was unlocked');
+    requireClinicalRole(atTheLaptop(), 'read the pilot report');
+    return { report: buildPilotReport(db) };
+  });
+
+  handleAsync<{ folder: string | null; patients: number; rows: number; excluded: number }>(
+    CHANNELS.researchExport, async () => {
+      if (db === null) throw new Error('a research export was made before the database was unlocked');
+      const actor = atTheLaptop();
+      requireClinicalRole(actor, 'make a research export');
+
+      const consent = loadConsentConfig(installDir);
+      if (consent.config === null) {
+        throw new ChamberRecallError(
+          'There is no consent wording, so there is no research permission to export against.',
+          'Put consent.yaml back in the records folder first.',
+        );
+      }
+
+      const chosen = await dialog.showOpenDialog({
+        title: 'Where should the export be written?',
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      if (chosen.canceled || chosen.filePaths[0] === undefined) {
+        return { folder: null, patients: 0, rows: 0, excluded: 0 };
+      }
+
+      const at = new Date().toISOString();
+      const exported = buildResearchExport(db, consent.config.version);
+      const folder = join(chosen.filePaths[0], `chamber-recall-export-${at.slice(0, 10)}`);
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(join(folder, 'visits.csv'), toCsv(exported), 'utf8');
+      writeFileSync(join(folder, 'README.txt'), researchReadme(exported, at), 'utf8');
+      recordResearchExport(db, exported, actor, at);
+
+      return {
+        folder,
+        patients: exported.patientsIncluded,
+        rows: exported.rows.length,
+        excluded: exported.patientsExcluded,
+      };
+    });
 
   handle<Record<string, never>>(CHANNELS.redFlagAcknowledge, (eventId: string) => {
     if (db === null) throw new Error('an alert was acknowledged before the database was unlocked');

@@ -9,6 +9,12 @@
  * An estimate must always be aged forward from the day it was taken. A
  * patient recorded as 45 three years ago is 48 now, and showing 45 on
  * the doctor's screen is a small error that never announces itself.
+ *
+ * It works backwards too, and has to. Asking what somebody's age was
+ * at a visit two years before their age was written down is an
+ * ordinary question - the pilot report asks it of every visit - and
+ * "45 today" means "43 two years ago" by the same arithmetic. Refusing
+ * to answer left a whole column of a research export empty.
  */
 export interface AgeSource {
   dob: string | null;
@@ -32,8 +38,11 @@ export function patientAgeYears(source: AgeSource, asOf: Date = new Date()): num
   }
   if (source.approx_age_years !== null && source.approx_age_recorded_on !== null) {
     const elapsed = wholeYearsBetween(source.approx_age_recorded_on, asOf);
-    if (elapsed === null || elapsed < 0) return null;
-    return source.approx_age_years + elapsed;
+    if (elapsed === null) return null;
+    const age = source.approx_age_years + elapsed;
+    // Before they were born, by this estimate. The estimate is what is
+    // wrong, so the honest answer is that the age is not known.
+    return age < 0 ? null : age;
   }
   return null;
 }

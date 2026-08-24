@@ -1119,6 +1119,79 @@ keep and to show to whoever they choose.
 
 ---
 
+## Milestone 13: the pilot report
+
+### 81. It counts, and it does not conclude
+
+Somebody has to decide whether this carries on after twelve weeks. The one
+thing the software must not do is argue for its own continuation, so there
+is no score anywhere on this page, no verdict, and no sentence saying the
+pilot went well.
+
+The last section is six questions the page cannot answer — did the card
+change what you did for anybody, did a warning ever bring somebody in
+sooner, did a warning ever fire for something that did not matter, is the
+desk slower than the book was, would anything have been missed without the
+laptop, and what did you want to look up and could not find. Those are the
+questions the decision actually turns on, and they are answered by a person
+who was in the room.
+
+### 82. Every number carries its denominator, and below twenty there is no percentage
+
+"57%" out of seven cases is arithmetic pretending to be evidence. Under
+twenty the report says "4 of 7" and no percentage at all; above it, the
+percentage still carries the count beside it.
+
+A twelve-week pilot in one chamber produces small numbers for most of what
+matters, and a page of confident percentages built on them would be the
+most misleading thing this project could produce.
+
+### 83. What did not work is a section near the top, not a footnote
+
+Intakes started and abandoned, visits nobody screened, consultations never
+confirmed, patients never asked for permission, tests ordered and never
+resulted, and flagged patients who left without being seen. Each carries a
+sentence saying why it matters.
+
+The last of those is the number this whole safety layer exists to keep at
+zero, and it is labelled as the one to look at first. A report carrying
+only good news is a report nobody should act on.
+
+### 84. Broken out per person, which is why every row records who did it
+
+An average across two assistants hides exactly the difference worth seeing.
+In the practice data one asks nearly every question and one skips more than
+half, and added together they look like a chamber doing reasonably well.
+Side by side they look like two different jobs.
+
+That is the reason the usage log has insisted on an actor since milestone 1.
+
+### 85. The research export carries no free text at all
+
+The consent asks a second, separate question, and the patients who said no
+are simply not in the export. Neither is any prose. Not the complaint in
+the patient's own words, not the examination, not the diagnosis, not a
+note — writing in a chamber contains people's names whether anybody intends
+it or not, and no amount of care at the moment of typing changes that. What
+goes out is coded answers, rule identifiers, measurements, counts and dates.
+
+It is called de-identified, not anonymous, and the note in the folder says
+so: a visit date plus a small chamber can still point at one person. The
+patient code is random per export and means nothing outside the file.
+
+### 86. An age estimated on one day, asked about another
+
+The report and the export both ask what somebody's age was at a visit, and
+for a patient whose age is an estimate rather than a date of birth that can
+be a visit BEFORE the estimate was taken. The age code refused to answer
+backwards, which emptied a whole column of the first research export.
+
+"45 today" means "43 two years ago" by the same arithmetic that makes it
+mean "48 in three years". It now counts in both directions, and still
+refuses to place somebody before they were born.
+
+---
+
 ## Two bugs from milestone 7
 
 **The tablet crashed on the first tap after the update.** It keeps a copy of
