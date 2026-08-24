@@ -1,0 +1,23 @@
+# Line endings.
+#
+# The config files in this project are meant to be edited by hand, on a
+# Windows laptop, in whatever editor is to hand. Git's default on
+# Windows is to check text out with CRLF, which is fine for editing and
+# quietly wrong for anything that matches on the text itself.
+#
+# It cost a build: a check edited consent.yaml by searching for two
+# lines of it, found nothing because the file had CRLF, and then tested
+# the unedited file and reported that a rule had stopped working.
+#
+# So every text file is LF, in the repository and in every working tree,
+# on every platform. Editors on Windows have handled LF for twenty years.
+* text=auto eol=lf
+
+# Left exactly as they are.
+*.ico  binary
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.m4a  binary
+*.woff2 binary

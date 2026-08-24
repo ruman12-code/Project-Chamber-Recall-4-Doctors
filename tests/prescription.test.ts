@@ -12,7 +12,7 @@ import { saveVitals } from '../src/main/clinical/vitals';
 import { loadPrescriptionConfig, letterheadFor } from '../src/main/prescription/config';
 import { buildPrescription, recordPrescriptionPrinted, PrescriptionError } from '../src/main/prescription/build';
 import { NotAllowedError } from '../src/main/clinical/access';
-import { tempDir } from './helpers';
+import { tempDir, editing } from './helpers';
 
 /**
  * Milestone 10. The one thing that leaves the chamber.
@@ -133,7 +133,7 @@ describe('the letterhead', () => {
   test('one placeholder left anywhere is still a block', () => {
     fillIn(c.dir);
     const path = prescriptionPath(c.dir);
-    writeFileSync(path, readFileSync(path, 'utf8').replace('01711000000', 'PLACEHOLDER — 01XXXXXXXXX'), 'utf8');
+    writeFileSync(path, editing(readFileSync(path, 'utf8'), '01711000000', 'PLACEHOLDER — 01XXXXXXXXX'), 'utf8');
     const outcome = loadPrescriptionConfig(c.dir);
     assert.equal(outcome.blocksLiveUse.length, 1);
     assert.match(outcome.blocksLiveUse[0]!.reason, /phone number/);

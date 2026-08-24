@@ -1270,6 +1270,37 @@ and had been passing only on machines where a previous `npm start` had
 left it lying around — green here, red on a clean clone, which is the
 worst way round.
 
+### 92. Line endings are LF everywhere, and a test edit that matches nothing is an error
+
+The installer build on GitHub failed on its first three runs, and the
+reason is worth writing down because it is the same shape as decision 91.
+
+A check edits `consent.yaml` to remove the English half of one line, then
+asserts that the file is refused for not being in both languages. It made
+that edit with `String.replace`, searching for two lines of the file with
+a `\n` between them. Git checks text out with CRLF on Windows, so the
+search found nothing, `replace` returned the string unchanged, the check
+went on to test the UNEDITED file, and the failure it reported was that a
+rule had stopped working.
+
+Nothing in that failure message points at line endings. It is a bad
+failure: it accuses the product of a fault that is in the check.
+
+Two fixes, because there are two faults.
+
+`.gitattributes` now normalises every text file to LF in the repository
+and in every working tree, on every platform. The config files here are
+meant to be edited by hand on a Windows laptop, and editors there have
+handled LF for twenty years.
+
+And `tests/helpers.ts` grew `editing(text, find, replaceWith)`, which
+throws when `find` is not in the text rather than returning the text
+unchanged. Every check that edits a file on disk now goes through it.
+`String.replace` failing to match is silent by design, which is fine for
+a program and wrong for a test: a check that quietly examines the
+original file can pass for the wrong reason just as easily as it can
+fail for one.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

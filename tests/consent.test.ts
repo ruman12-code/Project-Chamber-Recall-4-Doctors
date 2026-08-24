@@ -10,7 +10,7 @@ import { unassignedActor } from '../src/main/db/users';
 import { loadConsentConfig } from '../src/main/consent/config';
 import { recordConsent, consentState, withdrawConsent, patientsConsentingToResearch, ConsentRefusedError } from '../src/main/consent/store';
 import { consentPath, consentAudioDir } from '../src/main/paths';
-import { tempDir } from './helpers';
+import { tempDir, editing } from './helpers';
 
 const ACTOR = unassignedActor('front_desk');
 const VERSION = 'test-consent-v1';
@@ -91,9 +91,9 @@ describe('a consent file that is not fit to use', () => {
 
   test('a point written in only one language is refused', () => {
     const c = newChamber();
-    const text = readFileSync(consentPath(c.dir), 'utf8')
-      .replace('    - bn: "ডাক্তার দেখানোর আগে আমরা আপনাকে কয়েকটি প্রশ্ন করব। আপনি যা বলবেন তা লিখে রাখা হবে।"\n      en: "Before you see the doctor we will ask you a few questions. What you say will be written down."',
-               '    - bn: "ডাক্তার দেখানোর আগে আমরা আপনাকে কয়েকটি প্রশ্ন করব।"');
+    const text = editing(readFileSync(consentPath(c.dir), 'utf8'),
+      '    - bn: "ডাক্তার দেখানোর আগে আমরা আপনাকে কয়েকটি প্রশ্ন করব। আপনি যা বলবেন তা লিখে রাখা হবে।"\n      en: "Before you see the doctor we will ask you a few questions. What you say will be written down."',
+      '    - bn: "ডাক্তার দেখানোর আগে আমরা আপনাকে কয়েকটি প্রশ্ন করব।"');
     writeFileSync(consentPath(c.dir), text, 'utf8');
     const outcome = loadConsentConfig(c.dir);
     assert.ok(outcome.problems.some((p) => /both languages/i.test(p.problem)));
@@ -102,9 +102,9 @@ describe('a consent file that is not fit to use', () => {
 
   test('wording still marked a draft blocks live use', () => {
     const c = newChamber();
-    const text = readFileSync(consentPath(c.dir), 'utf8')
-      .replace('approved_by: ""', 'approved_by: "Dr Test"')
-      .replace('approved_on: ""', 'approved_on: "2026-09-01"');
+    const text = editing(
+      editing(readFileSync(consentPath(c.dir), 'utf8'), 'approved_by: ""', 'approved_by: "Dr Test"'),
+      'approved_on: ""', 'approved_on: "2026-09-01"');
     writeFileSync(consentPath(c.dir), text, 'utf8');
     const outcome = loadConsentConfig(c.dir);
     assert.ok(outcome.blocksLiveUse.some((b) => /draft/i.test(b.reason)),
@@ -114,10 +114,11 @@ describe('a consent file that is not fit to use', () => {
 
   test('approved, dated and no longer a draft passes', () => {
     const c = newChamber();
-    const text = readFileSync(consentPath(c.dir), 'utf8')
-      .replace('approved_by: ""', 'approved_by: "Dr Test and Adv. Test"')
-      .replace('approved_on: ""', 'approved_on: "2026-09-01"')
-      .replace('version: "care-and-research-2026-08-draft-1"', 'version: "care-and-research-2026-09"');
+    const text = editing(editing(
+      editing(readFileSync(consentPath(c.dir), 'utf8'),
+        'approved_by: ""', 'approved_by: "Dr Test and Adv. Test"'),
+      'approved_on: ""', 'approved_on: "2026-09-01"'),
+      'version: "care-and-research-2026-08-draft-1"', 'version: "care-and-research-2026-09"');
     writeFileSync(consentPath(c.dir), text, 'utf8');
     assert.deepEqual(loadConsentConfig(c.dir).blocksLiveUse, []);
     c.db.close(); c.cleanup();
