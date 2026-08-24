@@ -5,6 +5,7 @@ import type { QueueView, VisitStatus } from '../shared/queue';
 import type { TabletStatus, AuthState, SignedInView, StaffView } from '../shared/ipc';
 import type { ChamberView, VitalsInput, VitalsQuestion, EncounterDraft, MedicationInput } from '../shared/clinical';
 import type { PrescriptionView, PrescriptionStatus } from '../shared/prescription';
+import type { AttachmentView, AttachmentKind } from '../shared/attachments';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -52,6 +53,10 @@ interface Api {
   prescriptionView(visitId: string): Promise<Result<{ view: PrescriptionView }>>;
   prescriptionStatus(): Promise<Result<{ status: PrescriptionStatus }>>;
   prescriptionPrinted(visitId: string): Promise<Result<Record<string, never>>>;
+  attachmentsFor(patientId: string): Promise<Result<{ attachments: AttachmentView[] }>>;
+  attachmentContent(id: string): Promise<Result<{ dataUrl: string; view: AttachmentView }>>;
+  attachmentAdd(patientId: string, visitId: string | null, kind: AttachmentKind, caption: string | null): Promise<Result<{ added: number }>>;
+  attachmentRemove(id: string, reason: string): Promise<Result<Record<string, never>>>;
 }
 
 declare global {
@@ -118,6 +123,10 @@ export const api: Api = {
   prescriptionView: (visitId) => call((a) => a.prescriptionView(visitId)),
   prescriptionStatus: () => call((a) => a.prescriptionStatus()),
   prescriptionPrinted: (visitId) => call((a) => a.prescriptionPrinted(visitId)),
+  attachmentsFor: (patientId) => call((a) => a.attachmentsFor(patientId)),
+  attachmentContent: (id) => call((a) => a.attachmentContent(id)),
+  attachmentAdd: (patientId, visitId, kind, caption) => call((a) => a.attachmentAdd(patientId, visitId, kind, caption)),
+  attachmentRemove: (id, reason) => call((a) => a.attachmentRemove(id, reason)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

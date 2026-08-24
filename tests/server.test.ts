@@ -484,3 +484,103 @@ describe('registering an arrival from the tablet', () => {
     assert.equal(result.body.needsSignIn, true);
   });
 });
+
+
+/**
+ * Photographs of paper, sent from the tablet.
+ *
+ * These do not go through the outbox: a queue of photographs would
+ * fill the tablet's storage and be dropped by the browser without
+ * anybody being told. They go straight out, and a failure has to come
+ * back as a sentence the assistant can act on while the paper is
+ * still in their hand.
+ */
+describe('photographing paper from the tablet', () => {
+  let db: Db; let cleanup: () => void; let server: RunningServer; let base: string;
+  let token = ''; let visitId = ''; let deskId = '';
+
+  const jpeg = (size = 400) => {
+    const buffer = Buffer.alloc(size, 0x20);
+    buffer[0] = 0xff; buffer[1] = 0xd8; buffer[2] = 0xff; buffer[3] = 0xe0;
+    return buffer;
+  };
+
+  before(async () => {
+    const t = tempDir();
+    cleanup = t.cleanup;
+    db = provision(t.dir, 'passphrase', 'demo').db;
+    db.prepare('INSERT INTO chamber (id, name, created_at) VALUES (?, ?, ?)').run('ch-a', 'Test Chamber', nowIso());
+    setActiveChamber(db, 'ch-a');
+
+    const doctorId = addStaff(db, { displayName: 'Dr Ashraful', role: 'doctor', pin: '4021' }, { id: null, role: 'system' });
+    deskId = addStaff(db, { displayName: 'Biplob', role: 'front_desk', pin: '6172' }, { id: doctorId, role: 'doctor' });
+    resetSignInAttempts();
+
+    const patientId = registerPatient(db, { fullNameBn: 'পরীক্ষা', fullNameEn: 'Test', phone: '01766666666',
+      dob: null, approxAgeYears: 30, sex: 'female', addressFreeText: null }, { id: deskId, role: 'front_desk' });
+    visitId = registerArrival(db, patientId, 'ch-a', { id: deskId, role: 'front_desk' }).visitId;
+
+    server = await startTabletServer({ db, dataDir: t.dir, webRoot: WEB_ROOT, port: 0 });
+    base = `http://127.0.0.1:${server.port}`;
+    const paired = await fetch(`${base}/api/pair`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code: server.pairingCode, label: 'desk tablet' }),
+    });
+    token = String(((await paired.json()) as { token: string }).token);
+  });
+  after(async () => { await server.close(); db.close(); cleanup(); });
+
+  const post = async (path: string, body: unknown) => {
+    const response = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-chamber-token': token },
+      body: JSON.stringify(body ?? {}),
+    });
+    return { status: response.status, body: await response.json() as Record<string, unknown> };
+  };
+
+  test('a tablet nobody has signed in on cannot photograph anything', async () => {
+    const result = await post('/api/attachments', {
+      visitId, kind: 'report', contentBase64: jpeg().toString('base64'), contentType: 'image/jpeg',
+    });
+    assert.equal(result.status, 401);
+    assert.equal(result.body.needsSignIn, true);
+  });
+
+  test('a signed-in assistant can, and it lands on the patient', async () => {
+    await post('/api/signin', { userId: deskId, pin: '6172' });
+    const result = await post('/api/attachments', {
+      visitId, kind: 'report', contentBase64: jpeg(1024).toString('base64'),
+      contentType: 'image/jpeg', width: 1600, height: 1200,
+    });
+    assert.equal(result.status, 200);
+
+    const row = db.prepare(
+      `SELECT a.kind, a.byte_size AS bytes, a.source, u.display_name AS name
+       FROM attachment a JOIN app_user u ON u.id = a.created_by WHERE a.visit_id = ?`,
+    ).get(visitId) as { kind: string; bytes: number; source: string; name: string };
+    assert.equal(row.kind, 'report');
+    assert.equal(row.bytes, 1024);
+    assert.equal(row.source, 'tablet');
+    assert.equal(row.name, 'Biplob', 'a photograph carries the name of whoever took it');
+  });
+
+  test('something that is not a picture is refused, with what to do about it', async () => {
+    const result = await post('/api/attachments', {
+      visitId, kind: 'report', contentBase64: Buffer.from('not a picture at all').toString('base64'),
+      contentType: 'image/jpeg',
+    });
+    assert.equal(result.status, 400);
+    assert.match(String(result.body.error), /not a photograph/i);
+    assert.ok(String(result.body.whatToDo).length > 0);
+  });
+
+  test('a visit that is not there is refused rather than filed against nobody', async () => {
+    const result = await post('/api/attachments', {
+      visitId: 'no-such-visit', kind: 'report',
+      contentBase64: jpeg().toString('base64'), contentType: 'image/jpeg',
+    });
+    assert.equal(result.status, 400);
+    assert.match(String(result.body.whatToDo), /was not saved/i);
+  });
+});

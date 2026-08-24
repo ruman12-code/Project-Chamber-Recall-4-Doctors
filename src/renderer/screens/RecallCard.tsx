@@ -391,10 +391,12 @@ function CorrectSheet(
 }
 
 export function RecallCardScreen(
-  { card, onClose, role, onReload, onRecord }: {
+  { card, onClose, role, onReload, onRecord, onPapers }: {
     card: Card; onClose: () => void; role: Role; onReload: () => Promise<void>;
     /** Into the consultation for this same patient, without losing the card. */
     onRecord?: () => void;
+    /** The papers the patient brought, photographed at the desk. */
+    onPapers?: () => void;
   },
 ) {
   const [patientFacing, setPatientFacing] = useState(false);
@@ -471,7 +473,11 @@ export function RecallCardScreen(
         </span>
         <span className="right">
           <span>serial {today.serialNo} · {today.chamberName}</span>
-          <span>{card.attachmentCount} attachment{card.attachmentCount === 1 ? '' : 's'}</span>
+          {onPapers === undefined
+            ? <span>{card.attachmentCount} attachment{card.attachmentCount === 1 ? '' : 's'}</span>
+            : <button className="secondary" onClick={onPapers}>
+                {card.attachmentCount === 0 ? 'No papers' : `${card.attachmentCount} paper${card.attachmentCount === 1 ? '' : 's'}`}
+              </button>}
           {onRecord !== undefined && <button onClick={onRecord}>Record</button>}
           <button className="secondary" onClick={() => setPatientFacing(true)}>Show the patient</button>
           <button className="secondary" onClick={onClose}>Close</button>

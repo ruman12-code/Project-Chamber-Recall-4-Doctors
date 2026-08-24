@@ -1,7 +1,8 @@
 // ===================================================================
 // The application process.
 // ===================================================================
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CHANNELS, type InstallationStatus, type DatabaseSummary, type RedFlagStatus,
   type RedFlagAlertView, type Result } from '../shared/ipc';
@@ -42,6 +43,8 @@ import { buildPrescription, recordPrescriptionPrinted } from './prescription/bui
 import { loadPrescriptionConfig } from './prescription/config';
 import { prescriptionPath } from './paths';
 import type { PrescriptionView, PrescriptionStatus } from '../shared/prescription';
+import { addAttachment, attachmentsFor, attachmentContent, removeAttachment } from './attachments/store';
+import type { AttachmentView as AttachmentRow, AttachmentKind } from './attachments/store';
 
 let db: Db | null = null;
 let installDir = '';
@@ -513,6 +516,62 @@ function registerHandlers(): void {
     return {} as Record<string, never>;
   });
 
+  // ---------------- photographs of paper ----------------
+
+  handle<{ attachments: AttachmentRow[] }>(CHANNELS.attachmentsFor, (patientId: string) => {
+    if (db === null) throw new Error('attachments were listed before the database was unlocked');
+    requireClinicalRole(atTheLaptop(), 'look at a patient\u2019s papers');
+    return { attachments: attachmentsFor(db, patientId) };
+  });
+
+  handle<{ dataUrl: string; view: AttachmentRow }>(CHANNELS.attachmentContent, (id: string) => {
+    if (db === null) throw new Error('an attachment was opened before the database was unlocked');
+    requireClinicalRole(atTheLaptop(), 'look at a patient\u2019s papers');
+    const { content, contentType, view } = attachmentContent(db, id);
+    return { dataUrl: `data:${contentType};base64,${content.toString('base64')}`, view };
+  });
+
+  /**
+   * Adding pictures from the laptop: a file the doctor has copied off
+   * a phone or a scanner. The tablet's camera is the usual way in;
+   * this is the way in when the paper never reached the desk.
+   */
+  handleAsync<{ added: number }>(CHANNELS.attachmentAdd,
+    async (patientId: string, visitId: string | null, kind: AttachmentKind, caption: string | null) => {
+      if (db === null) throw new Error('an attachment was added before the database was unlocked');
+      const actor = atTheLaptop();
+      requireClinicalRole(actor, 'add a photograph to the record');
+
+      const chosen = await dialog.showOpenDialog({
+        title: 'Choose the photographs to file',
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: 'Photographs', extensions: ['jpg', 'jpeg', 'png'] }],
+      });
+      if (chosen.canceled) return { added: 0 };
+
+      const consent = loadConsentConfig(installDir);
+      let added = 0;
+      for (const path of chosen.filePaths) {
+        const content = readFileSync(path);
+        const lower = path.toLowerCase();
+        addAttachment(db, {
+          patientId, visitId, kind, caption,
+          documentDate: null,
+          content,
+          contentType: lower.endsWith('.png') ? 'image/png' : 'image/jpeg',
+          width: null, height: null, source: 'laptop',
+        }, actor, { consentVersion: consent.config?.version ?? null });
+        added += 1;
+      }
+      return { added };
+    });
+
+  handle<Record<string, never>>(CHANNELS.attachmentRemove, (id: string, reason: string) => {
+    if (db === null) throw new Error('an attachment was removed before the database was unlocked');
+    removeAttachment(db, id, reason, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
   handle<Record<string, never>>(CHANNELS.redFlagAcknowledge, (eventId: string) => {
     if (db === null) throw new Error('an alert was acknowledged before the database was unlocked');
     // Milestone 2 has no sign-in yet, so the acknowledgement is
@@ -520,6 +579,31 @@ function registerHandlers(): void {
     // milestone 9 this becomes the assistant who is signed in.
     acknowledgeRedFlag(db, eventId, actor);
     return {} as Record<string, never>;
+  });
+}
+
+/**
+ * The same as handle(), for the few things that have to wait for
+ * something - a file dialog, a disk read. Kept separate so the
+ * ordinary case stays as plain as it is.
+ */
+function handleAsync<T extends object>(channel: string, fn: (...args: never[]) => Promise<T>): void {
+  ipcMain.handle(channel, async (_event, ...args) => {
+    try {
+      return { ok: true, ...(await fn(...(args as never[]))) } as Result<T>;
+    } catch (error) {
+      if (error instanceof ChamberRecallError) {
+        console.error(`[${channel}] ${error.name}: ${error.message}`);
+        return { ok: false, userMessage: error.userMessage, whatToDo: error.whatToDo, technical: String(error.stack ?? error) };
+      }
+      console.error(`[${channel}] unexpected failure`, error);
+      return {
+        ok: false,
+        userMessage: 'Something in the program went wrong and this action did not complete.',
+        whatToDo: 'Nothing was saved. Write down what you were doing, close the program and open it again. If it keeps happening, report it before entering more patients.',
+        technical: String((error as Error)?.stack ?? error),
+      };
+    }
   });
 }
 

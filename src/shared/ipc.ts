@@ -150,4 +150,9 @@ export const CHANNELS = {
   prescriptionView: 'prescription:view',
   prescriptionStatus: 'prescription:status',
   prescriptionPrinted: 'prescription:printed',
+  // Photographs of paper.
+  attachmentsFor: 'attachments:list',
+  attachmentContent: 'attachments:content',
+  attachmentAdd: 'attachments:add',
+  attachmentRemove: 'attachments:remove',
 } as const;

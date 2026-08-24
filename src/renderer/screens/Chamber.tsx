@@ -41,11 +41,13 @@ function numberOrNull(raw: string): number | null {
 }
 
 export function ChamberScreen(
-  { view, role, onClose, onOpenCard, onReload, onPrint }: {
+  { view, role, onClose, onOpenCard, onReload, onPrint, onPapers }: {
     view: ChamberView; role: Role; onClose: () => void;
     onOpenCard: () => void; onReload: () => Promise<void>;
     /** The printed prescription. Only once the consultation is signed. */
     onPrint: () => void;
+    /** The papers the patient brought. */
+    onPapers: () => void;
   },
 ) {
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -178,6 +180,7 @@ export function ChamberScreen(
         </span>
         <span className="right">
           <SaveState saving={saving} savedAt={savedAt} confirmed={confirmed} />
+          <button className="secondary" onClick={onPapers}>Their papers</button>
           <button className="secondary" onClick={onOpenCard}>Their history</button>
           <button className="secondary" onClick={onClose}>Close</button>
         </span>

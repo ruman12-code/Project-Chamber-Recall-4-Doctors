@@ -958,6 +958,93 @@ twice, and the question is asked in the assistant's own language.
 
 ---
 
+## Milestone 11: photographs of paper
+
+### 69. The picture lives inside the encrypted database, not beside it
+
+The original schema had a `file_path` column, meaning the photograph sat as
+an ordinary file in the data folder. That was wrong twice over.
+
+It would not have been encrypted. The database is SQLCipher; a JPEG next to
+it is not. A photograph of a lab report has the patient's name across the
+top and their results underneath, and leaving that readable to anybody
+holding the laptop would undo the point of encrypting the records at all.
+
+And a row and a file can come apart. A crash between the two writes, a
+half-finished copy to a new laptop, somebody tidying the folder — each
+leaves a record pointing at nothing, or a picture belonging to nobody.
+Inside the database they are one write in one transaction and cannot
+separate.
+
+The cost is size, and it is worth stating plainly rather than discovering:
+a downscaled photograph is about 300 KB, so this chamber adds roughly
+100 MB over the twelve-week pilot and a few gigabytes over years. SQLite
+carries that, and a backup stays what it should be — copy one folder. If a
+much busier practice ever makes the file too heavy to copy, moving the
+pictures out to separately encrypted files is a contained change. It is not
+a problem this chamber has, and building for it now would be guessing.
+
+### 70. A photograph is never altered, and never quietly disappears
+
+It goes in once with a checksum, and every read checks it: a picture that
+does not match what was stored is reported in a sentence rather than shown
+as a grey box, because a doctor looking at a grey box would reasonably
+assume the photograph was simply a bad one.
+
+Removing one is a soft delete with a reason, and the bytes stay. The
+commonest real use is a picture of the wrong patient's paper, and that has
+to come off the record visibly, with a name against it, rather than by
+disappearing.
+
+The database enforces both: one trigger refuses a delete, another refuses
+any attempt to swap the picture under a row.
+
+### 71. Nothing is photographed for a patient who said no
+
+The permission that covers keeping a history covers keeping a photograph of
+their report. There is no separate consent for this and there should not
+be — it would be a second question at a desk, about the same thing.
+
+A patient who declined, or who has withdrawn, cannot have paper filed for
+them, and the message tells the assistant to hand it back. What was already
+filed before a withdrawal stays: it is a medical record, and destroying it
+is the doctor's decision to document, not the side effect of a tap at a
+front desk.
+
+### 72. This is the one thing on the tablet that is not buffered
+
+Everything else the tablet sends is a few hundred bytes of text and waits
+happily in its outbox. Photographs cannot: a queue of them would fill the
+tablet's storage and be dropped by the browser without anybody being told.
+
+So each one goes straight out and says at once whether it was saved. A
+failed one stays on screen with a Try again beside it, and the screen
+carries a warning while any are unsent. This is survivable in a way losing
+typed answers would not be, and the reason is worth saying: the paper is
+still in the assistant's hand. It can simply be photographed again.
+
+### 73. The tablet shrinks the picture before sending it
+
+A tablet camera produces four megabytes. The long edge is brought down to
+1600 pixels and saved as JPEG at 82% — small print on a lab report is still
+readable, chamber wifi copes, and the records file grows by 300 KB rather
+than 4 MB. If anything about that fails, the original is sent unchanged
+rather than nothing at all.
+
+### 74. No thumbnails, and no reading of what is in the picture
+
+The list on the laptop shows what actually tells one sheet from another —
+kind, the date written on the paper, who filed it — and the picture opens
+when it is chosen. Thumbnails would mean storing a second copy of every
+photograph, and loading forty full ones to draw a grid would make the
+screen crawl on the laptop this runs on.
+
+And nothing reads what is in these pictures. No text is extracted, nothing
+is recognised, nothing is classified. It is a photograph of a piece of
+paper, filed under a heading a person chose.
+
+---
+
 ## Two bugs from milestone 7
 
 **The tablet crashed on the first tap after the update.** It keeps a copy of

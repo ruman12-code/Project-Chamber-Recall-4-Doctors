@@ -8,6 +8,7 @@ import { Queue } from './Queue';
 import { ChamberScreen } from './Chamber';
 import { SignIn, SetUpPeople } from './SignIn';
 import { PrescriptionSheet } from './PrescriptionSheet';
+import { Attachments } from './Attachments';
 import { roleLabel, type Role } from '../../shared/roles';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView, TabletStatus } from '../../shared/ipc';
 import type { RecallCard } from '../../shared/recall';
@@ -51,6 +52,8 @@ export function Status() {
   const [showingPeople, setShowingPeople] = useState(false);
   const [chamber, setChamber] = useState<ChamberView | null>(null);
   const [printingVisitId, setPrintingVisitId] = useState<string | null>(null);
+  const [papersFor, setPapersFor] = useState<
+    { patientId: string; visitId: string | null; name: string } | null>(null);
 
   const readAuth = useCallback(async () => {
     const { value, failure } = unwrap(await api.whoIsSignedIn());
@@ -107,6 +110,18 @@ export function Status() {
       return;
     }
     setCard(value!.card);
+  }
+
+  /**
+   * The chamber screen knows the visit but not the patient id, and
+   * the papers belong to the patient rather than to one evening. So
+   * it is looked up rather than guessed at.
+   */
+  async function openPapersForVisit(visitId: string, name: string) {
+    const { value, failure } = unwrap(await api.recallCardFor(visitId));
+    if (failure) { setFailure(failure); return; }
+    if (value!.card === null) return;
+    setPapersFor({ patientId: value!.card.patient.id, visitId, name });
   }
 
   async function openChamber(visitId: string) {
@@ -178,6 +193,17 @@ export function Status() {
     return <SignIn demo={summary.dataMode === 'demo'} onSignedIn={readAuth} />;
   }
 
+  // The papers and the prescription both sit above whatever is open
+  // underneath, because both are something being looked at rather than
+  // a screen being worked in. Closing comes back to what was there.
+  if (papersFor !== null) {
+    return <Attachments
+      patientId={papersFor.patientId}
+      visitId={papersFor.visitId}
+      patientName={papersFor.name}
+      onClose={() => { setPapersFor(null); void reloadCard(); }} />;
+  }
+
   // The prescription sits above everything, because it is a piece of
   // paper being looked at rather than a screen being worked in.
   if (printingVisitId !== null) {
@@ -195,7 +221,12 @@ export function Status() {
       role={role}
       onReload={reloadCard}
       onClose={() => setCard(null)}
-      onRecord={() => { void openChamber(card.today.visitId); }} />;
+      onRecord={() => { void openChamber(card.today.visitId); }}
+      onPapers={() => setPapersFor({
+        patientId: card.patient.id,
+        visitId: card.today.visitId,
+        name: card.patient.nameBn ?? card.patient.nameEn ?? 'unnamed',
+      })} />;
   }
 
   if (chamber !== null && role !== null) {
@@ -205,6 +236,7 @@ export function Status() {
       onClose={() => setChamber(null)}
       onOpenCard={() => { void openCardForVisit(chamber.visitId); }}
       onPrint={() => setPrintingVisitId(chamber.visitId)}
+      onPapers={() => { void openPapersForVisit(chamber.visitId, chamber.patientName); }}
       onReload={async () => {
         const { value, failure } = unwrap(await api.chamberView(chamber.visitId));
         if (failure) { setFailure(failure); return; }

@@ -215,3 +215,32 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
   font-size: 132px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums;
   margin-bottom: 6px;
 }
+
+
+/* ===============================================================
+   PHOTOGRAPHING THE PAPER
+   The patient's bag is open, the report is on the counter, and it
+   leaves with them in five minutes. Big camera button, and every
+   photograph says plainly whether it is saved or not.
+   =============================================================== */
+.paper-kinds { display: flex; gap: 10px; margin-bottom: 16px; }
+.paper-kinds button {
+  flex: 1; font-size: 18px; padding: 14px 8px; background: #fff; color: var(--ink);
+  border: 3px solid var(--line); border-radius: 12px;
+}
+.paper-kinds button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.paper-input { display: none; }
+.paper-take { width: 100%; font-size: 24px; padding: 26px; margin-bottom: 16px; }
+
+.paper-shots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.paper-shot { border: 3px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; }
+.paper-shot.saved { border-color: #1d6b2f; }
+.paper-shot.failed { border-color: var(--alarm); }
+/* The whole sheet, not the middle of it. Cropping a photograph of a
+   report hides the one part that identifies it: the heading. */
+.paper-shot img { width: 100%; height: 190px; object-fit: contain; display: block; background: #f0f0ee; }
+.paper-shot .state { padding: 10px 12px; font-size: 15px; display: flex; flex-direction: column; gap: 6px; }
+.paper-shot.saved .state { color: #1d6b2f; font-weight: 700; }
+.paper-shot.failed .state b { color: var(--alarm); font-size: 17px; }
+.paper-shot.failed .state span { font-size: 13px; line-height: 1.35; color: var(--muted); }
+.paper-shot .state button { font-size: 16px; padding: 10px; margin: 0; }

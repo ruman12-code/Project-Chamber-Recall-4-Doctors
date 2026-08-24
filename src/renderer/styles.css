@@ -741,3 +741,41 @@ button.small { margin: 6px 0 0; padding: 6px 10px; font-size: 12px; }
   .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
   .rx-stamp { color: rgba(197, 48, 48, 0.3); }
 }
+
+
+/* ===============================================================
+   THE PATIENT'S PAPERS
+   A list down the side, one picture filling the rest. No
+   thumbnails: they would mean storing a second copy of every
+   photograph, and loading forty full ones to draw a grid.
+   =============================================================== */
+.att { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; background: var(--page); }
+.att-head { display: flex; align-items: baseline; gap: 12px; padding: 0 4px; }
+.att-head .name { font-size: 21px; font-weight: 800; }
+.att-head .facts { font-size: 13px; color: var(--muted); }
+.att-head .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.att-head button { margin: 0; padding: 7px 14px; font-size: 13px; }
+.att-head select { font: inherit; font-size: 13px; padding: 7px 9px; border: 2px solid var(--line); border-radius: 6px; background: #fff; }
+
+.att-body { flex: 1; display: grid; grid-template-columns: 280px 1fr; gap: 8px; min-height: 0; }
+.att-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
+.att-row {
+  display: flex; flex-direction: column; gap: 1px; align-items: flex-start; text-align: left;
+  margin: 0; padding: 9px 11px; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px;
+}
+.att-row.on { border-color: #2c5fd1; outline: 2px solid rgba(44, 95, 209, 0.25); }
+.att-row .k { font-size: 14px; font-weight: 700; }
+.att-row .d { font-size: 12.5px; }
+.att-row .d .dim, .att-row .w { font-size: 11px; color: var(--muted); }
+.att-row .c { font-size: 12px; font-style: italic; }
+
+.att-view {
+  background: #23262b; border-radius: 6px; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; gap: 8px;
+}
+.att-view img { max-width: 100%; max-height: calc(100% - 34px); object-fit: contain; background: #fff; }
+.att-view .muted { color: #b9bec6; }
+.att-actions { display: flex; align-items: center; gap: 12px; }
+.att-actions .muted { font-size: 12px; color: #b9bec6; }
+.att-actions button { margin: 0; padding: 6px 12px; font-size: 12.5px; }

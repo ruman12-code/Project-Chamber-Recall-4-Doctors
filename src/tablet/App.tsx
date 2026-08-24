@@ -5,6 +5,7 @@ import { Pair } from './screens/Pair';
 import { DeskSignIn, type DeskPerson } from './screens/DeskSignIn';
 import { PickPatient, type QueueEntryWithConsent } from './screens/PickPatient';
 import { Arrive } from './screens/Arrive';
+import { Papers } from './screens/Papers';
 import { Ask } from './screens/Ask';
 import { Alarm } from './screens/Alarm';
 import { Consent, type ConsentPart, type ConsentMethod, type ConsentGivenBy } from './screens/Consent';
@@ -111,6 +112,7 @@ export function App() {
   /** The serial register: registering an arrival, and the number given. */
   const [arriving, setArriving] = useState(false);
   const [justGiven, setJustGiven] = useState<{ serialNo: number; name: string } | null>(null);
+  const [showingPapers, setShowingPapers] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { outbox.start(); return outbox.onChange(setStatus); }, []);
@@ -185,6 +187,7 @@ export function App() {
   const clearScreen = useCallback(() => {
     setDraft(null);
     setFinished(false);
+    setShowingPapers(false);
     localStorage.removeItem(DRAFT_KEY);
   }, []);
 
@@ -295,6 +298,11 @@ export function App() {
   function finish() {
     if (draft === null) return;
     outbox.add('/api/intake/finish', { visitId: draft.visitId });
+    // The paper the patient brought is asked about after the
+    // questions, not before: they have their bag open by then, and a
+    // patient who brought nothing gets one tap rather than a screen
+    // they have to work out.
+    setShowingPapers(true);
     setFinished(true);
   }
 
@@ -404,6 +412,8 @@ export function App() {
       ) : draft.stage === 'consent_research' && consentConfig !== null ? (
         <Consent part={consentConfig.research} bn={bn}
                  onDecide={(d, m, g) => decideConsent('research', d, m, g)} />
+      ) : showingPapers && draft !== null ? (
+        <Papers visitId={draft.visitId} bn={bn} onDone={() => setShowingPapers(false)} />
       ) : finished ? (
         <div className="done">
           <div className="tick">✓</div>

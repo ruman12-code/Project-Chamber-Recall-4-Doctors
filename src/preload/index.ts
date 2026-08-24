@@ -23,6 +23,7 @@ import type { QueueView, VisitStatus } from '../shared/queue';
 import type { TabletStatus, AuthState, SignedInView, StaffView } from '../shared/ipc';
 import type { ChamberView, VitalsInput, EncounterDraft, MedicationInput, VitalsQuestion } from '../shared/clinical';
 import type { PrescriptionView, PrescriptionStatus } from '../shared/prescription';
+import type { AttachmentView, AttachmentKind } from '../shared/attachments';
 
 contextBridge.exposeInMainWorld('chamberRecall', {
   status: (): Promise<Result<{ status: InstallationStatus }>> =>
@@ -118,4 +119,13 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('prescription:status'),
   prescriptionPrinted: (visitId: string): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('prescription:printed', visitId),
+
+  attachmentsFor: (patientId: string): Promise<Result<{ attachments: AttachmentView[] }>> =>
+    ipcRenderer.invoke('attachments:list', patientId),
+  attachmentContent: (id: string): Promise<Result<{ dataUrl: string; view: AttachmentView }>> =>
+    ipcRenderer.invoke('attachments:content', id),
+  attachmentAdd: (patientId: string, visitId: string | null, kind: AttachmentKind, caption: string | null): Promise<Result<{ added: number }>> =>
+    ipcRenderer.invoke('attachments:add', patientId, visitId, kind, caption),
+  attachmentRemove: (id: string, reason: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('attachments:remove', id, reason),
 });

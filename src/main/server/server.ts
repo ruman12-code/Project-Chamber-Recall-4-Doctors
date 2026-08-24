@@ -31,6 +31,7 @@ import { signInList, needsSetup } from '../auth/staff';
 import { searchPatients } from '../patients/search';
 import { registerPatient } from '../patients/register';
 import { registerArrival } from '../queue/register';
+import { addAttachment, type AttachmentKind } from '../attachments/store';
 
 /**
  * Who is signed in on each paired tablet, by device id.
@@ -423,6 +424,60 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
         sendJson(response, 400, {
           error: error instanceof ChamberRecallError ? error.userMessage : 'That could not be saved.',
           whatToDo: error instanceof ChamberRecallError ? error.whatToDo : 'Try again.',
+        });
+      }
+      return;
+    }
+
+    /**
+     * A photograph of the paper the patient brought.
+     *
+     * Sent as base64 inside ordinary JSON rather than as a multipart
+     * upload: the tablet has already shrunk it to a few hundred
+     * kilobytes, and one way of sending things is easier to keep
+     * right than two.
+     *
+     * This does NOT go through the outbox. Everything else the tablet
+     * sends is a few hundred bytes of text and buffers happily; a
+     * queue of photographs would fill the tablet's storage and be
+     * silently dropped by the browser. So it goes straight out, and if
+     * it fails the assistant is told at once - while the paper is
+     * still in their hand and can simply be photographed again.
+     */
+    if (path === '/api/attachments') {
+      const body = (await readBody(request)) as {
+        visitId?: string; kind?: string; caption?: string | null;
+        contentBase64?: string; contentType?: string; width?: number; height?: number;
+      };
+      const visit = db.prepare('SELECT patient_id AS patientId FROM visit WHERE id = ? AND deleted_at IS NULL')
+        .get(String(body.visitId ?? '')) as { patientId: string } | undefined;
+      if (visit === undefined) {
+        sendJson(response, 400, {
+          error: 'That patient is no longer on today\'s list.',
+          whatToDo: 'Go back and choose the patient again. The photograph was not saved.',
+        });
+        return;
+      }
+      try {
+        const consent = loadConsentConfig(dataDir);
+        const id = addAttachment(db, {
+          patientId: visit.patientId,
+          visitId: String(body.visitId ?? ''),
+          kind: (body.kind ?? 'report') as AttachmentKind,
+          caption: body.caption ?? null,
+          documentDate: null,
+          content: Buffer.from(String(body.contentBase64 ?? ''), 'base64'),
+          contentType: body.contentType === 'image/png' ? 'image/png' : 'image/jpeg',
+          width: typeof body.width === 'number' ? body.width : null,
+          height: typeof body.height === 'number' ? body.height : null,
+          source: 'tablet',
+        }, actor, { consentVersion: consent.config?.version ?? null });
+        sendJson(response, 200, { id });
+      } catch (error) {
+        sendJson(response, 400, {
+          error: error instanceof ChamberRecallError ? error.userMessage : 'The photograph could not be saved.',
+          whatToDo: error instanceof ChamberRecallError ? error.whatToDo
+            : 'Nothing was saved. The paper is still with the patient — take it again.',
         });
       }
       return;
