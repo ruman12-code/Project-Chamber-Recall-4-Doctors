@@ -12,7 +12,8 @@
     "test": "npm run build:main && node --test out/tests/*.test.js",
     "seed": "npm run build:main && node out/src/main/seed/cli.js",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.tablet.json --noEmit",
-    "build:tablet": "vite build --config vite.tablet.config.ts"
+    "build:tablet": "vite build --config vite.tablet.config.ts",
+    "dist:win": "npm run build && electron-builder --win --x64"
   },
   "dependencies": {
     "better-sqlite3-multiple-ciphers": "^13.0.3",
@@ -24,6 +25,7 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^42.9.3",
+    "electron-builder": "^26.15.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.7.2",

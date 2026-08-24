@@ -16,7 +16,7 @@
 // Types are imported with `import type`, which the compiler erases, so
 // no require of a project file survives into the compiled output.
 import { contextBridge, ipcRenderer } from 'electron';
-import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result } from '../shared/ipc';
+import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result, PracticeSeedResult } from '../shared/ipc';
 import type { RecallCard } from '../shared/recall';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 import type { QueueView, VisitStatus } from '../shared/queue';
@@ -149,4 +149,7 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('report:pilot'),
   researchExport: (): Promise<Result<{ folder: string | null; patients: number; rows: number; excluded: number }>> =>
     ipcRenderer.invoke('report:research'),
+
+  seedPractice: (): Promise<Result<PracticeSeedResult>> =>
+    ipcRenderer.invoke('practice:seed'),
 });

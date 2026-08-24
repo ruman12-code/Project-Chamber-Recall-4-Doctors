@@ -1190,6 +1190,72 @@ backwards, which emptied a whole column of the first research export.
 mean "48 in three years". It now counts in both directions, and still
 refuses to place somebody before they were born.
 
+### 87. One installer, Windows only, unsigned
+
+Windows 10 or newer, 64-bit, and nothing else. Not because macOS is hard,
+but because narrow and reliable beats broad and fragile, and the chamber
+laptop is a Windows laptop. A macOS or Linux target can be added the day
+somebody actually needs one.
+
+It is not code-signed. A certificate costs real money for a twelve-week
+pilot and changes nothing about how the program behaves. The visible price
+is one blue "Windows protected your PC" box the first time the installer
+runs, which is written down in INSTALL-WINDOWS.md so that it is expected
+rather than alarming. It is also the only warning of its kind the program
+should ever produce, which makes any other one worth stopping for.
+
+Nothing is compiled at packaging time. The encrypted database engine ships
+ready-built for every platform inside its own package, so the Windows
+installer can be produced on Linux — which is where it was produced, and
+where it was then run and tested under wine: the database provisioned,
+all ten migrations applied, SQLCipher confirmed to encrypt (the patient
+text is not in the file), the wrong key refused, the append-only triggers
+enforced, Bangla stored and read back, and the tablet server serving its
+page over HTTP to a browser outside the emulation.
+
+What that testing does NOT cover is the drawn window itself on real
+Windows — the screens were looked at on Linux instead, which is the same
+Chromium drawing the same bundle.
+
+### 88. Uninstalling never deletes the records
+
+`deleteAppDataOnUninstall: false`, and it is the one line in the packaging
+configuration with a paragraph of comment above it.
+
+The records, the key file, the rules and the consent wording live in the
+data folder, not in the program folder. Removing the program leaves them
+untouched, so that reinstalling or upgrading cannot cost a single patient's
+history. Deleting the records has to be a deliberate act by somebody who
+knows exactly which folder they are deleting.
+
+### 89. A practice database you can fill from inside the program
+
+The program can be shown to somebody before it has ever met a patient,
+because an empty Recall Card demonstrates nothing and a demonstration on
+real patients is not a thing to consider.
+
+So the first-run screen offers to fill the practice database with three
+hundred invented people and four years of invented visits. Two guards sit
+inside `seedDatabase()` rather than beside the button, so that they hold
+however it is called: it refuses a database marked live, and it refuses one
+that already has patients in it. There is no path from that button to a
+real record.
+
+It asks nobody to sign in first. On a fresh installation nobody has been set
+up yet, and this is the screen that gives them somebody to sign in as. What
+makes it safe is not who asks but what it is allowed to touch.
+
+### 90. There is still no way to start a real database, and that is the point
+
+The program can only create a database marked demo. No screen anywhere
+offers a live one.
+
+Going live is gated behind three things only the doctor can do — the red
+flag rules, the consent wording, the letterhead — and building the switch
+before those exist would be building a way around them. The switch is the
+next piece of work, and it belongs after the rules are written rather than
+before.
+
 ---
 
 ## Two bugs from milestone 7

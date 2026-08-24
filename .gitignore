@@ -9,3 +9,6 @@ out/
 *.db-shm
 keystore.json
 /data/
+
+# The built installer. Large, and rebuilt from source by "npm run dist:win".
+release/

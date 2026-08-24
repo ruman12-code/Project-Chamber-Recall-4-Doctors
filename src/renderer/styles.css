@@ -858,3 +858,12 @@ button.small { margin: 6px 0 0; padding: 6px 10px; font-size: 12px; }
 .pr-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .pr-block.questions ol { margin: 0; padding-left: 6mm; font-size: 10pt; line-height: 1.6; }
+
+/* The offer to fill a practice database with invented patients. Marked
+   in the same amber as every other "this is not real" signal, so it can
+   never be mistaken for part of the working program. */
+.card.practice-offer {
+  border: 1px solid #d9a441;
+  background: var(--demo-bg);
+}
+.card.practice-offer h2 { color: #6b4708; }

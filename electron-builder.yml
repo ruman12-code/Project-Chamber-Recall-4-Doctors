@@ -1,0 +1,96 @@
+# ===================================================================
+# How the program becomes an installer for the chamber laptop.
+#
+# Windows 10 or newer, 64-bit. That is the whole supported list, on
+# purpose: one target that is tested beats five that are guessed at.
+#
+# Nothing here compiles anything. The encrypted-database module ships
+# ready-built for every platform inside the package itself, so the
+# Windows installer can be produced on any machine, including the one
+# this project was written on.
+# ===================================================================
+
+appId: org.chamberrecall.app
+productName: Chamber Recall
+copyright: Chamber Recall
+
+directories:
+  output: release
+  buildResources: build
+
+# What goes inside the installed program. The compiled application, the
+# two web pages (the doctor's screens and the tablet's), and the four
+# yaml files a doctor edits. Not the tests, and not the source.
+files:
+  - out/src/**/*
+  - out/renderer/**/*
+  - out/tablet/**/*
+  - out/config/**/*
+  - package.json
+  - '!out/tests/**'
+  - '!**/*.map'
+
+asar: true
+
+# Three things are taken back out of the archive and left as ordinary
+# files on disk.
+#
+#   *.node        the database engine is compiled code; Windows cannot
+#                 load it from inside an archive at all.
+#   out/config    these are copied into the doctor's data folder the
+#                 first time the program runs, and a copy out of an
+#                 archive is one more thing that can quietly fail.
+#   out/tablet    served over the chamber's wifi to the tablet, file by
+#                 file, by a plain web server that expects plain files.
+asarUnpack:
+  - '**/*.node'
+  - out/config/**
+  - out/tablet/**
+
+# The database module is already built. Rebuilding it would fail here
+# and is not wanted anywhere.
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+  artifactName: Chamber-Recall-Setup-${version}.${ext}
+
+  # There is no code-signing certificate, so nothing is signed. Buying
+  # one is a real cost for a twelve-week pilot and would change nothing
+  # about how the program behaves.
+  #
+  # The visible consequence: the first time the installer is run,
+  # Windows shows a blue "Windows protected your PC" box. The way past
+  # it is "More info" then "Run anyway". This is expected, it is written
+  # down in docs/INSTALL-WINDOWS.md, and it is the only warning of its
+  # kind that should ever appear.
+  signExecutable: false
+
+nsis:
+  # Not a one-click installer. Whoever sets the laptop up should see
+  # where the program is going and be able to change it.
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+  # Installed for the whole laptop rather than one Windows account, so
+  # it is in one place and cannot be half-removed by accident. This asks
+  # for the administrator prompt once, at install time.
+  perMachine: true
+
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Chamber Recall
+  runAfterFinish: false
+
+  # THE IMPORTANT LINE IN THIS FILE.
+  #
+  # Uninstalling the program must never remove the records. The database,
+  # the key file, the red flag rules and the consent wording all live in
+  # the data folder, and they stay there when the program is removed --
+  # so that reinstalling, or moving to a newer version, cannot cost a
+  # single patient's history.
+  deleteAppDataOnUninstall: false

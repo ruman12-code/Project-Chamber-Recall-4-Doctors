@@ -50,8 +50,10 @@ import { makeBackup, backupStatus, inspectBackup, type BackupStatus, type Backup
 import { buildPatientCopy, patientCopyFiles, recordPatientCopyGiven } from './export/patientCopy';
 import type { PatientCopy } from '../shared/patientCopy';
 import { buildPilotReport } from './report/pilot';
+import { seedDatabase } from './seed/seed';
 import { buildResearchExport, toCsv, researchReadme, recordResearchExport } from './report/research';
 import type { PilotReport } from '../shared/pilot';
+import type { PracticeSeedResult } from '../shared/ipc';
 import { dekOf } from './db/provision';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
@@ -703,6 +705,60 @@ function registerHandlers(): void {
         excluded: exported.patientsExcluded,
       };
     });
+
+  /**
+   * Fill an empty practice database with invented people.
+   *
+   * This exists so that the program can be shown to somebody - a
+   * colleague, the doctor whose chamber it is - before a single real
+   * patient has been registered. An empty Recall Card demonstrates
+   * nothing, and a demonstration on real patients is not acceptable.
+   *
+   * Two guards, both inside seedDatabase() rather than here, because
+   * they must hold however this is called: it refuses a database
+   * marked live, and it refuses one that already has patients in it.
+   * There is no path from this button to a real record.
+   */
+  handle<PracticeSeedResult>(CHANNELS.seedPractice, () => {
+    if (db === null) throw new Error('practice data was asked for before the database was unlocked');
+    // No sign-in is required. On a fresh installation nobody has been
+    // set up yet, and this is the screen that gives them somebody to
+    // sign in as. What makes it safe is not who asks but what it is
+    // allowed to touch, and that is enforced in seedDatabase().
+
+    const { rulebook } = loadRulebookFromDisk(installDir);
+    if (rulebook === null) {
+      throw new ChamberRecallError(
+        'The red flag rules file could not be read, so the practice data cannot be created.',
+        'Open red_flags.yaml in the data folder and correct it, or reinstall to get a fresh copy.',
+      );
+    }
+    const consent = loadConsentConfig(installDir);
+
+    const started = Date.now();
+    const result = seedDatabase(db, {
+      patientCount: 300,
+      rulebook,
+      consentVersion: consent.config?.version ?? null,
+    });
+
+    return {
+      patients: result.patients,
+      visits: result.visits,
+      encounters: result.encounters,
+      redFlagsFired: result.redFlagsFired,
+      seconds: Number(((Date.now() - started) / 1000).toFixed(1)),
+      // Printed by the seed so that whoever is shown the program can
+      // actually sign in to it. These are practice people; the PINs
+      // are fixed and are not secrets.
+      signIns: [
+        { name: 'Dr. Ashraful Haque', pin: '4021' },
+        { name: 'Nusrat (clinical assistant)', pin: '5390' },
+        { name: 'Jahid (front desk)', pin: '6172' },
+        { name: 'Shopna (front desk)', pin: '7483' },
+      ],
+    };
+  });
 
   handle<Record<string, never>>(CHANNELS.redFlagAcknowledge, (eventId: string) => {
     if (db === null) throw new Error('an alert was acknowledged before the database was unlocked');

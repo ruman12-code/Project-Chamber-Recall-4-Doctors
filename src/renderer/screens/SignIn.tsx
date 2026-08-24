@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, unwrap, type Failure } from '../api';
 import { FailureNotice } from '../Failure';
 import { roleLabel, type Role } from '../../shared/roles';
-import type { StaffView } from '../../shared/ipc';
+import type { StaffView, PracticeSeedResult } from '../../shared/ipc';
 
 /**
  * Signing in.
@@ -109,6 +109,8 @@ export function SetUpPeople({ onDone, demo }: { onDone: () => Promise<void>; dem
   const [role, setRole] = useState<Role>('doctor');
   const [pin, setPin] = useState('');
   const [failure, setFailure] = useState<Failure | null>(null);
+  const [filling, setFilling] = useState(false);
+  const [practice, setPractice] = useState<PracticeSeedResult | null>(null);
 
   const refresh = async () => {
     const { value, failure } = unwrap(await api.staffList());
@@ -122,6 +124,22 @@ export function SetUpPeople({ onDone, demo }: { onDone: () => Promise<void>; dem
     if (failure) { setFailure(failure); return; }
     setFailure(null);
     setName(''); setPin('');
+    await refresh();
+  }
+
+  /**
+   * Fill this practice database with invented patients, so the program
+   * can be shown to somebody with four years of history behind it.
+   * Offered only on a practice database that is still empty; there is
+   * no version of this button on a real one.
+   */
+  async function fillWithPractice() {
+    setFilling(true);
+    setFailure(null);
+    const { value, failure } = unwrap(await api.seedPractice());
+    setFilling(false);
+    if (failure) { setFailure(failure); return; }
+    setPractice(value!);
     await refresh();
   }
 
@@ -142,6 +160,42 @@ export function SetUpPeople({ onDone, demo }: { onDone: () => Promise<void>; dem
       </p>
 
       {failure !== null && <FailureNotice failure={failure} />}
+
+      {demo && people.length === 0 && practice === null && (
+        <div className="card practice-offer">
+          <h2 style={{ marginTop: 0 }}>Or fill it with practice patients</h2>
+          <p>
+            Before adding anybody real, this practice database can be filled with 300 invented
+            patients and four years of invented visits — enough that a Recall Card has something
+            on it and today's list has people waiting. It is the only honest way to show somebody
+            what an evening looks like.
+          </p>
+          <p className="muted">
+            Nobody in it exists. It takes a few seconds, and it can only ever be done once, on a
+            practice database that is still empty.
+          </p>
+          <button className="secondary" disabled={filling} onClick={() => { void fillWithPractice(); }}>
+            {filling ? 'Inventing patients and their histories…' : 'Fill this practice database'}
+          </button>
+        </div>
+      )}
+
+      {practice !== null && (
+        <div className="card practice-offer">
+          <h2 style={{ marginTop: 0 }}>The practice database is ready</h2>
+          <p>
+            {practice.patients} invented patients, {practice.visits} visits and {practice.encounters}{' '}
+            consultations, written in {practice.seconds} seconds. {practice.redFlagsFired} of those
+            intakes tripped a rule and were moved up the queue.
+          </p>
+          <p>Sign in as one of these to look around:</p>
+          <ul className="staff-list">
+            {practice.signIns.map((p) => (
+              <li key={p.pin}><b>{p.name}</b> — PIN {p.pin}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Add somebody</h2>

@@ -419,7 +419,7 @@
     </p>
     <div class="chips">
       <span class="chip done">All 13 parts built</span>
-      <span class="chip done">593 automated checks passing</span>
+      <span class="chip done">597 automated checks passing</span>
       <span class="chip open">3 things needed from you</span>
       <span class="chip">0 real patients so far</span>
     </div>
@@ -746,19 +746,27 @@
     <div class="spine">Where it is</div>
     <div class="col">
       <p>
-        There is no website and no app store. It is a program that runs on one laptop in the
-        chamber, and the absence of a link is the design working rather than something missing.
-        Installing it is copying the code onto that laptop and running <code>npm install</code>
-        and <code>npm start</code>, once.
+        There is no website and no app store, and the absence of a link is the design working
+        rather than something missing. It is one installer file carried to the chamber on a USB
+        stick, run once on the laptop that will keep the records. Windows 10 or newer.
       </p>
       <p>
-        Three documents come with it, written to be read rather than skimmed: the consent
-        reasoning and where the law bites (<code>docs/CONSENT.md</code>), every judgement call made
-        while building it and why (<code>docs/DECISIONS.md</code>), and how to set up and lock down
-        the front desk tablet (<code>docs/ANDROID-TABLET.md</code>).
+        What it installs starts as a <em>practice</em> database — three hundred invented patients
+        and four years of invented visits, with an amber band across every screen saying so. That
+        is deliberate. There is no button anywhere that starts a real one, because going live is
+        gated behind the three things on this page, and building the switch before the rules exist
+        would be building a way around them.
       </p>
       <p>
-        Built over thirteen stages, each one stopped and shown before the next began. 593 automated
+        Four documents come with it, written to be read rather than skimmed: how to install it and
+        what to ask while somebody watches over your shoulder
+        (<code>docs/INSTALL-WINDOWS.md</code>), the consent reasoning and where the law bites
+        (<code>docs/CONSENT.md</code>), every judgement call made while building it and why
+        (<code>docs/DECISIONS.md</code>), and how to set up and lock down the front desk tablet
+        (<code>docs/ANDROID-TABLET.md</code>).
+      </p>
+      <p>
+        Built over thirteen stages, each one stopped and shown before the next began. 597 automated
         checks cover key custody, the rule evaluator, patient matching, the merge tool, the offline
         buffer, temperature entry, the consultation, backups and the report. There are no tests of
         the screens — every screen was looked at instead, which is how four real defects were

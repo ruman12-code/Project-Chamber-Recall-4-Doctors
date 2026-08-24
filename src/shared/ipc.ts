@@ -165,4 +165,20 @@ export const CHANNELS = {
   // The pilot report, and the export the research consent was for.
   pilotReport: 'report:pilot',
   researchExport: 'report:research',
+  // Filling a practice database with invented people, so there is
+  // something to show somebody before a real patient ever exists.
+  seedPractice: 'practice:seed',
 } as const;
+
+/**
+ * What filling the practice database produced, and who can then sign
+ * in to it. Only ever returned for a database created in demo mode.
+ */
+export interface PracticeSeedResult {
+  patients: number;
+  visits: number;
+  encounters: number;
+  redFlagsFired: number;
+  seconds: number;
+  signIns: Array<{ name: string; pin: string }>;
+}
