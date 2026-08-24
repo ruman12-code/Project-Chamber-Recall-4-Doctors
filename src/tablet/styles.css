@@ -181,3 +181,37 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 .patient .who { flex: 1; min-width: 0; display: block; }
 .patient .nm, .patient .sub { display: block; }
 .patient .state { flex: none; white-space: nowrap; }
+
+
+/* ===============================================================
+   THE SERIAL REGISTER, AT THE DESK
+   This replaces the paper book, and it has to beat the book at the
+   book's own job. Two taps to a serial number, everything thumb
+   sized, and the number itself the biggest thing on the screen
+   because it is about to be called out across a waiting room.
+   =============================================================== */
+.arrive-search input {
+  width: 100%; font: inherit; font-size: 26px; padding: 16px 18px;
+  border: 3px solid var(--line); border-radius: 12px; margin-bottom: 14px;
+}
+.arrive-actions { display: flex; gap: 12px; padding: 14px 0 4px; }
+.arrive-actions button { flex: 1; font-size: 21px; padding: 18px; }
+.arrive-actions button.quiet { flex: 0 0 32%; background: #fff; color: var(--ink); border: 3px solid var(--line); }
+
+.arrive-form { display: flex; flex-direction: column; gap: 4px; }
+.arrive-form label { font-size: 17px; font-weight: 700; margin-top: 10px; }
+.arrive-form input {
+  width: 100%; font: inherit; font-size: 24px; padding: 14px 16px;
+  border: 3px solid var(--line); border-radius: 12px;
+}
+.arrive-sex { display: flex; gap: 10px; margin-top: 4px; }
+.arrive-sex button {
+  flex: 1; font-size: 20px; padding: 16px; background: #fff; color: var(--ink);
+  border: 3px solid var(--line); border-radius: 12px;
+}
+.arrive-sex button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+.serial-given {
+  font-size: 132px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums;
+  margin-bottom: 6px;
+}

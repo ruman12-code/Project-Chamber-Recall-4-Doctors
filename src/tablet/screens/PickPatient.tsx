@@ -35,7 +35,7 @@ export function PickPatient(
             {bn ? 'এখন লাইনে কেউ নেই।' : 'Nobody is waiting.'}
             <br />
             <span style={{ fontSize: 16 }}>
-              {bn ? 'ল্যাপটপে রোগী যোগ করা হলে এখানে দেখা যাবে।' : 'Patients appear here once they are given a serial on the laptop.'}
+              {bn ? '"রোগী এসেছেন" চেপে প্রথম রোগীকে সিরিয়াল দিন।' : 'Tap "A patient has arrived" to give the first serial.'}
             </span>
           </div>
         ) : waiting.map((entry) => (

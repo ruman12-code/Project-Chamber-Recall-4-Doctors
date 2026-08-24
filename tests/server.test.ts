@@ -370,3 +370,117 @@ describe('signing in at the front desk', () => {
     assert.equal(result.body.needsSignIn, true);
   });
 });
+
+
+/**
+ * The serial register on the tablet.
+ *
+ * The brief puts this at the front desk, which is where the paper book
+ * it replaces sat. These tests go over real HTTP, the way the tablet
+ * does, because the thing being tested is the boundary a tablet on a
+ * chamber wifi actually meets.
+ */
+describe('registering an arrival from the tablet', () => {
+  let db: Db; let cleanup: () => void; let server: RunningServer; let base: string;
+  let token = ''; let deskId = ''; let knownPatientId = '';
+
+  before(async () => {
+    const t = tempDir();
+    cleanup = t.cleanup;
+    db = provision(t.dir, 'passphrase', 'demo').db;
+    db.prepare('INSERT INTO chamber (id, name, created_at) VALUES (?, ?, ?)').run('ch-a', 'Test Chamber', nowIso());
+    setActiveChamber(db, 'ch-a');
+
+    const doctorId = addStaff(db, { displayName: 'Dr Ashraful', role: 'doctor', pin: '4021' }, { id: null, role: 'system' });
+    deskId = addStaff(db, { displayName: 'Biplob', role: 'front_desk', pin: '6172' }, { id: doctorId, role: 'doctor' });
+    resetSignInAttempts();
+
+    knownPatientId = registerPatient(db, {
+      fullNameBn: 'তানভীর রহমান', fullNameEn: 'Tanvir Rahman', phone: '01733333333',
+      dob: null, approxAgeYears: 44, sex: 'male', addressFreeText: null,
+    }, { id: deskId, role: 'front_desk' });
+
+    server = await startTabletServer({ db, dataDir: t.dir, webRoot: WEB_ROOT, port: 0 });
+    base = `http://127.0.0.1:${server.port}`;
+
+    const paired = await fetch(`${base}/api/pair`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code: server.pairingCode, label: 'desk tablet' }),
+    });
+    token = String(((await paired.json()) as { token: string }).token);
+    await fetch(`${base}/api/signin`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-chamber-token': token },
+      body: JSON.stringify({ userId: deskId, pin: '6172' }),
+    });
+  });
+  after(async () => { await server.close(); db.close(); cleanup(); });
+
+  const post = async (path: string, body: unknown) => {
+    const response = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-chamber-token': token },
+      body: JSON.stringify(body ?? {}),
+    });
+    return { status: response.status, body: await response.json() as Record<string, unknown> };
+  };
+
+  test('searching by phone finds the patient, as a list', async () => {
+    const result = await post('/api/patients/search', { query: '01733333333' });
+    assert.equal(result.status, 200);
+    const results = result.body.results as Array<Record<string, unknown>>;
+    assert.equal(results.length, 1);
+    assert.equal(results[0]!.nameEn, 'Tanvir Rahman');
+  });
+
+  test('a returning patient gets a serial number', async () => {
+    const result = await post('/api/queue/arrive', { patientId: knownPatientId });
+    assert.equal(result.status, 200);
+    assert.equal(result.body.serialNo, 1);
+    assert.equal(result.body.alreadyOnListVisitId, null);
+  });
+
+  test('adding them twice reports it rather than doing it quietly', async () => {
+    const again = await post('/api/queue/arrive', { patientId: knownPatientId });
+    assert.equal(again.status, 200);
+    assert.equal(again.body.serialNo, 0);
+    assert.notEqual(again.body.alreadyOnListVisitId, null);
+  });
+
+  test('and goes ahead when the assistant says they really came back', async () => {
+    const forced = await post('/api/queue/arrive', { patientId: knownPatientId, allowSecondVisitToday: true });
+    assert.equal(forced.status, 200);
+    assert.equal(forced.body.serialNo, 2);
+  });
+
+  test('a patient nobody has seen before can be registered and given a serial', async () => {
+    const created = await post('/api/patients/register', {
+      fullNameBn: 'রহিমা খাতুন', phone: '01744444444', approxAgeYears: 31, sex: 'female',
+    });
+    assert.equal(created.status, 200);
+    const arrival = await post('/api/queue/arrive', { patientId: String(created.body.id) });
+    assert.equal(arrival.status, 200);
+    assert.equal(arrival.body.serialNo, 3);
+  });
+
+  test('the new patient is recorded against the assistant who registered them', () => {
+    const row = db.prepare(
+      `SELECT u.display_name AS name FROM patient p JOIN app_user u ON u.id = p.created_by
+       WHERE p.phone = '01744444444'`,
+    ).get() as { name: string };
+    assert.equal(row.name, 'Biplob');
+  });
+
+  test('a patient with no name at all is refused, and told why', async () => {
+    const result = await post('/api/patients/register', { phone: '01755555555' });
+    assert.equal(result.status, 400);
+    assert.ok(String(result.body.error).length > 0);
+    assert.ok(String(result.body.whatToDo).length > 0);
+  });
+
+  test('a tablet nobody has signed in on cannot give out serial numbers', async () => {
+    await post('/api/signout', {});
+    const result = await post('/api/queue/arrive', { patientId: knownPatientId });
+    assert.equal(result.status, 401);
+    assert.equal(result.body.needsSignIn, true);
+  });
+});

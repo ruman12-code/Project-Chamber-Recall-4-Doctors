@@ -4,6 +4,7 @@ import { Outbox, type OutboxStatus } from './outbox';
 import { Pair } from './screens/Pair';
 import { DeskSignIn, type DeskPerson } from './screens/DeskSignIn';
 import { PickPatient, type QueueEntryWithConsent } from './screens/PickPatient';
+import { Arrive } from './screens/Arrive';
 import { Ask } from './screens/Ask';
 import { Alarm } from './screens/Alarm';
 import { Consent, type ConsentPart, type ConsentMethod, type ConsentGivenBy } from './screens/Consent';
@@ -107,6 +108,9 @@ export function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
   const [acknowledging, setAcknowledging] = useState(false);
+  /** The serial register: registering an arrival, and the number given. */
+  const [arriving, setArriving] = useState(false);
+  const [justGiven, setJustGiven] = useState<{ serialNo: number; name: string } | null>(null);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { outbox.start(); return outbox.onChange(setStatus); }, []);
@@ -349,8 +353,32 @@ export function App() {
 
       {questionnaire === null ? (
         <div className="empty">{bn ? 'প্রশ্ন পাওয়া যায়নি।' : 'No questions could be loaded yet.'}</div>
+      ) : arriving ? (
+        <Arrive
+          bn={bn}
+          onCancel={() => setArriving(false)}
+          onDone={(serialNo, name) => {
+            setArriving(false);
+            setJustGiven({ serialNo, name });
+            void refresh();
+          }}
+        />
+      ) : justGiven !== null ? (
+        // The number, as big as the screen allows, because it is about
+        // to be said out loud across a waiting room.
+        <div className="done">
+          <div className="serial-given">{justGiven.serialNo}</div>
+          <div className="bn">{bn ? 'এই নম্বরটি রোগীকে বলুন' : 'Tell the patient this number'}</div>
+          <div className="en">{justGiven.name}</div>
+          <button className="btn" onClick={() => setJustGiven(null)}>{bn ? 'ঠিক আছে' : 'Done'}</button>
+        </div>
       ) : draft === null ? (
-        <PickPatient queue={session?.queue ?? []} bn={bn} onPick={startWith} />
+        <>
+          <PickPatient queue={session?.queue ?? []} bn={bn} onPick={startWith} />
+          <div className="arrive-actions">
+            <button onClick={() => setArriving(true)}>{bn ? 'রোগী এসেছেন' : 'A patient has arrived'}</button>
+          </div>
+        </>
       ) : consentUnusable ? (
         <div className="consent-blocked">
           <div className="notice bad">

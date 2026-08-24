@@ -913,6 +913,51 @@ with the first one, and that is a number the pilot report should show.
 
 ---
 
+## The serial register moves to the tablet
+
+Your brief put registration on the tablet from the beginning — "Interface A
+… registers arrivals, assigns serials" — and milestones 4 and 5 built it on
+the laptop instead. That was the wrong device: the laptop sits in the
+chamber and the front desk cannot reach it. This puts it where the brief
+said, and where the paper book it replaces actually sat.
+
+### 66. The desk can now register, search and give a serial
+
+Three things on the tablet, all two taps deep: find a returning patient by
+phone or name, register somebody who has never been before, and give either
+of them a number. The number itself fills the screen afterwards, because the
+next thing that happens is somebody calling it out across a waiting room.
+
+The laptop keeps its own copy of all three. One tablet with a flat battery
+must not stop a chamber from working.
+
+### 67. This is the one part of the tablet that cannot work offline, and it says so
+
+Everything else the tablet does is buffered: the questions carry on
+appearing with no wifi and go across when it returns. Registration cannot
+work that way, and the reason is not laziness.
+
+A serial number has to be unique and in order for the whole chamber. Two
+tablets handing out number 14 out of their own buffers would put two
+patients in one place in the queue, and there is no way to repair that
+afterwards without taking a number off somebody. So these three calls go
+straight to the laptop, and when they fail the screen says exactly that —
+in Bangla, with what to check — rather than pretending to have succeeded.
+
+### 68. The rules from the laptop screens carry over, and matter more here
+
+The search always returns a LIST and never picks a patient by itself, however
+sure it looks: two brothers on one phone number is normal here, and the
+wrong pick puts one man's history under another man's name. "A new patient"
+is on screen at every step, because the commonest thing at a front desk is
+somebody who is not in the system yet, and making that the hard path is how
+names get retyped into a search box until something matches.
+
+A patient already on today's list is reported rather than silently added
+twice, and the question is asked in the assistant's own language.
+
+---
+
 ## Two bugs from milestone 7
 
 **The tablet crashed on the first tap after the update.** It keeps a copy of

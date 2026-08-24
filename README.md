@@ -42,6 +42,11 @@ refuses to take an intake until the consent wording is. See
   number, see who is waiting and for how long, change who is seen next,
   and print today's list. A flagged patient is held at the front of the
   queue and there is no control anywhere that moves them back.
+- **The serial register, at the front desk.** The tablet finds a returning
+  patient by phone or name, registers somebody new, and gives them their
+  number — the one part of the tablet that needs the laptop reachable,
+  because a serial has to be unique for the whole chamber, and it says so
+  plainly when it is not.
 - **The tablet intake.** Questions from a file the doctor edits, one per
   screen, Bangla first, a Skip on every question, and an offline buffer
   so a dropped wifi loses nothing. The tablet checks the red flag rules
@@ -67,7 +72,7 @@ refuses to take an intake until the consent wording is. See
   from a file he edits himself, everything on it typed by a person. It
   will not print before the consultation is signed, and it will not print
   at all for a real patient while the letterhead still says PLACEHOLDER.
-- 516 tests covering key custody, the database layer, the practice data,
+- 524 tests covering key custody, the database layer, the practice data,
   the rule evaluator, the refuse-to-run guard, the Recall Card, patient
   matching, the merge tool, temperature entry, the register, the queue,
   the question engine, the network server, the offline buffer, confirming

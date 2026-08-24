@@ -28,6 +28,9 @@ import { PairingDesk, deviceForToken, PairingLockedError } from './pairing';
 import { unassignedActor } from '../db/users';
 import { signIn as verifySignIn, actorOf, SignInError, type SignedIn } from '../auth/session';
 import { signInList, needsSetup } from '../auth/staff';
+import { searchPatients } from '../patients/search';
+import { registerPatient } from '../patients/register';
+import { registerArrival } from '../queue/register';
 
 /**
  * Who is signed in on each paired tablet, by device id.
@@ -354,6 +357,74 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
         language: body.language === 'en' ? 'en' : 'bn',
       }, actor);
       sendJson(response, 200, { ok: true });
+      return;
+    }
+
+    // ---- the serial register, at the desk where it belongs ----
+    //
+    // The brief puts registration on the tablet: it is the front desk
+    // that meets the patient, and the paper book this replaces sat on
+    // their counter, not in the chamber.
+    //
+    // These three are the one part of the tablet that CANNOT work
+    // offline, and the reason is not laziness. A serial number has to
+    // be unique and in order for the whole chamber, and two tablets
+    // handing out number 14 from their own buffers would be worse than
+    // a tablet that says plainly it cannot reach the laptop. So these
+    // go straight out, and the screen says so when they fail.
+    if (path === '/api/patients/search') {
+      const body = (await readBody(request)) as { query?: string };
+      sendJson(response, 200, { results: searchPatients(db, String(body.query ?? '')) });
+      return;
+    }
+
+    if (path === '/api/patients/register') {
+      const body = (await readBody(request)) as Record<string, unknown>;
+      try {
+        const id = registerPatient(db, {
+          fullNameBn: (body.fullNameBn as string | null) ?? null,
+          fullNameEn: (body.fullNameEn as string | null) ?? null,
+          phone: (body.phone as string | null) ?? null,
+          dob: (body.dob as string | null) ?? null,
+          approxAgeYears: typeof body.approxAgeYears === 'number' ? body.approxAgeYears : null,
+          sex: (body.sex as 'male' | 'female' | 'other' | null) ?? null,
+          addressFreeText: (body.addressFreeText as string | null) ?? null,
+        }, actor);
+        sendJson(response, 200, { id });
+      } catch (error) {
+        sendJson(response, 400, {
+          error: error instanceof ChamberRecallError ? error.userMessage : 'That could not be saved.',
+          whatToDo: error instanceof ChamberRecallError ? error.whatToDo : 'Check what was typed and try again.',
+        });
+      }
+      return;
+    }
+
+    if (path === '/api/queue/arrive') {
+      const body = (await readBody(request)) as { patientId?: string; allowSecondVisitToday?: boolean };
+      const chamberId = activeChamberId(db);
+      if (chamberId === null) {
+        sendJson(response, 400, {
+          error: 'No chamber has been chosen on the laptop.',
+          whatToDo: 'On the laptop, open today\'s list and choose which chamber this evening is.',
+        });
+        return;
+      }
+      try {
+        const result = registerArrival(db, String(body.patientId ?? ''), chamberId, actor, {
+          allowSecondVisitToday: body.allowSecondVisitToday === true,
+        });
+        sendJson(response, 200, {
+          serialNo: result.serialNo,
+          visitId: result.visitId,
+          alreadyOnListVisitId: result.alreadyOnListVisitId,
+        });
+      } catch (error) {
+        sendJson(response, 400, {
+          error: error instanceof ChamberRecallError ? error.userMessage : 'That could not be saved.',
+          whatToDo: error instanceof ChamberRecallError ? error.whatToDo : 'Try again.',
+        });
+      }
       return;
     }
 
