@@ -867,3 +867,15 @@ button.small { margin: 6px 0 0; padding: 6px 10px; font-size: 12px; }
   background: var(--demo-bg);
 }
 .card.practice-offer h2 { color: #6b4708; }
+
+/* The PIN printed beside an invented person on the sign-in screen of a
+   practice database. Amber, like every other "this is not real" mark in
+   the program, so it can never read as part of the working system. */
+.si-person .pin {
+  display: block; margin-top: 4px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px; letter-spacing: 0.04em;
+  color: #6b4708; background: var(--demo-bg);
+  border: 1px solid #d9a441; border-radius: 4px;
+  padding: 1px 6px; width: fit-content;
+}

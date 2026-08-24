@@ -91,7 +91,9 @@ takes about ten seconds, and then shows you four people to sign in as:
 | Shopna *(front desk)* | 7483 |
 
 Nobody in that database exists. An amber band across the top of every
-screen says so and never goes away.
+screen says so and never goes away, and **the sign-in screen prints each
+PIN beside the name**, so this list is never something you have to keep.
+A real database never shows a PIN anywhere.
 
 This is the database you show your cousin. An empty Recall Card
 demonstrates nothing, and a demonstration on real patients is not
@@ -195,7 +197,10 @@ Two consequences worth knowing:
   PINs — that is what the PINs are for. Two Windows accounts would mean
   two separate databases and half the history missing from each.
 - **Uninstalling does not delete the records.** That is deliberate and
-  it is the most important line in the packaging configuration.
+  it is the most important line in the packaging configuration. It also
+  means reinstalling fixes nothing that is wrong *inside* the database:
+  the program comes back to the same records, the same people and the
+  same passwords it had before.
   Reinstalling, or moving to a newer version, cannot cost a single
   patient's history. If you genuinely want the records gone, delete that
   folder by hand, knowing exactly what you are doing.

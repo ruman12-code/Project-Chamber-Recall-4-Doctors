@@ -2,9 +2,20 @@ import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { provision } from '../src/main/db/provision';
 import { setMeta, type Db } from '../src/main/db/open';
-import { seedDatabase } from '../src/main/seed/seed';
+import { seedDatabase, PRACTICE_STAFF } from '../src/main/seed/seed';
 import { SeedRefusedError } from '../src/shared/errors';
 import { tempDir } from './helpers';
+import { dataMode } from '../src/main/db/open';
+import { loadRulebookFromDisk } from '../src/main/redflags/store';
+import { signInList, allStaff, addStaff } from '../src/main/auth/staff';
+import { signIn } from '../src/main/auth/session';
+
+/** A fresh practice installation, with its own folder and rules file. */
+function freshDemo() {
+  const t = tempDir();
+  const { db } = provision(t.dir, 'a passphrase for the pilot', 'demo');
+  return { db, dir: t.dir, cleanup: t.cleanup };
+}
 
 describe('synthetic practice data', () => {
   let db: Db;
@@ -295,5 +306,64 @@ describe("today's session looks like an evening in progress", () => {
     assert.ok(longestWait > 20 * 60000, 'nobody has been waiting long enough to be worth showing');
 
     db.close(); t.cleanup();
+  });
+});
+
+describe('the practice PINs on the sign-in screen', () => {
+  // Being locked out of a database full of invented people is a silly
+  // way to lose an evening, so a practice database shows the PINs. The
+  // thing that must never happen is that reaching a REAL person's PIN.
+
+  test('every practice person the seed creates is in PRACTICE_STAFF', () => {
+    const { db, dir, cleanup } = freshDemo();
+    const rulebook = loadRulebookFromDisk(dir).rulebook!;
+    seedDatabase(db, { patientCount: 5, rulebook });
+
+    const names = signInList(db).map((p) => p.displayName).sort();
+    const declared = PRACTICE_STAFF.map((p) => p.display_name).sort();
+    assert.deepEqual(names, declared,
+      'the seed and PRACTICE_STAFF have drifted apart, so the screen would show a wrong PIN');
+    db.close(); cleanup();
+  });
+
+  test('each declared PIN actually signs that person in', () => {
+    const { db, dir, cleanup } = freshDemo();
+    const rulebook = loadRulebookFromDisk(dir).rulebook!;
+    seedDatabase(db, { patientCount: 5, rulebook });
+
+    for (const person of signInList(db)) {
+      const declared = PRACTICE_STAFF.find((p) => p.display_name === person.displayName)!;
+      const who = signIn(db, person.id, declared.pin);
+      assert.equal(who.displayName, person.displayName,
+        `the PIN printed for ${person.displayName} does not sign them in`);
+    }
+    db.close(); cleanup();
+  });
+
+  test('a PIN nobody declared does not sign anybody in', () => {
+    const { db, dir, cleanup } = freshDemo();
+    const rulebook = loadRulebookFromDisk(dir).rulebook!;
+    seedDatabase(db, { patientCount: 5, rulebook });
+    const person = signInList(db)[0]!;
+    assert.throws(() => signIn(db, person.id, '0000'));
+    db.close(); cleanup();
+  });
+
+  test('a live database has no practice staff for a PIN to be shown for', () => {
+    // The screen only ever shows a PIN for a name in PRACTICE_STAFF, and
+    // the seed that creates those names refuses to run against a live
+    // database. So on a live database there is nothing to match.
+    const { dir, cleanup } = tempDir();
+    const { db } = provision(dir, 'a passphrase for the pilot', 'live');
+    assert.equal(dataMode(db), 'live');
+    assert.throws(() => seedDatabase(db, { patientCount: 5 }), SeedRefusedError);
+
+    addStaff(db, { displayName: 'Dr Real Person', role: 'doctor', pin: '9182' }, { id: null, role: 'system' });
+    const names = allStaff(db).map((p) => p.displayName);
+    for (const declared of PRACTICE_STAFF) {
+      assert.ok(!names.includes(declared.display_name),
+        'a live database must never contain a name the screen would print a PIN for');
+    }
+    db.close(); cleanup();
   });
 });

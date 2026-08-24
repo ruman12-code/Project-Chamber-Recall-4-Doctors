@@ -1301,6 +1301,36 @@ a program and wrong for a test: a check that quietly examines the
 original file can pass for the wrong reason just as easily as it can
 fail for one.
 
+### 93. A practice PIN is not a secret, so it stays on the screen
+
+The four invented staff of a practice database were shown once, on the
+screen that created the data, and never again. Somebody navigated past
+that screen and was locked out of a database full of people who do not
+exist. Reinstalling did not help, because uninstalling deliberately
+leaves the records alone -- so the program came back to the same four
+people and the same four PINs nobody could read.
+
+The mistake was treating an invented person's PIN as though it were
+worth hiding. It is not: it lives only in a database marked demo, which
+can never hold a real patient, and it is written down in
+INSTALL-WINDOWS.md anyway. Hiding it bought nothing and cost an evening.
+
+The sign-in screen now prints each practice PIN beside the name. The
+guard is `dataMode(db) === 'demo'`, checked in the main process rather
+than trusted from the screen, so on a live database the code that
+attaches a PIN does not run at all and there is no path by which a real
+person's PIN reaches a renderer.
+
+`PRACTICE_STAFF` is now one exported list that the seed builds its users
+from and the screen reads its PINs from, with a check that the two have
+not drifted apart -- because a screen confidently printing the wrong PIN
+would be worse than the screen that printed none.
+
+Compare decision 5, the recovery key, which is shown once and cannot be
+recovered. That one is right: it protects real records, and the screen
+makes you tick a box saying you wrote it down. The difference is what is
+behind the door.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

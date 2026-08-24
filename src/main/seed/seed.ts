@@ -168,6 +168,26 @@ function makePhysiology(rng: Rng, ageYears: number): Physiology {
   };
 }
 
+/**
+ * The four invented people a practice database is signed into.
+ *
+ * Exported because the sign-in screen shows these PINs beside the names
+ * whenever the database is marked demo. They were shown once, on the
+ * screen that created the practice data, and somebody who navigated
+ * past it was locked out of a database full of people who do not exist
+ * - which is a silly way to lose an evening.
+ *
+ * These are not secrets. They are only ever in a database marked demo,
+ * which can never hold a real patient, and they are written down in
+ * docs/INSTALL-WINDOWS.md as well.
+ */
+export const PRACTICE_STAFF = [
+  { display_name: 'Dr. Ashraful Haque', role: 'doctor' as const, pin: '4021', speed: 1, skip: 0 },
+  { display_name: 'Nusrat (clinical assistant)', role: 'clinical_assistant' as const, pin: '5390', speed: 1, skip: 0 },
+  { display_name: 'Jahid (front desk)', role: 'front_desk' as const, pin: '6172', speed: 1.0, skip: 0.12 },
+  { display_name: 'Shopna (front desk)', role: 'front_desk' as const, pin: '7483', speed: 0.45, skip: 0.55 },
+];
+
 export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
   const patientCount = options.patientCount ?? 300;
   const years = options.years ?? 4;
@@ -216,14 +236,10 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
     // Two front desk assistants with deliberately different habits, so
     // the pilot report has a real difference to expose.
     // Every practice user has a PIN so the demo can be signed into.
-    // These PINs are printed by the seed script and are only ever in a
-    // database marked demo, which cannot hold a real patient.
-    const users = [
-      { id: newId(), display_name: 'Dr. Ashraful Haque', role: 'doctor' as const, pin: '4021', speed: 1, skip: 0 },
-      { id: newId(), display_name: 'Nusrat (clinical assistant)', role: 'clinical_assistant' as const, pin: '5390', speed: 1, skip: 0 },
-      { id: newId(), display_name: 'Jahid (front desk)', role: 'front_desk' as const, pin: '6172', speed: 1.0, skip: 0.12 },
-      { id: newId(), display_name: 'Shopna (front desk)', role: 'front_desk' as const, pin: '7483', speed: 0.45, skip: 0.55 },
-    ];
+    // The list is PRACTICE_STAFF, above, because the sign-in screen
+    // shows these PINs beside the names in a practice database and the
+    // two must not be able to drift apart.
+    const users = PRACTICE_STAFF.map((p) => ({ id: newId(), ...p }));
     for (const u of users) {
       const pin = hashPin(u.pin);
       db.prepare(

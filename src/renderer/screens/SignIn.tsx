@@ -77,6 +77,13 @@ export function SignIn({ onSignedIn, demo }: { onSignedIn: () => Promise<void>; 
           >
             <span className="n">{person.displayName}</span>
             <span className="r">{roleLabel(person.role as Role).en} · {roleLabel(person.role as Role).bn}</span>
+            {/* Only ever present in a practice database. Shown because
+                an invented person's PIN is not a secret, and being
+                locked out of a database full of invented people helps
+                nobody. */}
+            {person.practicePin != null && (
+              <span className="pin">PIN {person.practicePin}</span>
+            )}
           </button>
         ))}
       </div>

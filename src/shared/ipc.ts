@@ -80,6 +80,13 @@ export interface StaffView {
   canSignIn: boolean;
   isActive: boolean;
   lastSignedInAt: string | null;
+  /**
+   * The PIN, in plain sight, for the invented staff of a PRACTICE
+   * database. Null for everybody else and absent entirely from a
+   * database that is not marked demo, so this can never carry a real
+   * person's PIN anywhere.
+   */
+  practicePin?: string | null;
 }
 
 export interface AuthState {

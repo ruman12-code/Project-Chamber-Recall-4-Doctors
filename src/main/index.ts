@@ -50,7 +50,7 @@ import { makeBackup, backupStatus, inspectBackup, type BackupStatus, type Backup
 import { buildPatientCopy, patientCopyFiles, recordPatientCopyGiven } from './export/patientCopy';
 import type { PatientCopy } from '../shared/patientCopy';
 import { buildPilotReport } from './report/pilot';
-import { seedDatabase } from './seed/seed';
+import { seedDatabase, PRACTICE_STAFF } from './seed/seed';
 import { buildResearchExport, toCsv, researchReadme, recordResearchExport } from './report/research';
 import type { PilotReport } from '../shared/pilot';
 import type { PracticeSeedResult } from '../shared/ipc';
@@ -410,7 +410,21 @@ function registerHandlers(): void {
 
   handle<{ people: StaffView[] }>(CHANNELS.signInList, () => {
     if (db === null) throw new Error('the sign-in list was asked for before the database was unlocked');
-    return { people: signInList(db) };
+    const people = signInList(db);
+
+    // In a PRACTICE database, and only there, the invented staff carry
+    // their PIN on the screen. They were shown once when the practice
+    // data was created, and anybody who navigated past that screen was
+    // shut out of a database full of people who do not exist.
+    //
+    // The guard is dataMode, checked here rather than trusted from the
+    // screen: on a live database this loop does not run at all, so
+    // there is no path by which a real person's PIN reaches a renderer.
+    if (dataMode(db) === 'demo') {
+      const known = new Map(PRACTICE_STAFF.map((p) => [p.display_name, p.pin]));
+      return { people: people.map((p) => ({ ...p, practicePin: known.get(p.displayName) ?? null })) };
+    }
+    return { people };
   });
 
   handle<{ signedIn: SignedInView }>(CHANNELS.signIn, (userId: string, pin: string) => {
