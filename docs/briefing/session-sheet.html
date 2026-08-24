@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Chamber Recall — session sheet</title>
+<style>
+  @page { size: A4; margin: 14mm 14mm 12mm; }
+  :root {
+    --ink: #16181d; --muted: #4d5460; --line: #b9bfc8; --rule: #cfd4db;
+    --alarm: #96201a; --amber: #754c00; --amber-line: #c9ad78;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #fff; color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    font-size: 10pt; line-height: 1.45;
+  }
+  .sheet { break-after: page; page-break-after: always; }
+  .sheet:last-child { break-after: auto; page-break-after: auto; }
+
+  header { border-bottom: 2px solid var(--ink); padding-bottom: 3mm; margin-bottom: 5mm;
+           display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
+  h1 { font-family: Literata, Georgia, serif; font-size: 17pt; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 8.5pt; margin: 1mm 0 0; }
+  .who { font-size: 8pt; color: var(--muted); text-align: right; white-space: nowrap; }
+  .who span { display: inline-block; border-bottom: 1px solid var(--line); width: 34mm; height: 4.5mm; }
+
+  h2 { font-family: Literata, Georgia, serif; font-size: 11.5pt; margin: 4.5mm 0 1mm;
+       break-after: avoid; page-break-after: avoid; }
+  h2 .n { color: var(--muted); font-size: 9pt; font-weight: 400; margin-right: 2mm;
+          font-family: "IBM Plex Mono", monospace; }
+  .ask { color: var(--muted); font-size: 9pt; margin: 0 0 2mm; max-width: 155mm; }
+
+  .lines { border-top: 1px solid var(--rule); }
+  .lines div { height: 6.5mm; border-bottom: 1px solid var(--rule); }
+
+  .timed { display: flex; gap: 3mm; align-items: baseline; font-size: 9pt;
+           color: var(--muted); margin: 0 0 2mm; }
+  .box { border: 1px solid var(--line); width: 16mm; height: 6mm; display: inline-block; }
+
+  .note { border-left: 3mm solid var(--amber-line); background: #fffdf7;
+          padding: 3mm 4mm; margin: 5mm 0 0; font-size: 9pt; break-inside: avoid; }
+  .note b { color: var(--amber); }
+  .stop { border-left-color: var(--alarm); background: #fffafa; }
+  .stop b { color: var(--alarm); }
+
+  footer { margin-top: 5mm; padding-top: 2.5mm; border-top: 1px solid var(--line);
+           font-size: 8pt; color: var(--muted); display: flex; justify-content: space-between; }
+  ul.tight { margin: 0 0 2mm; padding-left: 5mm; font-size: 9pt; color: var(--muted); }
+  ul.tight li { margin-bottom: 0.8mm; }
+</style></head>
+<body>
+
+<section class="sheet">
+  <header>
+    <div>
+      <h1>Chamber Recall — what he actually said</h1>
+      <p class="sub">Write his words, not a summary of them. A sentence you cannot act on is still worth keeping.</p>
+    </div>
+    <div class="who">
+      date <span></span><br>chamber <span></span>
+    </div>
+  </header>
+
+  <h2><span class="n">1</span>Today's list</h2>
+  <p class="ask">Open it and say nothing. What does he look at first? Does the ordering make sense to him before it is explained?</p>
+  <div class="lines"><div></div><div></div><div></div></div>
+
+  <h2><span class="n">2</span>The Recall Card</h2>
+  <p class="ask">Open one for a patient who has been before. Ask him to find the one thing he would most want to know.</p>
+  <div class="timed">how long it took him to find it: <span class="box"></span> seconds &nbsp;·&nbsp; did he find it? <span class="box"></span></div>
+  <div class="lines"><div></div><div></div><div></div><div></div></div>
+
+  <h2><span class="n">3</span>What is on it that he does not need</h2>
+  <p class="ask">The most useful question on this sheet. A card with less on it is a card read faster.</p>
+  <div class="lines"><div></div><div></div><div></div></div>
+
+  <h2><span class="n">4</span>What is missing that he would have to ask the patient anyway</h2>
+  <div class="lines"><div></div><div></div><div></div></div>
+
+  <div class="note">
+    <b>Not verified.</b> The history the front desk took is walled off in brown and marked
+    <i>not verified</i> until he confirms it. Is that line drawn where he would draw it? Would he
+    trust it more, or less, than what he writes himself?
+    <div class="lines" style="margin-top:2mm"><div></div><div></div></div>
+  </div>
+
+  <footer><span>Chamber Recall · session sheet · page 1 of 2</span><span>keep this, it is the pilot's baseline</span></footer>
+</section>
+
+<section class="sheet">
+  <header>
+    <div>
+      <h1>The questions, the writing, and the verdict</h1>
+      <p class="sub">Second half. Sections 5 and 6 are the ones that decide whether this is worth twelve weeks.</p>
+    </div>
+    <div class="who">page 2</div>
+  </header>
+
+  <h2><span class="n">5</span>The intake questions</h2>
+  <p class="ask">Read him the questions the desk asks. Are these the ones he wants asked, in this order, in this wording?</p>
+  <ul class="tight">
+    <li>Any question he would remove?</li>
+    <li>Any he would add — bearing in mind nothing about menstruation, pregnancy, mental health, alcohol or home life is ever asked at a front desk?</li>
+    <li>Any wording that is wrong in Bangla?</li>
+  </ul>
+  <div class="lines"><div></div><div></div><div></div><div></div></div>
+
+  <h2><span class="n">6</span>The consultation and the prescription</h2>
+  <p class="ask">Let him type one. Then confirm it, and show him that the record locks and an amendment is recorded rather than a rewrite.</p>
+  <div class="lines"><div></div><div></div><div></div></div>
+
+  <h2><span class="n">7</span>Twenty seconds, honestly</h2>
+  <p class="ask">Not "do you like it". Ask: <b>on a Tuesday evening with forty patients waiting, is this faster than the file you keep now, or slower?</b></p>
+  <div class="lines"><div></div><div></div><div></div></div>
+
+  <div class="note stop">
+    <b>The three things only he can do.</b> Nothing real happens until these are done, and nobody
+    else can do them. Get a date against each one before you leave the room.
+    <div style="margin-top:2mm">
+      Write the red flag rules &nbsp; — by <span style="border-bottom:1px solid var(--line);display:inline-block;width:30mm">&nbsp;</span><br>
+      Approve the consent wording, with a lawyer &nbsp; — by <span style="border-bottom:1px solid var(--line);display:inline-block;width:30mm">&nbsp;</span><br>
+      Fill in the prescription letterhead &nbsp; — by <span style="border-bottom:1px solid var(--line);display:inline-block;width:30mm">&nbsp;</span>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Anything he asked for that is not on this sheet.</b>
+    <div class="lines" style="margin-top:2mm"><div></div><div></div></div>
+  </div>
+
+  <footer><span>Chamber Recall · session sheet · page 2 of 2</span><span>his words, not a summary</span></footer>
+</section>
+
+</body></html>

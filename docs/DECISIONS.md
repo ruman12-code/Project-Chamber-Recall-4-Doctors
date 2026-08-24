@@ -1245,6 +1245,31 @@ It asks nobody to sign in first. On a fresh installation nobody has been set
 up yet, and this is the screen that gives them somebody to sign in as. What
 makes it safe is not who asks but what it is allowed to touch.
 
+### 91. The test runner is not allowed to be the thing that fails silently
+
+Found by cloning this repository from scratch and running it, which is
+worth doing more often than it is done.
+
+`tests/database.test.ts` inserted an attachment row using `file_path`, a
+column migration 10 removed when photographs moved inside the encrypted
+database. The insert threw. It threw in the BODY of the group rather than
+inside a test, and node's runner prints `not ok` for that and then reports
+"fail 0" and exits 0.
+
+So the group proving that twelve tables refuse a DELETE stopped running at
+milestone 11 and said nothing about it. Every "593 checks pass" after that
+was 593 of the checks that still ran.
+
+The checks now go through `scripts/run-tests.js`, which fails when the
+words "not ok" appear anywhere in the output. A blunt rule, deliberately:
+this project's first rule is that nothing fails silently, and the thing
+that checks that rule cannot be the exception to it.
+
+`npm test` also builds the tablet page now. Three server checks needed it
+and had been passing only on machines where a previous `npm start` had
+left it lying around — green here, red on a clean clone, which is the
+worst way round.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

@@ -96,7 +96,7 @@ refuses to take an intake until the consent wording is. See
   cannot answer.
 - **A de-identified export** for the research those patients agreed to
   separately, carrying coded answers and numbers and no free text at all.
-- 593 tests covering key custody, the database layer, the practice data,
+- 610 tests covering key custody, the database layer, the practice data,
   the rule evaluator, the refuse-to-run guard, the Recall Card, patient
   matching, the merge tool, temperature entry, the register, the queue,
   the question engine, the network server, the offline buffer, confirming
@@ -104,24 +104,46 @@ refuses to take an intake until the consent wording is. See
   printed prescription, photographs of paper, backups, and a patient's
   own copy of their record, and the pilot report.
 
-## Running it
+## Getting it onto the chamber laptop
+
+For the doctor, or anybody who is not going to edit the code, there is an
+installer: **[docs/INSTALL-WINDOWS.md](docs/INSTALL-WINDOWS.md)**. Windows
+10 or newer, one file, no development tools of any kind. That document
+also covers the first run, the recovery key, and how to sit down and show
+the program to somebody.
+
+Build the installer with `npm run dist:win`, or press the button on the
+repository's **Actions** tab and download the finished file from the run.
+
+## Running it from source
+
+Node 22 or newer. Nothing here compiles native code, so no build tools are
+needed on any platform.
 
 ```bash
 npm install
-npm test                # 78 tests
-npm run seed            # build the practice database in ./data/demo
-npm start               # open the application
+npm test                # 610 checks
+npm start               # build and open the application
 ```
 
-To open the application against the practice database:
+`npm start` opens a fresh installation, which offers to fill itself with
+practice patients on the first screen. To point it at a different folder
+instead — a second practice database, or a copy taken off a backup:
 
 ```bash
 CHAMBER_RECALL_DATA_DIR=./data/demo npm start
-# password: practice
 ```
 
-Without `CHAMBER_RECALL_DATA_DIR` the application uses its own folder and
-offers to set up a fresh installation.
+And to build one from the command line rather than from the first screen:
+
+```bash
+npm run seed -- --dir ./data/demo --passphrase practice
+```
+
+A note on the checks: they are run by `scripts/run-tests.js` rather than
+by `node --test` directly. Node's runner prints `not ok` for a group whose
+setup throws and then exits 0 anyway, which hid a broken group here for
+two milestones. The wrapper fails when `not ok` appears at all.
 
 ## Where things live
 
@@ -158,6 +180,11 @@ src/main/index.ts         the application process
 src/renderer/             the screens
 tests/                    what is proven, in plain language
 docs/DECISIONS.md         every judgement call made, and the open questions
+docs/INSTALL-WINDOWS.md   installing on the chamber laptop, and the first evening
+docs/RUN-FROM-SOURCE.md   running it the way a developer does, step by step
+docs/briefing/            the briefing written for the doctor, on screen and on paper
+electron-builder.yml      how the program becomes an installer
+scripts/run-tests.js      the checks, and why they are not run by node directly
 ```
 
 ## The red flag layer
@@ -225,6 +252,11 @@ database that already has patients in it.
 
 ## Backups
 
-There is no backup feature yet; it arrives at milestone 12. Until then,
-copying the whole data folder is the backup. The folder holds the database
-and the key file, and both are needed.
+Built, and checked rather than assumed: the program copies the database to
+a USB stick, then **opens the copy and reads it back** before it will call
+it a backup. The main screen counts the days since the last one and turns
+red when that is too many. A restore puts the current folder aside rather
+than overwriting it, so a restore from the wrong stick is recoverable.
+
+The data folder holds the database and the key file, and both are needed.
+Uninstalling the program never touches that folder.
