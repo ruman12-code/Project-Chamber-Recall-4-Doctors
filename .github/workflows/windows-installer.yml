@@ -19,9 +19,9 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
 
@@ -36,6 +36,11 @@ jobs:
       - name: Check the types
         run: npm run typecheck
 
+      # --publish never matters here. electron-builder notices it is
+      # running on CI and tries to create a GitHub release on its own,
+      # which fails for want of a token and would be the wrong thing
+      # even with one: the installer belongs to whoever pressed the
+      # button, attached to the run, not published to the world.
       - name: Build the installer
         run: npm run dist:win
 

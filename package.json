@@ -13,7 +13,7 @@
     "seed": "npm run build:main && node out/src/main/seed/cli.js",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.tablet.json --noEmit",
     "build:tablet": "vite build --config vite.tablet.config.ts",
-    "dist:win": "npm run build && electron-builder --win --x64"
+    "dist:win": "npm run build && electron-builder --win --x64 --publish never"
   },
   "dependencies": {
     "better-sqlite3-multiple-ciphers": "^13.0.3",
