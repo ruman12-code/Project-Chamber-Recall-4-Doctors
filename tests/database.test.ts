@@ -188,8 +188,16 @@ describe('nothing is ever hard deleted', () => {
     .run(newId(), encounterId, nowIso(), nowIso());
   db.prepare(`INSERT INTO investigation (id, encounter_id, test_name, ordered_date, created_at, updated_at) VALUES (?, ?, 'PLACEHOLDER TEST 1', '2026-05-01', ?, ?)`)
     .run(newId(), encounterId, nowIso(), nowIso());
-  db.prepare(`INSERT INTO attachment (id, patient_id, file_path, kind, captured_at, created_at, created_by) VALUES (?, ?, 'x.jpg', 'report', ?, ?, ?)`)
-    .run(newId(), ids.patientId, nowIso(), nowIso(), ids.userId);
+  // The picture lives in the database rather than beside it, so this
+  // row carries the bytes. Migration 10 rebuilt this table and took the
+  // file_path column away; the version of this line that still used it
+  // threw HERE, in the body of the group, where node's runner prints
+  // "not ok" and then exits 0. See scripts/run-tests.js.
+  db.prepare(`INSERT INTO attachment
+                (id, patient_id, kind, captured_at, content, content_type, byte_size, sha256, created_at, created_by)
+              VALUES (?, ?, 'report', ?, ?, 'image/jpeg', ?, ?, ?, ?)`)
+    .run(newId(), ids.patientId, nowIso(), Buffer.from([0xff, 0xd8, 0xff]), 3,
+         'a'.repeat(64), nowIso(), ids.userId);
 
   const protectedTables = ['patient', 'visit', 'intake', 'intake_answer', 'red_flag_event', 'vitals',
     'encounter', 'medication', 'investigation', 'attachment', 'app_user', 'chamber'];
