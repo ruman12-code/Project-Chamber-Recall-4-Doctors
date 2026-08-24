@@ -112,8 +112,11 @@ installer: **[docs/INSTALL-WINDOWS.md](docs/INSTALL-WINDOWS.md)**. Windows
 also covers the first run, the recovery key, and how to sit down and show
 the program to somebody.
 
-Build the installer with `npm run dist:win`, or press the button on the
-repository's **Actions** tab and download the finished file from the run.
+Build the installer with `npm run dist:win`, or press **Run workflow** on
+the repository's **Actions** tab → **Windows installer** and download it
+from the finished run, under **Artifacts**. GitHub wraps artifacts in a
+`.zip`; the installer is inside it. The run does the checks and the
+typecheck before it builds, so a red run leaves no file behind.
 
 ## Running it from source
 

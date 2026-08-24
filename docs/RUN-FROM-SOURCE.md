@@ -28,10 +28,19 @@ cannot run the program, for two reasons:
 So GitHub does two jobs here, and they are both worth having:
 
 - **It builds the installer.** Repository → **Actions** tab → **Windows
-  installer** on the left → **Run workflow**. Ten minutes later the
-  finished `.exe` is at the bottom of that run's page, under
-  **Artifacts**. It runs all 610 checks first, so a broken build never
-  becomes a file somebody carries to a chamber.
+  installer** on the left → **Run workflow** (choose the branch
+  `claude/vibrant-albattani-sun7ue`). About four minutes later, open the
+  run and scroll to the bottom: under **Artifacts** there is
+  **Chamber-Recall-Setup-windows**.
+
+  It downloads as a **.zip** — GitHub wraps every artifact that way, so
+  this is expected. Right-click it → **Extract All**, and inside is
+  `Chamber-Recall-Setup-0.1.0.exe`, which is the installer. It stays
+  available for thirty days; after that, press the button again.
+
+  The run does `npm ci`, all 610 checks, and the typecheck before it
+  builds anything, so a red run means no file — a broken build never
+  becomes something somebody carries to a chamber on a USB stick.
 - **It keeps the code**, so any change you and your cousin decide on can
   be made, checked, and turned into a new installer.
 
