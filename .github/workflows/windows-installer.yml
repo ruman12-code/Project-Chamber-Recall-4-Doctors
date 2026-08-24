@@ -1,0 +1,47 @@
+# ===================================================================
+# Build the Windows installer, on Windows, on demand.
+#
+# Go to the repository on github.com, open the "Actions" tab, choose
+# "Windows installer" on the left, and press "Run workflow". About ten
+# minutes later the installer is at the bottom of that run's page,
+# under "Artifacts", as a single file to download.
+#
+# This exists so that nobody has to have a development machine, or a
+# Windows machine, or wine, to get a copy of the installer.
+# ===================================================================
+name: Windows installer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install
+        run: npm ci
+
+      # The checks run before the installer is built, so that a broken
+      # build never becomes a file somebody carries to a chamber.
+      - name: Run the checks
+        run: npm test
+
+      - name: Check the types
+        run: npm run typecheck
+
+      - name: Build the installer
+        run: npm run dist:win
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Chamber-Recall-Setup-windows
+          path: release/Chamber-Recall-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 30
