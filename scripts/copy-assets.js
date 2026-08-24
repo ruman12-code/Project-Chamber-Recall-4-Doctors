@@ -21,8 +21,8 @@ for (const file of readdirSync(join(srcDb, 'migrations'))) {
 // The two files a doctor edits by hand ship with the application and
 // are copied into the data folder the first time it runs.
 mkdirSync(join(__dirname, '..', 'out', 'config'), { recursive: true });
-for (const file of ['red_flags.yaml', 'questions.yaml', 'consent.yaml']) {
+for (const file of ['red_flags.yaml', 'questions.yaml', 'consent.yaml', 'prescription.yaml']) {
   copyFileSync(join(__dirname, '..', 'config', file), join(__dirname, '..', 'out', 'config', file));
 }
 
-console.log(`copied schema.sql, ${n} migration(s), red_flags.yaml, questions.yaml, consent.yaml`);
+console.log(`copied schema.sql, ${n} migration(s), and 4 doctor-edited yaml files`);

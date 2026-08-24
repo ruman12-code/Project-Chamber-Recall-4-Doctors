@@ -10,6 +10,7 @@ import { dbPath, keystorePath } from '../paths';
 import { installRulebookTemplateIfMissing } from '../redflags/store';
 import { installQuestionsTemplateIfMissing } from '../intake/store';
 import { installConsentTemplateIfMissing } from '../consent/config';
+import { installPrescriptionTemplateIfMissing } from '../prescription/config';
 import { KeystoreMissingError } from '../../shared/errors';
 
 /** True when this folder already holds an installation. */
@@ -78,6 +79,7 @@ export function provision(dir: string, passphrase: string, mode: DataMode): Prov
     });
   }
   installConsentTemplateIfMissing(dir);
+  installPrescriptionTemplateIfMissing(dir);
   if (installQuestionsTemplateIfMissing(dir)) {
     recordAudit(db, {
       actor: { id: null, role: 'system' },
@@ -130,6 +132,7 @@ function openAndUpgrade(dir: string, dekHex: string): Db {
   // not. That one stays loud and keeps the chamber out of live use.
   installQuestionsTemplateIfMissing(dir);
   installConsentTemplateIfMissing(dir);
+  installPrescriptionTemplateIfMissing(dir);
 
   return db;
 }

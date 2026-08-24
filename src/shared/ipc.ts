@@ -146,4 +146,8 @@ export const CHANNELS = {
   encounterInvestigations: 'chamber:investigations',
   encounterConfirm: 'chamber:confirm',
   encounterUnconfirm: 'chamber:unconfirm',
+  // The printed prescription.
+  prescriptionView: 'prescription:view',
+  prescriptionStatus: 'prescription:status',
+  prescriptionPrinted: 'prescription:printed',
 } as const;

@@ -7,6 +7,7 @@ import { PatientSearch } from './PatientSearch';
 import { Queue } from './Queue';
 import { ChamberScreen } from './Chamber';
 import { SignIn, SetUpPeople } from './SignIn';
+import { PrescriptionSheet } from './PrescriptionSheet';
 import { roleLabel, type Role } from '../../shared/roles';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView, TabletStatus } from '../../shared/ipc';
 import type { RecallCard } from '../../shared/recall';
@@ -49,6 +50,7 @@ export function Status() {
   const [auth, setAuth] = useState<AuthState | null>(null);
   const [showingPeople, setShowingPeople] = useState(false);
   const [chamber, setChamber] = useState<ChamberView | null>(null);
+  const [printingVisitId, setPrintingVisitId] = useState<string | null>(null);
 
   const readAuth = useCallback(async () => {
     const { value, failure } = unwrap(await api.whoIsSignedIn());
@@ -176,6 +178,12 @@ export function Status() {
     return <SignIn demo={summary.dataMode === 'demo'} onSignedIn={readAuth} />;
   }
 
+  // The prescription sits above everything, because it is a piece of
+  // paper being looked at rather than a screen being worked in.
+  if (printingVisitId !== null) {
+    return <PrescriptionSheet visitId={printingVisitId} onClose={() => setPrintingVisitId(null)} />;
+  }
+
   // The card is checked BEFORE the consultation, so that opening
   // somebody's history from the chamber puts it ON TOP of what is
   // being typed and closing it comes straight back to it. With these
@@ -196,6 +204,7 @@ export function Status() {
       role={role}
       onClose={() => setChamber(null)}
       onOpenCard={() => { void openCardForVisit(chamber.visitId); }}
+      onPrint={() => setPrintingVisitId(chamber.visitId)}
       onReload={async () => {
         const { value, failure } = unwrap(await api.chamberView(chamber.visitId));
         if (failure) { setFailure(failure); return; }

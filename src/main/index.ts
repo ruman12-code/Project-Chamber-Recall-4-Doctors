@@ -38,6 +38,10 @@ import { chamberView } from './clinical/chamber';
 import { requireClinicalRole } from './clinical/access';
 import type { ChamberView, VitalsInput, VitalsQuestion, EncounterDraft, MedicationInput } from '../shared/clinical';
 import type { Role } from '../shared/roles';
+import { buildPrescription, recordPrescriptionPrinted } from './prescription/build';
+import { loadPrescriptionConfig } from './prescription/config';
+import { prescriptionPath } from './paths';
+import type { PrescriptionView, PrescriptionStatus } from '../shared/prescription';
 
 let db: Db | null = null;
 let installDir = '';
@@ -479,6 +483,33 @@ function registerHandlers(): void {
   handle<Record<string, never>>(CHANNELS.encounterUnconfirm, (encounterId: string, reason: string | null) => {
     if (db === null) throw new Error('a confirmation was undone before the database was unlocked');
     unconfirmEncounter(db, encounterId, atTheLaptop(), reason);
+    return {} as Record<string, never>;
+  });
+
+  // ---------------- the printed prescription ----------------
+
+  handle<{ view: PrescriptionView }>(CHANNELS.prescriptionView, (visitId: string) => {
+    if (db === null) throw new Error('a prescription was built before the database was unlocked');
+    requireClinicalRole(atTheLaptop(), 'print a prescription');
+    return { view: buildPrescription(db, installDir, visitId) };
+  });
+
+  handle<{ status: PrescriptionStatus }>(CHANNELS.prescriptionStatus, () => {
+    if (db === null) throw new Error('the letterhead was checked before the database was unlocked');
+    const outcome = loadPrescriptionConfig(installDir);
+    return {
+      status: {
+        blocksLiveUse: outcome.blocksLiveUse,
+        problems: outcome.problems,
+        path: prescriptionPath(installDir),
+        demo: dataMode(db) === 'demo',
+      },
+    };
+  });
+
+  handle<Record<string, never>>(CHANNELS.prescriptionPrinted, (visitId: string) => {
+    if (db === null) throw new Error('a printing was recorded before the database was unlocked');
+    recordPrescriptionPrinted(db, visitId, atTheLaptop());
     return {} as Record<string, never>;
   });
 

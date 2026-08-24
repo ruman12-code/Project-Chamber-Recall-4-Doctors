@@ -3,10 +3,11 @@
 An offline patient-history system for a private doctor's chamber.
 One laptop, one encrypted database file, no internet at any point.
 
-**Status: milestone 9 of 13.** Foundations, the safety layer, patient
+**Status: milestone 10 of 13.** Foundations, the safety layer, patient
 search and merging, the serial register with its live queue, the tablet
 intake, consent, the Recall Card with Confirm and Correct, and — new —
-sign-in for everybody who works here, vitals, and the consultation.
+sign-in for everybody who works here, vitals, the consultation, and the
+printed prescription.
 
 **Before any real patient:** the red flag rules and the consent wording
 need approving by the supervising physician, a lawyer in Bangladesh needs
@@ -62,11 +63,16 @@ refuses to take an intake until the consent wording is. See
   follow-up, prescription and tests — all of it saving as it is typed.
   Confirming is the doctor's signature, and the database itself refuses
   to let a confirmed consultation be changed without a recorded undo.
-- 493 tests covering key custody, the database layer, the practice data,
+- **The printed prescription.** A5 or A4, with the doctor's own letterhead
+  from a file he edits himself, everything on it typed by a person. It
+  will not print before the consultation is signed, and it will not print
+  at all for a real patient while the letterhead still says PLACEHOLDER.
+- 516 tests covering key custody, the database layer, the practice data,
   the rule evaluator, the refuse-to-run guard, the Recall Card, patient
   matching, the merge tool, temperature entry, the register, the queue,
   the question engine, the network server, the offline buffer, confirming
-  and correcting an intake, PINs and sign-in, and the consultation.
+  and correcting an intake, PINs and sign-in, the consultation, and the
+  printed prescription.
 
 ## Running it
 
@@ -110,6 +116,8 @@ config/questions.yaml     the intake questions, written for a doctor to edit
 src/main/vitals/          temperature entry in either scale
 src/main/auth/            PINs, who works here, signing in
 src/main/clinical/        vitals, the consultation, and who may write what
+src/main/prescription/    the letterhead, and building the printed sheet
+config/prescription.yaml  the letterhead, written for the doctor to fill in
 config/red_flags.yaml     the rules template, written for a doctor to edit
 src/main/seed/            the practice data generator
 src/main/index.ts         the application process

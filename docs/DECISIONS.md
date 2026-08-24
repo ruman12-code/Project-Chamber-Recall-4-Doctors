@@ -848,6 +848,71 @@ person.
 
 ---
 
+## Milestone 10: the prescription
+
+### 61. The sheet has to stand on its own, because nothing else will be there
+
+This is the only part of the system that leaves the chamber. It may be read
+tonight by a pharmacist, next year by another doctor, or in an emergency by
+a hospital — and none of them will have this software or any way to ask it a
+question.
+
+So the printed sheet carries, by itself: who prescribed and their BMDC
+registration number, which chamber and its address, which patient with age
+and sex, which day, the serial, the medicines with dose and duration, the
+tests ordered, the advice, and the follow-up date. If the paper is all
+anybody has, the paper is enough.
+
+### 62. The letterhead is a file the doctor edits, and it ships full of placeholders
+
+Same rule as the red flag rules and the consent wording. `prescription.yaml`
+sits in the data folder beside the database, holds the doctor's own name,
+degrees and registration number, and ships with every line reading
+PLACEHOLDER.
+
+**Against a real database the software refuses to print until they are
+gone.** A prescription reading "PLACEHOLDER — DOCTOR'S NAME" in a patient's
+hand is worse than no prescription at all. In the practice database it
+prints anyway, with PRACTICE — NOT A REAL PRESCRIPTION across the sheet, so
+the layout can be looked at and shown to people.
+
+The file is read fresh on every print, so a correction takes editing one
+line and pressing Print again. Nothing is restarted.
+
+### 63. Nothing is printed before it is signed
+
+Printing needs a confirmed consultation. The moment a sheet leaves the desk,
+nobody can tell a draft from a signed record — not the patient, not the
+pharmacist, not the doctor who sees it next year. So the signature comes
+first, and the Print button says why while it is disabled.
+
+Undoing a confirmation to amend a prescription that has already been printed
+is allowed, recorded, and shows on the screen as a reprint.
+
+### 64. Two things the doctor decides, not the software
+
+The letterhead has two switches, because both are genuinely his call and
+both affect a piece of paper other people will read:
+
+- `print_diagnosis` — many chambers print the working diagnosis; some
+  deliberately do not, because the patient shows the sheet to whoever they
+  show it to.
+- `print_vitals` — today's readings are useful to whoever sees the patient
+  next, and are also information the patient carries around.
+
+A reading nobody took is never printed as a dash. An empty box does not
+become a measurement on a piece of paper.
+
+### 65. What a "print" means in the record is stated honestly
+
+A browser cannot tell a printed page from a cancelled print dialog. So the
+audit entry records "the doctor pressed Print", counts the copy, and marks
+anything after the first as a reprint — rather than claiming paper came out.
+Reprints are worth counting: a reprint usually means something went wrong
+with the first one, and that is a number the pilot report should show.
+
+---
+
 ## Two bugs from milestone 7
 
 **The tablet crashed on the first tap after the update.** It keeps a copy of

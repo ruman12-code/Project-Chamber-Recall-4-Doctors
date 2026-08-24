@@ -22,6 +22,7 @@ import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '..
 import type { QueueView, VisitStatus } from '../shared/queue';
 import type { TabletStatus, AuthState, SignedInView, StaffView } from '../shared/ipc';
 import type { ChamberView, VitalsInput, EncounterDraft, MedicationInput, VitalsQuestion } from '../shared/clinical';
+import type { PrescriptionView, PrescriptionStatus } from '../shared/prescription';
 
 contextBridge.exposeInMainWorld('chamberRecall', {
   status: (): Promise<Result<{ status: InstallationStatus }>> =>
@@ -110,4 +111,11 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('chamber:confirm', encounterId),
   encounterUnconfirm: (encounterId: string, reason: string | null): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('chamber:unconfirm', encounterId, reason),
+
+  prescriptionView: (visitId: string): Promise<Result<{ view: PrescriptionView }>> =>
+    ipcRenderer.invoke('prescription:view', visitId),
+  prescriptionStatus: (): Promise<Result<{ status: PrescriptionStatus }>> =>
+    ipcRenderer.invoke('prescription:status'),
+  prescriptionPrinted: (visitId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('prescription:printed', visitId),
 });

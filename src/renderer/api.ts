@@ -4,6 +4,7 @@ import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '..
 import type { QueueView, VisitStatus } from '../shared/queue';
 import type { TabletStatus, AuthState, SignedInView, StaffView } from '../shared/ipc';
 import type { ChamberView, VitalsInput, VitalsQuestion, EncounterDraft, MedicationInput } from '../shared/clinical';
+import type { PrescriptionView, PrescriptionStatus } from '../shared/prescription';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -48,6 +49,9 @@ interface Api {
   encounterInvestigations(encounterId: string, names: string[]): Promise<Result<Record<string, never>>>;
   encounterConfirm(encounterId: string): Promise<Result<Record<string, never>>>;
   encounterUnconfirm(encounterId: string, reason: string | null): Promise<Result<Record<string, never>>>;
+  prescriptionView(visitId: string): Promise<Result<{ view: PrescriptionView }>>;
+  prescriptionStatus(): Promise<Result<{ status: PrescriptionStatus }>>;
+  prescriptionPrinted(visitId: string): Promise<Result<Record<string, never>>>;
 }
 
 declare global {
@@ -111,6 +115,9 @@ export const api: Api = {
   encounterInvestigations: (id, names) => call((a) => a.encounterInvestigations(id, names)),
   encounterConfirm: (id) => call((a) => a.encounterConfirm(id)),
   encounterUnconfirm: (id, reason) => call((a) => a.encounterUnconfirm(id, reason)),
+  prescriptionView: (visitId) => call((a) => a.prescriptionView(visitId)),
+  prescriptionStatus: () => call((a) => a.prescriptionStatus()),
+  prescriptionPrinted: (visitId) => call((a) => a.prescriptionPrinted(visitId)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

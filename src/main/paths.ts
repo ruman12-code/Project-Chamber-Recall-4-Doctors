@@ -28,6 +28,13 @@ export const QUESTIONS_FILENAME = 'questions.yaml';
 /** The consent wording, and the folder holding the spoken recordings. */
 export const CONSENT_FILENAME = 'consent.yaml';
 export const CONSENT_AUDIO_DIR = 'audio';
+/**
+ * The prescription letterhead. In the data folder with the others,
+ * because it is the doctor's own name and registration number and he
+ * must be able to correct it himself, in the evening, without anybody
+ * rebuilding the software.
+ */
+export const PRESCRIPTION_FILENAME = 'prescription.yaml';
 
 export function dbPath(dir: string): string {
   return join(dir, DB_FILENAME);
@@ -46,4 +53,7 @@ export function consentPath(dir: string): string {
 }
 export function consentAudioDir(dir: string): string {
   return join(dir, CONSENT_AUDIO_DIR);
+}
+export function prescriptionPath(dir: string): string {
+  return join(dir, PRESCRIPTION_FILENAME);
 }

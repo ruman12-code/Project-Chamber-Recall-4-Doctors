@@ -655,3 +655,89 @@ button.small { margin: 6px 0 0; padding: 6px 10px; font-size: 12px; }
 .ch-foot { flex: none; display: flex; align-items: center; gap: 12px; padding: 0 4px; }
 .ch-foot button { margin: 0; }
 .ch-foot .note { font-size: 12.5px; color: var(--muted); }
+
+
+/* ===============================================================
+   THE PRESCRIPTION
+   The only part of this system that leaves the chamber. What is on
+   screen is the sheet at its real size, in millimetres, so what the
+   doctor approves is what comes out of the printer.
+   =============================================================== */
+.rx-screen { position: fixed; inset: 0; overflow: auto; background: #6b6f76; padding: 16px 0 40px; }
+.rx-bar {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px;
+  background: var(--paper); border-bottom: 1px solid var(--line); padding: 8px 14px; margin: -16px 0 16px;
+}
+.rx-bar.warn { position: static; background: var(--demo-bg); border: 1px solid #d9a441; color: #6b4708;
+  border-radius: 6px; margin: 0 auto 14px; max-width: 190mm; font-size: 13px; line-height: 1.4; }
+.rx-bar .what { font-weight: 700; font-size: 14px; }
+.rx-bar .reprint { font-size: 12.5px; color: #8a5a00; font-weight: 700; }
+.rx-bar .ok { font-size: 12.5px; color: #1c6b3a; font-weight: 700; }
+.rx-bar .spacer { flex: 1; }
+.rx-bar button { margin: 0; padding: 8px 16px; font-size: 14px; }
+
+.sheet {
+  position: relative; background: #fff; color: #000; margin: 0 auto;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  padding: 10mm; font-size: 10.5pt; line-height: 1.35;
+}
+.sheet.a5 { width: 148mm; min-height: 210mm; }
+.sheet.a4 { width: 210mm; min-height: 297mm; font-size: 11.5pt; }
+
+/* One line across the diagonal. Wrapped, it broke into fragments that
+   sat over the medicine names and read as part of them. */
+.rx-stamp {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  transform: rotate(-28deg); font-size: 15pt; font-weight: 800; letter-spacing: 1.5px;
+  color: rgba(197, 48, 48, 0.2); pointer-events: none; white-space: nowrap;
+}
+
+.rx-head { display: flex; justify-content: space-between; gap: 8mm; border-bottom: 1.5pt solid #000; padding-bottom: 3mm; }
+.rx-head .dn-bn { font-size: 14pt; font-weight: 800; line-height: 1.2; }
+.rx-head .dn-en { font-size: 12pt; font-weight: 700; }
+.rx-head .q { font-size: 9pt; }
+.rx-head .reg { font-size: 9pt; font-weight: 700; margin-top: 1mm; }
+.rx-head .where { text-align: right; font-size: 9pt; }
+.rx-head .where .cn { font-weight: 800; font-size: 10.5pt; }
+
+.rx-patient {
+  display: flex; gap: 6mm; align-items: baseline; flex-wrap: wrap;
+  border-bottom: 0.5pt solid #999; padding: 2.5mm 0; margin-bottom: 2mm;
+}
+.rx-patient .n { font-size: 12pt; font-weight: 800; }
+.rx-patient .n .alt { font-size: 9.5pt; font-weight: 600; }
+.rx-patient .f { font-size: 10pt; }
+.rx-patient .d { margin-left: auto; font-size: 9.5pt; }
+.rx-vitals { font-size: 9pt; margin-bottom: 1.5mm; }
+.rx-dx { font-size: 11pt; font-weight: 700; margin-bottom: 2mm; }
+.rx-dx .k { font-size: 9pt; font-weight: 800; margin-right: 2mm; }
+
+.rx-body { display: flex; gap: 4mm; margin-top: 2mm; }
+.rx-sign { font-size: 19pt; font-weight: 800; line-height: 1; flex: none; letter-spacing: -0.5pt; }
+.rx-lines { flex: 1; }
+.rx-lines .line { display: flex; gap: 2mm; margin-bottom: 3mm; break-inside: avoid; }
+.rx-lines .no { flex: none; font-weight: 700; }
+.rx-lines b { font-size: 11.5pt; }
+.rx-lines .how { font-size: 10pt; padding-left: 3mm; }
+.rx-lines .ins { font-size: 9pt; font-style: italic; }
+.rx-lines .none { font-size: 10pt; font-style: italic; color: #555; }
+
+.rx-block { margin-top: 3mm; break-inside: avoid; }
+.rx-block .k { font-size: 8.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5pt; }
+.rx-block ol { margin: 1mm 0 0; padding-left: 6mm; font-size: 10.5pt; }
+.rx-block .advice { font-size: 10.5pt; white-space: pre-wrap; }
+.rx-followup { margin-top: 3mm; font-size: 10.5pt; font-weight: 700; }
+
+.rx-foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 6mm; margin-top: 8mm; }
+.rx-foot .note { font-size: 8pt; color: #333; }
+.rx-foot .sig { text-align: center; min-width: 45mm; }
+.rx-foot .sig .line { border-top: 0.75pt solid #000; margin-bottom: 1mm; }
+.rx-foot .sig .nm { font-size: 9.5pt; font-weight: 700; }
+.rx-foot .sig .rg { font-size: 8pt; }
+
+@media print {
+  .rx-screen { position: static; background: #fff; padding: 0; overflow: visible; }
+  .rx-bar { display: none !important; }
+  .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+  .rx-stamp { color: rgba(197, 48, 48, 0.3); }
+}

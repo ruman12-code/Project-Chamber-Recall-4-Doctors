@@ -41,9 +41,11 @@ function numberOrNull(raw: string): number | null {
 }
 
 export function ChamberScreen(
-  { view, role, onClose, onOpenCard, onReload }: {
+  { view, role, onClose, onOpenCard, onReload, onPrint }: {
     view: ChamberView; role: Role; onClose: () => void;
     onOpenCard: () => void; onReload: () => Promise<void>;
+    /** The printed prescription. Only once the consultation is signed. */
+    onPrint: () => void;
   },
 ) {
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -302,10 +304,19 @@ export function ChamberScreen(
 
       <div className="ch-foot">
         {confirmed
-          ? <button className="secondary" disabled={role !== 'doctor'} onClick={() => { void undoConfirm(); }}>
-              Undo confirmation
-            </button>
-          : <button disabled={role !== 'doctor'} onClick={() => { void confirm(); }}>Confirm this consultation</button>}
+          ? <>
+              <button onClick={onPrint}>Print prescription</button>
+              <button className="secondary" disabled={role !== 'doctor'} onClick={() => { void undoConfirm(); }}>
+                Undo confirmation
+              </button>
+            </>
+          : <>
+              <button disabled={role !== 'doctor'} onClick={() => { void confirm(); }}>Confirm this consultation</button>
+              {/* Printing before the signature would put a draft in a
+                  patient's hand that nobody could tell from a signed
+                  one the moment it left the desk. */}
+              <button className="secondary" disabled title="Confirm the consultation first">Print prescription</button>
+            </>}
         <span className="note">
           {role !== 'doctor'
             ? 'You can write all of this, but only the doctor can confirm it. Until he does it stays a draft.'
