@@ -1,0 +1,770 @@
+<title>Chamber Recall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Serif+Bengali:wght@400;600&display=swap">
+
+<style>
+  :root {
+    --ground: #eceff3;
+    --surface: #ffffff;
+    --surface-sunk: #f5f7f9;
+    --ink: #16181d;
+    --muted: #5b6270;
+    --line: #d5d9df;
+    --line-soft: #e5e8ed;
+
+    --alarm: #b3241c;
+    --alarm-ink: #8e1c16;
+    --alarm-wash: #fceceb;
+    --amber: #8a5a00;
+    --amber-wash: #fdf3e0;
+    --amber-line: #e0c48c;
+    --signed: #1c6b3a;
+    --signed-wash: #eaf4ee;
+
+    --serif: "Literata", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --bangla: "Noto Serif Bengali", "Nirmala UI", "Vrinda", "SolaimanLipi", sans-serif;
+
+    --measure: 68ch;
+  }
+
+  :root:not([data-theme="light"]) {
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0f1216;
+      --surface: #171b21;
+      --surface-sunk: #1c2129;
+      --ink: #e4e8ee;
+      --muted: #8d97a4;
+      --line: #2b323b;
+      --line-soft: #232931;
+
+      --alarm: #ff7268;
+      --alarm-ink: #ff9189;
+      --alarm-wash: #2a1614;
+      --amber: #dfa243;
+      --amber-wash: #251d10;
+      --amber-line: #4a3a1c;
+      --signed: #5cba82;
+      --signed-wash: #12241a;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0f1216;
+    --surface: #171b21;
+    --surface-sunk: #1c2129;
+    --ink: #e4e8ee;
+    --muted: #8d97a4;
+    --line: #2b323b;
+    --line-soft: #232931;
+
+    --alarm: #ff7268;
+    --alarm-ink: #ff9189;
+    --alarm-wash: #2a1614;
+    --amber: #dfa243;
+    --amber-wash: #251d10;
+    --amber-line: #4a3a1c;
+    --signed: #5cba82;
+    --signed-wash: #12241a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 22px 96px;
+  }
+
+  /* ---- the spine: a mono marker beside each section ---- */
+  .band {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    gap: 0 34px;
+    align-items: start;
+    padding: 34px 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .band:first-of-type { border-top: none; }
+
+  .spine {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-top: 10px;
+    position: sticky;
+    top: 22px;
+  }
+
+  .col { max-width: var(--measure); }
+
+  h1, h2, h3 {
+    font-family: var(--serif);
+    text-wrap: balance;
+    margin: 0;
+  }
+  h1 {
+    font-size: clamp(2.35rem, 6vw, 3.4rem);
+    font-weight: 700;
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+  }
+  h2 {
+    font-size: clamp(1.45rem, 3vw, 1.8rem);
+    font-weight: 600;
+    line-height: 1.18;
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    font-size: 1.06rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  p { margin: 0; }
+  .stack { display: flex; flex-direction: column; gap: 15px; }
+  .stack-tight { display: flex; flex-direction: column; gap: 9px; }
+  .stack-wide { display: flex; flex-direction: column; gap: 26px; }
+
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+  .bn { font-family: var(--bangla); font-size: 0.97em; }
+  .quiet { color: var(--muted); }
+  .small { font-size: 14.5px; line-height: 1.55; }
+
+  /* ---- masthead ---- */
+  header.top { padding: 74px 0 40px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .lede {
+    font-family: var(--serif);
+    font-size: clamp(1.12rem, 2.4vw, 1.32rem);
+    line-height: 1.5;
+    margin-top: 22px;
+    max-width: 60ch;
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; }
+  .chip {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .chip.done { color: var(--signed); border-color: color-mix(in srgb, var(--signed) 36%, var(--line)); background: var(--signed-wash); }
+  .chip.open { color: var(--amber); border-color: var(--amber-line); background: var(--amber-wash); }
+
+  /* ---- the prohibitions: the one bold spend ---- */
+  .never {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--alarm);
+    border-radius: 4px;
+    padding: 26px 28px;
+  }
+  .never h2 { color: var(--alarm-ink); }
+  .never ul { margin: 20px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 15px; }
+  .never li {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 12px;
+    align-items: baseline;
+  }
+  .never li::before {
+    content: "";
+    display: block;
+    width: 9px;
+    height: 9px;
+    margin-top: 7px;
+    background: var(--alarm);
+    transform: rotate(45deg);
+  }
+  .never .after {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  /* ---- the evening: the only genuine sequence, so the only numbers ---- */
+  ol.evening { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0; counter-reset: step; }
+  ol.evening > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 0 18px;
+    padding: 22px 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  ol.evening > li:first-child { border-top: none; padding-top: 4px; }
+  ol.evening > li::before {
+    content: counter(step);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    padding-top: 3px;
+    font-variant-numeric: tabular-nums;
+  }
+  .where {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  ol.evening h3 { margin-bottom: 6px; }
+
+  /* ---- pre-flight ---- */
+  .todo {
+    background: var(--amber-wash);
+    border: 1px solid var(--amber-line);
+    border-radius: 4px;
+    padding: 20px 22px;
+  }
+  .todo .head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .todo h3 { color: var(--amber); }
+  .todo .tag {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+  .todo .refuses {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--amber-line);
+    font-size: 14.5px;
+    color: var(--amber);
+  }
+
+  /* ---- plain fact rows ---- */
+  .facts { display: flex; flex-direction: column; gap: 0; }
+  .fact {
+    display: grid;
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: 4px 22px;
+    padding: 15px 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .fact:first-child { border-top: none; padding-top: 0; }
+  .fact .k { font-weight: 600; }
+
+  .limits { display: flex; flex-direction: column; gap: 20px; }
+  .limit { display: grid; grid-template-columns: 4px minmax(0, 1fr); gap: 16px; }
+  .limit::before { content: ""; display: block; background: var(--line); border-radius: 2px; }
+
+  .asks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 13px; }
+  .asks li {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+  }
+  .asks li::before {
+    content: "→";
+    font-family: var(--mono);
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .callout {
+    background: var(--surface-sunk);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 17px 20px;
+    font-size: 15px;
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--surface-sunk);
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+
+  footer.end {
+    border-top: 1px solid var(--line);
+    margin-top: 30px;
+    padding-top: 30px;
+    color: var(--muted);
+    font-size: 14.5px;
+  }
+  footer.end .col { display: flex; flex-direction: column; gap: 13px; }
+
+  a { color: inherit; text-underline-offset: 2px; }
+  a:focus-visible, .chip:focus-visible { outline: 2px solid var(--alarm); outline-offset: 3px; }
+
+  @media (max-width: 760px) {
+    .band { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 28px 0; }
+    .spine { position: static; padding-top: 0; }
+    .fact { grid-template-columns: minmax(0, 1fr); }
+    ol.evening > li { grid-template-columns: 30px minmax(0, 1fr); }
+    header.top { padding: 48px 0 28px; }
+  }
+
+  /* ---------------------------------------------------------------
+     ON PAPER
+     This gets printed and carried into a chamber, so it is set for
+     ink on white whatever the screen was showing, and nothing that
+     belongs together is allowed to break across a page.
+     --------------------------------------------------------------- */
+  @page { size: A4; margin: 16mm 15mm; }
+
+  @media print {
+    :root {
+      --ground: #ffffff;
+      --surface: #ffffff;
+      --surface-sunk: #f6f7f9;
+      --ink: #16181d;
+      --muted: #4d5460;
+      --line: #b9bfc8;
+      --line-soft: #d8dce2;
+      --alarm: #96201a;
+      --alarm-ink: #7e1a15;
+      --alarm-wash: #ffffff;
+      --amber: #754c00;
+      --amber-wash: #ffffff;
+      --amber-line: #c9ad78;
+      --signed: #17572f;
+      --signed-wash: #ffffff;
+    }
+
+    body { font-size: 10.4pt; line-height: 1.5; background: #fff; }
+    .wrap { max-width: none; padding: 0; }
+
+    .band {
+      grid-template-columns: 26mm minmax(0, 1fr);
+      gap: 0 8mm;
+      padding: 7mm 0;
+      break-inside: auto;
+    }
+    .spine { position: static; padding-top: 1.5mm; font-size: 7.5pt; }
+    .col { max-width: none; }
+
+    header.top { padding: 0 0 6mm; }
+    h1 { font-size: 26pt; }
+    h2 { font-size: 14pt; }
+    h3 { font-size: 11pt; }
+    .lede { font-size: 11.5pt; max-width: none; }
+
+    .chip { border-color: var(--line); }
+
+    /* Nothing that reads as one thought may split across two pages. */
+    .never, .todo, .limit, .callout, .fact, ol.evening > li, .asks li, .never li {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    h2, h3 { break-after: avoid; page-break-after: avoid; }
+
+    .never { border-left-width: 3mm; padding: 6mm 7mm; }
+    .todo { border-width: 0.4mm; padding: 5mm 6mm; }
+
+    /* The three sections a reader will want to find again start on
+       their own page: the prohibitions, what you have to do first,
+       and what the software is weaker at than it looks. */
+    .page-break { break-before: page; page-break-before: always; }
+
+    a { text-decoration: none; }
+    footer.end { margin-top: 6mm; padding-top: 5mm; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">Briefing for the supervising physician</div>
+    <h1>Chamber Recall</h1>
+    <p class="lede">
+      An offline patient-history system for your chamber. One laptop, one encrypted file,
+      a tablet on the front desk, and no internet at any point. It is finished and tested.
+      It has never met a patient, and it should not meet one until you have done the three
+      things on this page.
+    </p>
+    <div class="chips">
+      <span class="chip done">All 13 parts built</span>
+      <span class="chip done">593 automated checks passing</span>
+      <span class="chip open">3 things needed from you</span>
+      <span class="chip">0 real patients so far</span>
+    </div>
+  </header>
+
+  <section class="band">
+    <div class="spine">The limits</div>
+    <div class="col">
+      <div class="never">
+        <h2>What it will never do</h2>
+        <ul>
+          <li><span>It never produces a <strong>diagnosis</strong>, a differential, a condition name or a probability — not on a screen, not in the database, not in a log file.</span></li>
+          <li><span>It never suggests, names or recommends a <strong>medicine, a dose or a treatment</strong>. There is no drug list to pick from, no dose calculator and no interaction checker.</span></li>
+          <li><span>It never tells anybody they <strong>do not need to see you</strong>. There is no "wait and see", no self-care advice and no discharge anywhere in it.</span></li>
+          <li><span>It never shows a patient a <strong>severity, an urgency or a risk score</strong>. Those do not exist in the software at all, so there is nothing to leak onto a screen turned the wrong way.</span></li>
+          <li><span>There is <strong>no AI anywhere in the clinical path</strong>. The questions and the warnings are plain rules in a file you write and approve. The same answers always give the same result, and every rule that was checked is recorded — including the ones that did not fire.</span></li>
+        </ul>
+        <div class="after stack-tight">
+          <p><strong>The only clinical action it can take is moving somebody up the queue.</strong></p>
+          <p class="small quiet">
+            Nothing in it can move a patient down, delay anybody, or take a name off your list.
+            That is not a policy written in a document — there is no button, no setting and no
+            code path that does it. It is the one design rule the whole thing was built around,
+            so that no mistake the software can make costs a life.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="spine">An evening</div>
+    <div class="col stack">
+      <h2>How one evening goes, end to end</h2>
+      <p class="quiet">
+        Two screens: a tablet on Biplob's counter, and your laptop in the room. They talk to each
+        other over the chamber's own wifi. Nothing leaves the building.
+      </p>
+
+      <ol class="evening">
+        <li>
+          <div>
+            <div class="where">Tablet · front desk</div>
+            <h3>A patient arrives</h3>
+            <p>
+              Biplob finds them by phone number or name, or registers somebody new in four fields,
+              and taps <span class="bn">রোগী এসেছেন</span>. The serial number then fills the whole
+              screen, because the next thing that happens is him calling it out across the room.
+              The search always shows a list and never picks a patient for him — two brothers on
+              one phone number is normal, and the wrong tap puts one man's history under another
+              man's name.
+            </p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="where">Tablet · front desk</div>
+            <h3>Permission, then the questions</h3>
+            <p>
+              Nothing about anybody's health is asked until they have agreed to a history being
+              kept. Refusing is one tap and costs them nothing — their serial stands and you see
+              them exactly as before. Then the questions, one per screen, Bangla first, with Skip
+              on every single one. If a son or a daughter-in-law is doing the talking, that is
+              recorded as such. Nothing about menstruation, pregnancy, mental health, alcohol or
+              anything at home is ever asked at that desk, within earshot of the room.
+            </p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="where">Tablet · front desk</div>
+            <h3>A warning, if your rules fire</h3>
+            <p>
+              The tablet checks your rules itself, so a warning appears even with the wifi down.
+              It takes the whole screen in red, in the words <em>you</em> wrote, and Biplob has to
+              acknowledge it. The patient moves to the front of your list and cannot be moved back
+              down. The patient sees the same words he does — there is no score and nothing about
+              how ill anybody is.
+            </p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="where">Laptop · in the room</div>
+            <h3>You call them in, and read one screen</h3>
+            <p>
+              The Recall Card: the red flag first, then who this is, then what they told the desk
+              in their own words — walled off in brown and marked <em>not verified</em>, because
+              what a patient tells an assistant and what a clinician records are different kinds
+              of fact. Then today's readings beside the last two, the last visit in full, tests
+              ordered and never resulted, the trends, and every visit they have ever made. No
+              scrolling. Twenty seconds.
+            </p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="where">Laptop · in the room</div>
+            <h3>You examine, and write</h3>
+            <p>
+              Vitals typed in °F or °C with the conversion shown as you type. Complaint,
+              examination, diagnosis, decision, prescription, tests — every word typed by you,
+              nothing suggested. It saves about a second after you stop typing, so a power cut
+              costs you the last sentence at worst. <strong>Confirm is your signature.</strong>
+              After it the database itself refuses to let the record be altered; amending it takes
+              an undo that is recorded, so the log holds an amendment rather than a rewrite.
+            </p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="where">Laptop · in the room</div>
+            <h3>The prescription prints</h3>
+            <p>
+              Your letterhead, your degrees, your BMDC number, the chamber's address — from a file
+              you edit yourself. Medicines, tests, advice and the follow-up date, all in your own
+              words. It will not print until you have confirmed the consultation, because once
+              paper leaves the desk nobody can tell a draft from a signed record.
+            </p>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band page-break">
+    <div class="spine">Before a patient</div>
+    <div class="col stack-wide">
+      <div class="stack">
+        <h2>Three things only you can do</h2>
+        <p class="quiet">
+          The software refuses to run past each of these rather than trusting anybody to remember.
+          Until they are done it will open only the practice database, which is full of invented
+          people and says so on every screen.
+        </p>
+      </div>
+
+      <div class="todo">
+        <div class="head">
+          <h3>Write and approve the red flag rules</h3>
+          <span class="tag">Not started</span>
+        </div>
+        <p>
+          The file ships full of placeholders. You write the rules in plain language — which
+          answers should raise a warning, and exactly what words the assistant sees — and put your
+          name and the date on the file. They are yours: you can change them any evening, and the
+          software reads them fresh each time. This is the piece nobody else can do for you.
+        </p>
+        <p class="refuses">The program will not open a real patient database until this is done.</p>
+      </div>
+
+      <div class="todo">
+        <div class="head">
+          <h3>Approve the consent wording, with a lawyer</h3>
+          <span class="tag">Draft written</span>
+        </div>
+        <p>
+          Bangladesh's Personal Data Protection Act came into force in April 2026 and makes health
+          information <em>sensitive personal data</em>, needing explicit consent. A draft in Bangla
+          and English is written and ready for you and a lawyer to read together. Somebody also
+          needs to record it aloud in Bangla — many patients cannot read it, and a permission
+          nobody understood is not a permission.
+        </p>
+        <p class="refuses">The tablet will not ask a patient anything until this is approved.</p>
+      </div>
+
+      <div class="todo">
+        <div class="head">
+          <h3>Fill in the prescription letterhead</h3>
+          <span class="tag">Placeholders</span>
+        </div>
+        <p>
+          Your name in Bangla and English, your degrees, your BMDC registration number, and the
+          address and hours of each chamber. Two further choices are yours alone: whether the
+          diagnosis is printed on the sheet the patient carries, and whether today's readings are.
+          Some chambers print both; some deliberately do not, because that paper is shown to
+          whoever the patient shows it to.
+        </p>
+        <p class="refuses">Nothing will print for a real patient while any placeholder remains.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="spine">The records</div>
+    <div class="col stack">
+      <h2>What happens to what you write</h2>
+      <div class="facts">
+        <div class="fact">
+          <div class="k">Locked</div>
+          <div>Encrypted with your passphrase. Somebody who steals the laptop, copies the file or
+            takes the USB stick reads nothing without it.</div>
+        </div>
+        <div class="fact">
+          <div class="k">Never deleted</div>
+          <div>Nothing in the system is ever destroyed. Removing something marks it removed, with
+            who did it and why, and it stays in the record.</div>
+        </div>
+        <div class="fact">
+          <div class="k">Always attributed</div>
+          <div>Every row carries the name of the person who wrote it, on the laptop and on the
+            tablet. Everyone signs in with their own PIN.</div>
+        </div>
+        <div class="fact">
+          <div class="k">Backed up and checked</div>
+          <div>A backup goes to a USB stick and is then <em>opened and read back</em> before the
+            program calls it a backup. The main screen counts the days since the last one and turns
+            red when it has been too long.</div>
+        </div>
+        <div class="fact">
+          <div class="k">Theirs on request</div>
+          <div>Any patient can be handed a copy of everything held about them — printed as a
+            summary, or written to a file with their photographed reports. The consent wording
+            promises this, and the law requires it.</div>
+        </div>
+        <div class="fact">
+          <div class="k">Their own papers</div>
+          <div>The lab reports and old prescriptions patients carry in a plastic bag are
+            photographed at the desk and are on your card by the time they sit down. The pictures
+            live inside the encrypted file, and nothing reads what is in them.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band page-break">
+    <div class="spine">Honest limits</div>
+    <div class="col stack">
+      <h2>Where it is weaker than it looks</h2>
+      <p class="quiet">
+        These are the things worth knowing before you rely on it, rather than after.
+      </p>
+
+      <div class="limits">
+        <div class="limit">
+          <p><strong>A PIN is not a lock on the records.</strong> It stops Biplob confirming a
+            history as you, and stops a patient left alone for a minute reading the last patient's
+            card. It does nothing against somebody who takes the laptop while it is open. The
+            encryption protects the file; the PIN protects the truth of who wrote what.</p>
+        </div>
+        <div class="limit">
+          <p><strong>The tablet cannot give out serial numbers with the wifi down.</strong>
+            Everything else on it keeps working offline and sends when the connection returns — but
+            a serial has to be unique and in order for the whole chamber, and two tablets handing
+            out number 14 from their own buffers cannot be repaired afterwards without taking a
+            number off somebody. When it cannot reach the laptop it says so in Bangla.</p>
+        </div>
+        <div class="limit">
+          <p><strong>It does not read the photographs.</strong> No text is pulled out of a lab
+            report, nothing is recognised and nothing is classified. It is a photograph of a piece
+            of paper, filed under a heading a person chose.</p>
+        </div>
+        <div class="limit">
+          <p><strong>If the passphrase and the printed recovery key are both lost, the records are
+            gone.</strong> Not difficult to recover — impossible, for you, for me, and for whoever
+            wrote the software. That is what the encryption is. Print the recovery key and keep it
+            somewhere the laptop is not.</p>
+        </div>
+        <div class="limit">
+          <p><strong>Everything you have been shown is invented.</strong> Every screenshot, every
+            number, every patient in the practice database. The software has never been near a real
+            chamber, and the first evening will find things none of this did.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="spine">Twelve weeks</div>
+    <div class="col stack">
+      <h2>How you will know whether it was worth it</h2>
+      <p>
+        There is a report inside it that counts what actually happened — who was seen, how many
+        arrivals were asked anything, how long people waited, how many warnings fired and were
+        acknowledged, what was written down, and what did not work. It counts each assistant
+        separately, because an average across two people hides the difference worth seeing.
+      </p>
+      <div class="callout stack-tight">
+        <p><strong>It does not tell you whether the pilot succeeded.</strong></p>
+        <p class="quiet">
+          There is no score anywhere on it and no verdict. Where there are fewer than twenty of
+          something it says "4 of 7" rather than a percentage, because a percentage of seven is
+          arithmetic pretending to be evidence. The page ends with six questions it cannot answer —
+          and those are the ones the decision actually turns on.
+        </p>
+      </div>
+      <ul class="asks">
+        <li><span>Did the card change what you did for anybody? Which patient, and how?</span></li>
+        <li><span>Did a warning from the desk ever bring somebody in sooner than they would have been?</span></li>
+        <li><span>Did a warning ever fire for something that did not matter, often enough to be ignored?</span></li>
+        <li><span>Is the front desk slower than the paper book was, and by how much?</span></li>
+        <li><span>Would anything have been missed if the laptop had not been there that evening?</span></li>
+        <li><span>What did you want to look up, and could not find?</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="spine">What I need</div>
+    <div class="col stack">
+      <h2>When we sit down with it</h2>
+      <p class="quiet">
+        Everything about wording, question order, what prints and what each person sees is cheap to
+        change now and expensive to change later. Be blunt.
+      </p>
+      <ul class="asks">
+        <li><span><strong>The questions.</strong> Which ones are wrong, which are missing, and what
+          order they should be asked in.</span></li>
+        <li><span><strong>The rules.</strong> What should raise a warning at your front desk, and
+          in exactly which words.</span></li>
+        <li><span><strong>Does Biplob take blood pressures?</strong> If he does, he needs to be set
+          up as a clinical assistant rather than front desk — the software will not let a front
+          desk account record a measurement, and that is deliberate.</span></li>
+        <li><span><strong>Should the front desk see a patient's history at all?</strong> Right now
+          they see who is here, who is waiting and who has been before — and nothing else. That is
+          a judgement about your chamber, not a technical limit.</span></li>
+        <li><span><strong>What should be on the printed prescription</strong>, and what should
+          not.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="band end">
+    <div class="spine">Where it is</div>
+    <div class="col">
+      <p>
+        There is no website and no app store. It is a program that runs on one laptop in the
+        chamber, and the absence of a link is the design working rather than something missing.
+        Installing it is copying the code onto that laptop and running <code>npm install</code>
+        and <code>npm start</code>, once.
+      </p>
+      <p>
+        Three documents come with it, written to be read rather than skimmed: the consent
+        reasoning and where the law bites (<code>docs/CONSENT.md</code>), every judgement call made
+        while building it and why (<code>docs/DECISIONS.md</code>), and how to set up and lock down
+        the front desk tablet (<code>docs/ANDROID-TABLET.md</code>).
+      </p>
+      <p>
+        Built over thirteen stages, each one stopped and shown before the next began. 593 automated
+        checks cover key custody, the rule evaluator, patient matching, the merge tool, the offline
+        buffer, temperature entry, the consultation, backups and the report. There are no tests of
+        the screens — every screen was looked at instead, which is how four real defects were
+        caught that no test would have.
+      </p>
+    </div>
+  </footer>
+
+</div>
