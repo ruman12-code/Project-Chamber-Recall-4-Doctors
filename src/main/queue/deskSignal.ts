@@ -21,7 +21,22 @@
 // patient moved up by a red flag rule has a low position and a high
 // serial, and calling them first is the system working exactly as it
 // should -- not something to announce as irregular.
+//
+// WHO IS NEXT, WHEN SOMEBODY DID NOT ANSWER
+//
+// The desk calls a number and nobody stands up. Nothing about that
+// patient changes -- see src/main/queue/noAnswer.ts for why that is the
+// whole point -- so they are still waiting, still in the same place,
+// and asking for "the first person waiting" would hand the desk the
+// same empty chair for the rest of the evening.
+//
+// So next is: the waiting patient called the FEWEST times with no
+// answer, and among those, the one furthest up the queue. The desk
+// walks down the room, everybody gets a second call before anybody
+// gets a third, and somebody who was outside on the phone comes back
+// round rather than being dropped.
 import type { Db } from '../db/open';
+import { noAnswerCounts } from './noAnswer';
 
 export interface DeskSignal {
   /** Who is with the doctor now. Null between patients. */
@@ -34,7 +49,16 @@ export interface DeskSignal {
     outOfTurn: boolean;
   } | null;
   /** Who the desk should have ready next. */
-  nextWaiting: { visitId: string; serialNo: number; nameBn: string | null; nameEn: string | null } | null;
+  nextWaiting: {
+    visitId: string; serialNo: number; nameBn: string | null; nameEn: string | null;
+    /** How many times this number has been called with nobody coming.
+     *  Zero the first time, which is nearly always. */
+    noAnswer: number;
+    /** Nobody else is waiting, so calling this number again is the only
+     *  thing left to do. The tablet has to say that rather than look
+     *  like it ignored the tap. */
+    onlyOneWaiting: boolean;
+  } | null;
   waiting: number;
   /** Changes whenever anything above changes, so the tablet can tell a
    *  new call from the same one it has already announced. */
@@ -57,6 +81,15 @@ export function deskSignal(db: Db, chamberId: string, visitDate: string): DeskSi
   const waiting = rows.filter((r) => r.status === 'waiting');
   const called = rows.find((r) => r.status === 'in_chamber') ?? null;
 
+  // Fewest unanswered calls first, then queue order. Nobody is moved
+  // and nothing is skipped: this is only which of the people already
+  // waiting the desk should shout for next.
+  const noAnswer = noAnswerCounts(db, chamberId, visitDate);
+  const upNext = [...waiting].sort((a, b) => {
+    const byCalls = (noAnswer.get(a.visitId) ?? 0) - (noAnswer.get(b.visitId) ?? 0);
+    return byCalls !== 0 ? byCalls : a.pos - b.pos;
+  })[0] ?? null;
+
   return {
     inChamber: called === null ? null : {
       visitId: called.visitId,
@@ -65,11 +98,13 @@ export function deskSignal(db: Db, chamberId: string, visitDate: string): DeskSi
       nameEn: called.nameEn,
       outOfTurn: waiting.some((w) => w.pos < called.pos),
     },
-    nextWaiting: waiting.length === 0 ? null : {
-      visitId: waiting[0]!.visitId,
-      serialNo: waiting[0]!.serialNo,
-      nameBn: waiting[0]!.nameBn,
-      nameEn: waiting[0]!.nameEn,
+    nextWaiting: upNext === null ? null : {
+      visitId: upNext.visitId,
+      serialNo: upNext.serialNo,
+      nameBn: upNext.nameBn,
+      nameEn: upNext.nameEn,
+      noAnswer: noAnswer.get(upNext.visitId) ?? 0,
+      onlyOneWaiting: waiting.length === 1,
     },
     waiting: waiting.length,
     // Not a clock reading: a fingerprint of the answer. Two identical
@@ -78,7 +113,11 @@ export function deskSignal(db: Db, chamberId: string, visitDate: string): DeskSi
     at: [
       called?.visitId ?? 'none',
       called === null ? '' : String(waiting.some((w) => w.pos < called.pos)),
-      waiting[0]?.visitId ?? 'none',
+      upNext?.visitId ?? 'none',
+      // A second unanswered call on the same person IS news -- it is
+      // what moves the screen on -- so the count is part of the
+      // fingerprint even though the name has not changed.
+      String(upNext === null ? 0 : noAnswer.get(upNext.visitId) ?? 0),
     ].join('|'),
   };
 }

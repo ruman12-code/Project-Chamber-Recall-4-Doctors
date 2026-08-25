@@ -33,6 +33,7 @@ import { searchPatients } from '../patients/search';
 import { buildDirectory } from '../patients/directory';
 import { receiveDeskArrival } from '../queue/deskArrival';
 import { deskSignal } from '../queue/deskSignal';
+import { recordNoAnswer } from '../queue/noAnswer';
 import { registerPatient } from '../patients/register';
 import { registerArrival } from '../queue/register';
 import { addAttachment, type AttachmentKind } from '../attachments/store';
@@ -367,6 +368,38 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
       const body = await readFile(target);
       response.writeHead(200, { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' });
       response.end(body);
+      return;
+    }
+
+    // The number was called out and nobody came.
+    //
+    // Above the sign-in line for the same reason as an arrival: it
+    // carries the name of the assistant who called it out, checked
+    // against app_user inside, and the laptop may well have been closed
+    // and reopened since. Throwing it away for want of a live sign-in
+    // would lose a record of something a person really did.
+    //
+    // Nothing about the patient changes here. Read the top of
+    // src/main/queue/noAnswer.ts before touching this: not dropping
+    // somebody who was in the toilet is the entire design.
+    if (path === '/api/queue/no-answer') {
+      const body = (await readBody(request)) as Record<string, unknown>;
+      try {
+        const got = recordNoAnswer(db, {
+          deskRef: String(body.deskRef ?? ''),
+          visitId: String(body.visitId ?? ''),
+          calledBy: String(body.calledBy ?? ''),
+          calledAt: String(body.calledAt ?? nowIso()),
+        });
+        sendJson(response, 200, got);
+      } catch (error) {
+        sendJson(response, 400, {
+          error: error instanceof ChamberRecallError ? error.userMessage
+            : 'That could not be written down.',
+          whatToDo: error instanceof ChamberRecallError ? error.whatToDo
+            : 'Call the next number from the laptop\'s list instead.',
+        });
+      }
       return;
     }
 

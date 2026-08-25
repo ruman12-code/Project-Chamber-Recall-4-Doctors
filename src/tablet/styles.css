@@ -302,4 +302,24 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 .called-in .silent-note {
   max-width: 34rem; margin: 4px 0 8px; font-size: 15px; color: var(--muted);
 }
-.called-in .btn { margin-top: 18px; min-width: 18rem; }
+/* The second call on the same number. Not an alarm -- people step
+   outside -- but the assistant should know it is the second. */
+.called-in .again {
+  margin: 6px 0 2px; font-size: 17px; font-weight: 700; color: #6b4708;
+  background: #fdf3e0; border-radius: 8px; padding: 6px 14px;
+}
+.called-in .acts {
+  margin-top: 18px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
+}
+.called-in .btn { margin-top: 0; min-width: 18rem; }
+/* Deliberately quieter than "I have sent them in". Sending the patient
+   in is what happens nearly every time. */
+.called-in .btn.secondary {
+  background: var(--paper, #fff); color: var(--ink); border: 3px solid var(--line);
+}
+/* What the second button will do, before it is pressed. An assistant
+   must be able to press it without wondering whether they are about to
+   send somebody home. */
+.called-in .reassure {
+  max-width: 34rem; margin-top: 14px; font-size: 15px; line-height: 1.5; color: var(--muted);
+}

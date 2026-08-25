@@ -969,6 +969,9 @@ button.linkish:hover { color: var(--ink); }
 /* Somebody the doctor has been seeing for years, whose record here
    starts today. Not "first visit", which would be false. */
 .qtag.since { background: #f2eefc; border-color: #c3b4e8; color: #4a3b78; }
+/* Called and nobody came. Amber rather than red: people step outside,
+   and this is information for the doctor, not an alarm. */
+.qtag.noanswer { background: #fdf3e0; border-color: #d9a441; color: #6b4708; }
 
 /* ---- Which chamber am I in? ------------------------------------------
    The first screen after signing in. Two cards, as large as the screen

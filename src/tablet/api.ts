@@ -9,7 +9,13 @@ export interface DeskSignal {
     visitId: string; serialNo: number;
     nameBn: string | null; nameEn: string | null; outOfTurn: boolean;
   } | null;
-  nextWaiting: { visitId: string; serialNo: number; nameBn: string | null; nameEn: string | null } | null;
+  nextWaiting: {
+    visitId: string; serialNo: number; nameBn: string | null; nameEn: string | null;
+    /** Times this number has been called with nobody coming. */
+    noAnswer: number;
+    /** Nobody else is waiting, so there is nobody to move on to. */
+    onlyOneWaiting: boolean;
+  } | null;
   waiting: number;
   at: string;
 }

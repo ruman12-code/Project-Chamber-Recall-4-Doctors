@@ -1811,6 +1811,71 @@ signed in for real and then threw the desk out to the sign-in screen
 for twenty seconds, because the session had been read a line before the
 sign-in was made. The sign-in now happens first.
 
+### 119. The screen between patients is the next number, not a status report
+
+The doctor finishes a consultation and the tablet used to say "the
+doctor is free -- next patient" above the serial. That is a sentence
+about the doctor. What the assistant has to do in that moment is call a
+number across a waiting room, so the screen now says **call this number
+out**, and everything else on it is the number and the name.
+
+Then it waits. It does not time out, it does not dismiss itself, and
+the desk answers it with one of two taps.
+
+### 120. "Nobody came" is written down and acted on by nobody
+
+The second tap is for the number that gets called and nothing happens:
+they are outside on the phone, or in the toilet, or they gave up an
+hour ago and went home without telling anybody.
+
+You asked for the desk to be able to move on. Here is exactly what that
+does, because the difference matters more than the feature:
+
+**It does not touch the visit.** Not the status, not the position in
+the queue, not the serial. There is a test that reads every column of
+the row before and after and asserts they are identical, because
+"nobody answered when I called" is not the same fact as "they have gone
+home", and only a person can turn the first into the second. This
+system moves people up the queue and never down it, and a desk that
+could quietly drop somebody for being in the toilet would be moving
+them down it under another name. The laptop already has a button for a
+patient who really has left, and it belongs to the doctor.
+
+**It writes down that it happened.** One row: this number was called at
+this time by this person and nobody came. Never deleted. It carries the
+name of the assistant who called it, like everything else here, and the
+same tap sent twice by the outbox is the same call, not two.
+
+**Two things then follow.** The tablet shows whoever has been called
+the fewest times, so the desk walks down the room rather than shouting
+at an empty chair -- and comes back round, because somebody who stepped
+outside is usually back two minutes later. Verified end to end: ten
+people waiting, ten taps, and it came back to the first one with ten
+still waiting and nobody's place changed.
+
+And the doctor sees "called 2x, no answer" beside serial 8 on his own
+list. That is something a status of 'waiting' could never tell him, and
+what he does about it is his decision, made with it in front of him.
+
+### 121. The tablet says what the button will do before it is pressed
+
+Under the two taps is a line: *this patient is not taken off the list.
+The next one comes up, and this number comes round again.* When nobody
+else is waiting it says that instead.
+
+An assistant has to be able to press a button in front of a room full
+of people without wondering whether they are about to send somebody
+home. If the honest description of a control does not fit under it, the
+control is doing too much.
+
+### 122. "Nobody came" is not offered when the doctor asked for somebody
+
+The second tap only appears while the desk is working down the list on
+its own. When the DOCTOR has called a particular patient in by number
+and that patient does not appear, that is news for him -- he is sitting
+in an empty room waiting for them -- not something for the desk to
+quietly move past.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

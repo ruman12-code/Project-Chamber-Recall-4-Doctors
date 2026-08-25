@@ -327,6 +327,16 @@ function Row(
               {!entry.intakeStarted && <span className="qtag gap">not screened</span>}
               {entry.intakeStarted && entry.screeningIncomplete && <span className="qtag gap">screening incomplete</span>}
             </>}
+          {/* The desk called this number out and nobody stood up.
+              Nothing about the visit changed for it -- they are still
+              waiting, still in the same place -- and this is here
+              because deciding what to do about it is the doctor's, not
+              the tablet's. */}
+          {entry.calledNoAnswer > 0 && entry.status === 'waiting' && (
+            <span className="qtag noanswer">
+              called {entry.calledNoAnswer}×, no answer
+            </span>
+          )}
           {/* "First visit" is a clinical statement: it says there is no
               history to look for. Against somebody the doctor has been
               treating since 2019 it is false, and stays false for weeks

@@ -31,6 +31,7 @@ import { recordAudit, type Actor } from '../db/audit';
 import { setMeta, getMeta } from '../db/open';
 import { RegisterRefusedError, type VisitStatus } from './register';
 import type { QueueEntry, QueueRedFlag, VisitKind } from '../../shared/queue';
+import { noAnswerCounts } from './noAnswer';
 
 export type { QueueEntry, QueueRedFlag } from '../../shared/queue';
 
@@ -85,6 +86,8 @@ export function todaysQueue(db: Db, chamberId: string, visitDate: string, asOf: 
     }
   }
 
+  const noAnswer = noAnswerCounts(db, chamberId, visitDate);
+
   const entries: QueueEntry[] = rows.map((row) => {
     const until = row.seenAt === null ? asOf.getTime() : new Date(row.seenAt).getTime();
     const screening = row.intakeId === null ? undefined : screeningByIntake.get(row.intakeId);
@@ -107,6 +110,7 @@ export function todaysQueue(db: Db, chamberId: string, visitDate: string, asOf: 
       attendingSince: row.attendingSince,
       lastVisitDate: row.lastVisitDate,
       redFlags: row.intakeId === null ? [] : flagsByIntake.get(row.intakeId) ?? [],
+      calledNoAnswer: noAnswer.get(row.visitId) ?? 0,
       intakeStarted: row.intakeId !== null,
       intakeCompleted: row.intakeCompletedAt !== null,
       screeningRan: screening?.ran ?? false,

@@ -45,6 +45,14 @@ export interface QueueEntry {
    */
   attendingSince: string | null;
   redFlags: QueueRedFlag[];
+  /**
+   * Times the front desk called this number out and nobody came.
+   *
+   * The patient's status, place and serial are untouched by that -- see
+   * src/main/queue/noAnswer.ts. This is here so the doctor can see it
+   * and decide, which is a decision only he makes.
+   */
+  calledNoAnswer: number;
   intakeStarted: boolean;
   intakeCompleted: boolean;
   screeningRan: boolean;

@@ -134,7 +134,8 @@ export function App() {
   /** The doctor has called somebody in and the desk has not yet said
    *  they sent them. Takes the whole screen while it is set. */
   const [called, setCalled] = useState<
-    (NonNullable<DeskSignal['inChamber']> & { nextUp?: boolean }) | null>(null);
+    (NonNullable<DeskSignal['inChamber']>
+      & { nextUp?: boolean; noAnswer?: number; onlyOneWaiting?: boolean }) | null>(null);
   /** The last state of the room this tablet has already announced, so
    *  it announces a change rather than announcing every few seconds. */
   const announced = useRef<string | null>(null);
@@ -513,6 +514,45 @@ export function App() {
   // the tablet let somebody in because the laptop could not be asked.
   // offlineDesk clears the moment the real sign-in goes through, so
   // this stops saying it at exactly the right moment.
+  /**
+   * The number was called out and nobody stood up.
+   *
+   * Written down, never acted on: the patient keeps their status, their
+   * place and their serial, and stays on the doctor's list exactly
+   * where they were. All this does is record that it happened and let
+   * the desk move to whoever has been called fewest times.
+   *
+   * Through the outbox like everything else, so a wifi drop between the
+   * doctor finishing and the desk calling does not lose the record --
+   * and so the same tap is never counted twice, because the deskRef
+   * goes with it.
+   */
+  async function nobodyCame(who: { visitId: string; serialNo: number }): Promise<void> {
+    const by = session?.signedIn?.id ?? offlineDesk?.who.id ?? null;
+    if (by !== null) {
+      outbox.add('/api/queue/no-answer', {
+        deskRef: `na-${who.visitId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        visitId: who.visitId,
+        calledBy: by,
+        calledAt: new Date().toISOString(),
+      });
+    }
+    // Off the screen at once. The desk has a room in front of it and
+    // must not wait on the wifi to call the next number; the signal
+    // brings the next patient up within a few seconds.
+    setCalled(null);
+    // ...and asked for immediately rather than at the next tick, so
+    // there is no gap where the tablet shows nothing.
+    try {
+      await outbox.flush();
+      const signal = await api.deskSignal();
+      if (signal !== null && signal.inChamber === null && signal.nextWaiting !== null) {
+        announced.current = signal.at;
+        setCalled({ ...signal.nextWaiting, outOfTurn: false, nextUp: true });
+      }
+    } catch { /* the poll a few seconds from now will do it */ }
+  }
+
   const offline = status.offlineSince !== null || offlineDesk !== null;
 
   return (
@@ -528,9 +568,16 @@ export function App() {
           nameEn={called.nameEn}
           outOfTurn={called.outOfTurn}
           nextUp={called.nextUp === true}
+          noAnswer={called.noAnswer ?? 0}
+          onlyOneWaiting={called.onlyOneWaiting === true}
           silent={!chimeIsArmed()}
           bn={bn}
           onSent={() => setCalled(null)}
+          // Offered only while the desk is working down the list on its
+          // own. A patient the DOCTOR asked for by number who does not
+          // appear is news for him, not something for the desk to move
+          // past on its own.
+          onNoAnswer={called.nextUp === true ? () => { void nobodyCame(called); } : undefined}
         />
       )}
 
