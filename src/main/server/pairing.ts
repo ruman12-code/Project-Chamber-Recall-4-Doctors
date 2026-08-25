@@ -52,6 +52,13 @@ export class PairingDesk {
   private code: string;
   private failures = 0;
   private readonly maxFailures: number;
+  /**
+   * Which chamber the NEXT tablet to pair belongs to. The decision is
+   * made on the laptop rather than on the tablet: the doctor knows
+   * which desk the thing in his hand is going to sit on, and a tablet
+   * that could choose its own chamber could choose the wrong one.
+   */
+  private pairingChamber: string | null = null;
 
   constructor(maxFailures = 8) {
     this.code = newPairingCode();
@@ -59,11 +66,20 @@ export class PairingDesk {
   }
 
   get currentCode(): string { return this.code; }
+  get chamberForNextTablet(): string | null { return this.pairingChamber; }
+  set chamberForNextTablet(chamberId: string | null) { this.pairingChamber = chamberId; }
   get locked(): boolean { return this.failures >= this.maxFailures; }
   get attemptsLeft(): number { return Math.max(0, this.maxFailures - this.failures); }
 
-  /** Returns the tablet's token, or throws if the code was wrong. */
-  pair(db: Db, submittedCode: string, label: string): string {
+  /**
+   * Returns the tablet's token, or throws if the code was wrong.
+   *
+   * A tablet is bound to ONE chamber here and never moves. That is what
+   * makes it safe for it to give out serial numbers with no laptop in
+   * the room: a serial has to be unique for a chamber on a day, and
+   * exactly one tablet gives them out for that chamber.
+   */
+  pair(db: Db, submittedCode: string, label: string, chamberId: string): string {
     if (this.locked) {
       throw new PairingLockedError(
         'Too many wrong codes have been tried. Close the program and open it again to pair a tablet.',
@@ -78,13 +94,19 @@ export class PairingDesk {
       throw new Error('That code is not right.');
     }
 
+    const chamber = db.prepare('SELECT id, name FROM chamber WHERE id = ? AND deleted_at IS NULL')
+      .get(chamberId) as { id: string; name: string } | undefined;
+    if (chamber === undefined) {
+      throw new Error('That chamber is not in this installation, so the tablet was not paired.');
+    }
+
     const token = randomBytes(32).toString('hex');
     const id = newId();
-    db.prepare('INSERT INTO tablet_device (id, label, token_hash, paired_at) VALUES (?, ?, ?, ?)')
-      .run(id, label.slice(0, 60), hashToken(token), nowIso());
+    db.prepare('INSERT INTO tablet_device (id, label, token_hash, paired_at, chamber_id) VALUES (?, ?, ?, ?, ?)')
+      .run(id, label.slice(0, 60), hashToken(token), nowIso(), chamber.id);
     recordAudit(db, {
       actor: { id: null, role: 'system' }, action: 'tablet_paired', entity: 'tablet_device', entityId: id,
-      details: { label: label.slice(0, 60) },
+      details: { label: label.slice(0, 60), chamber: chamber.name },
     });
 
     // A fresh code after every success, so pairing one tablet does not
@@ -95,24 +117,42 @@ export class PairingDesk {
   }
 }
 
-export interface PairedDevice { id: string; label: string }
+export interface PairedDevice { id: string; label: string; chamberId: string | null }
 
 /** Null when the token is unknown or the tablet has been revoked. */
 export function deviceForToken(db: Db, token: string | null): PairedDevice | null {
   if (token === null || token === '') return null;
   const row = db.prepare(
-    'SELECT id, label FROM tablet_device WHERE token_hash = ? AND revoked_at IS NULL',
+    'SELECT id, label, chamber_id AS chamberId FROM tablet_device WHERE token_hash = ? AND revoked_at IS NULL',
   ).get(hashToken(token)) as PairedDevice | undefined;
   if (row === undefined) return null;
   db.prepare('UPDATE tablet_device SET last_seen_at = ? WHERE id = ?').run(nowIso(), row.id);
   return row;
 }
 
-export function pairedDevices(db: Db): Array<PairedDevice & { pairedAt: string; lastSeenAt: string | null }> {
+export function pairedDevices(db: Db):
+  Array<PairedDevice & { pairedAt: string; lastSeenAt: string | null; chamberName: string | null }> {
   return db.prepare(
-    `SELECT id, label, paired_at AS pairedAt, last_seen_at AS lastSeenAt
-     FROM tablet_device WHERE revoked_at IS NULL ORDER BY paired_at`,
-  ).all() as Array<PairedDevice & { pairedAt: string; lastSeenAt: string | null }>;
+    `SELECT d.id, d.label, d.chamber_id AS chamberId, d.paired_at AS pairedAt,
+            d.last_seen_at AS lastSeenAt, c.name AS chamberName
+     FROM tablet_device d
+     LEFT JOIN chamber c ON c.id = d.chamber_id
+     WHERE d.revoked_at IS NULL ORDER BY d.paired_at`,
+  ).all() as Array<PairedDevice & { pairedAt: string; lastSeenAt: string | null; chamberName: string | null }>;
+}
+
+/** Move a tablet to another chamber. The desk it sits on moved, or it
+ *  was paired to the wrong one. Recorded, because which chamber a
+ *  tablet speaks for decides which register its serials come from. */
+export function setDeviceChamber(db: Db, id: string, chamberId: string): void {
+  const chamber = db.prepare('SELECT id, name FROM chamber WHERE id = ? AND deleted_at IS NULL')
+    .get(chamberId) as { id: string; name: string } | undefined;
+  if (chamber === undefined) throw new Error('That chamber is not in this installation.');
+  db.prepare('UPDATE tablet_device SET chamber_id = ? WHERE id = ?').run(chamber.id, id);
+  recordAudit(db, {
+    actor: { id: null, role: 'system' }, action: 'tablet_chamber_set', entity: 'tablet_device', entityId: id,
+    details: { chamber: chamber.name },
+  });
 }
 
 export function revokeDevice(db: Db, id: string): void {

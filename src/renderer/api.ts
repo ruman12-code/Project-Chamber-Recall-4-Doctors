@@ -9,7 +9,7 @@ import type { AttachmentView, AttachmentKind } from '../shared/attachments';
 import type { PatientCopy } from '../shared/patientCopy';
 import type { BackupStatus, BackupResult, BackupInspection } from '../shared/backup';
 import type { PilotReport } from '../shared/pilot';
-import type { PracticeSeedResult, SpareKeyStatus, SparePerson } from '../shared/ipc';
+import type { PracticeSeedResult, SpareKeyStatus, SparePerson, SerialClashView } from '../shared/ipc';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -79,6 +79,10 @@ interface Api {
   pinResetAcknowledge(): Promise<Result<Record<string, never>>>;
   homePanels(): Promise<Result<{ panels: string[] }>>;
   homePanelsSet(panels: string[]): Promise<Result<{ panels: string[] }>>;
+  tabletSetChamber(deviceId: string, chamberId: string): Promise<Result<Record<string, never>>>;
+  tabletPairingChamber(chamberId: string): Promise<Result<Record<string, never>>>;
+  serialClashes(): Promise<Result<{ clashes: SerialClashView[] }>>;
+  serialClashSeen(visitId: string): Promise<Result<Record<string, never>>>;
 }
 
 declare global {
@@ -166,6 +170,10 @@ export const api: Api = {
   pinResetAcknowledge: () => call((a) => a.pinResetAcknowledge()),
   homePanels: () => call((a) => a.homePanels()),
   homePanelsSet: (panels) => call((a) => a.homePanelsSet(panels)),
+  tabletSetChamber: (deviceId, chamberId) => call((a) => a.tabletSetChamber(deviceId, chamberId)),
+  tabletPairingChamber: (chamberId) => call((a) => a.tabletPairingChamber(chamberId)),
+  serialClashes: () => call((a) => a.serialClashes()),
+  serialClashSeen: (visitId) => call((a) => a.serialClashSeen(visitId)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

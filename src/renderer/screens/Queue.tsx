@@ -3,6 +3,7 @@ import { api, unwrap, type Failure } from '../api';
 import { FailureNotice } from '../Failure';
 import { PatientSearch } from './PatientSearch';
 import type { QueueEntry, QueueView } from '../../shared/queue';
+import type { SerialClashView } from '../../shared/ipc';
 
 /**
  * The serial register and the live queue.
@@ -40,6 +41,7 @@ export function Queue(
   },
 ) {
   const [view, setView] = useState<QueueView | null>(null);
+  const [clashes, setClashes] = useState<SerialClashView[]>([]);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState(0);
@@ -49,6 +51,11 @@ export function Queue(
     const { value, failure } = unwrap(await api.queueToday());
     if (failure) { setFailure(failure); return; }
     setView(value!.view);
+    // Anybody who was told one number and given another. Read with the
+    // list, so a tablet's arrivals landing while this screen is open
+    // raise the warning without anybody reopening anything.
+    const told = unwrap(await api.serialClashes());
+    if (told.value) setClashes(told.value.clashes);
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
@@ -173,6 +180,25 @@ export function Queue(
           Serial {justAdded.serialNo} given. Tell the patient their number.
         </div>
       )}
+
+      {/* Somebody was told one number at the desk and has been given
+          another, because this laptop had used it while the tablet was
+          away. They kept their place; they do not know their number
+          changed. A person has to tell them. */}
+      {clashes.map((clash) => (
+        <div className="clash" key={clash.visitId}>
+          <b>{clash.nameBn ?? clash.nameEn}</b> was told <b>serial {clash.serialAnnounced}</b> at the
+          desk, and that number was already used here. They are now <b>serial {clash.serialNo}</b> and
+          have kept their place in the order. <b>Tell them their new number.</b>
+          <button onClick={() => {
+            void (async () => {
+              const { failure } = unwrap(await api.serialClashSeen(clash.visitId));
+              if (failure) { setFailure(failure); return; }
+              setClashes((all) => all.filter((c) => c.visitId !== clash.visitId));
+            })();
+          }}>I have told them</button>
+        </div>
+      ))}
 
       {failure !== null && <FailureNotice failure={failure} />}
 

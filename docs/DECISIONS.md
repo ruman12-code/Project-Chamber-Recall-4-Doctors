@@ -1420,6 +1420,100 @@ One setting for the installation rather than one per person. There is
 one doctor and one laptop, and a per-person version means a schema
 change to answer a question nobody has asked.
 
+### 98. A tablet belongs to one chamber, and that is what makes offline serials safe
+
+The route that gives out serial numbers used to refuse to work offline,
+and the comment said exactly why: two tablets handing out number 14 from
+their own buffers would be worse than a tablet that says plainly it
+cannot reach the laptop.
+
+That reasoning was right and still is. What changed is not the reasoning
+but the premise. A tablet is now bound to ONE chamber when it is paired,
+and exactly one tablet sits at one desk, so there is no second buffer.
+Biplob's tablet gives out Popular's numbers whatever chamber the laptop
+is at -- which also fixed a quieter bug: the arrival route used to take
+the LAPTOP's active chamber, so a tablet at Popular would have filed its
+patients under Lubana.
+
+The residual case is the laptop giving out a number for that chamber
+while the tablet is away. Decision 99.
+
+### 99. A patient who was told the wrong number hears it from a person
+
+When an arrival lands and the number the desk announced has been taken,
+the patient keeps their PLACE -- they were there first and their arrival
+time proves it -- and takes the next free number.
+
+The number they were told is written down beside it, and today's list
+says so, in red, and does not stop saying so until somebody presses "I
+have told them". A patient who was called four and is now five must hear
+that from a person rather than discover it when somebody else is called.
+
+Silently renumbering would have been three lines shorter.
+
+### 100. One path, whether the laptop is there or not
+
+The tablet always gives out its own number and always puts the arrival
+in the outbox, even when the laptop is sitting right there. It would
+have been easy to keep the old direct route for when the wifi is up and
+use the new one only as a fallback.
+
+That would have been worse. Code that only runs when the wifi drops is
+code nobody has tried, and it would run for the first time on the worst
+evening. Now the offline path is the ordinary path, exercised every time
+anybody gives out a number, and the wifi being down changes nothing
+except how long the outbox holds it.
+
+### 101. An arrival carries its own author
+
+The laptop remembers who is signed in on a tablet in memory only. The
+doctor closes it at Lubana and opens it at Popular, and that memory is
+gone -- exactly when two hours of buffered arrivals are trying to land.
+
+So every arrival carries the id of the assistant who took it, checked
+against app_user when it arrives, and that is what goes on the record.
+The desk-arrival route is handled BEFORE the sign-in check for this
+reason, and it is the only route that is. Turning that work away for
+want of a live sign-in would throw away an evening somebody really did.
+
+An arrival naming nobody is still refused. A record with no author
+cannot be repaired afterwards.
+
+### 102. What a tablet may hold, decided by the doctor and written down
+
+Names and phone numbers, and nothing else: no diagnosis, no medicine, no
+test, no previous visit, no reading, nothing anybody wrote. Enough to
+tell a returning patient from a new one, which is the whole job.
+
+This was raised as a cost before it was built -- a tablet holding
+patient-identifying data is a notifiable thing to lose under the
+Personal Data Protection Act -- and the answer came back that the cost
+is worth the two hours it buys. It is his chamber and his call, and it
+is recorded here as his.
+
+The copy is encrypted under a key derived from the pairing token, and
+disconnecting the tablet makes it permanently unreadable. Being precise:
+that stops somebody reading the list off a tablet they picked up, and it
+does not stop somebody who takes the device apart, because the key must
+live on the tablet for the tablet to read its own list. A key beside the
+lock is not a safe. See docs/TWO-CHAMBERS.md, which says so in the same
+words to whoever runs the chamber.
+
+### 103. The tablet never claims a history it cannot see
+
+Found by looking at the screen. A patient found in the tablet's own list
+was shown with "no previous visit" underneath -- because the offline
+result had a visit count of zero, the count having never left the
+laptop.
+
+She had been three times. The screen was not missing information; it was
+asserting something false, to an assistant who would read it as fact and
+might register her again as somebody new.
+
+It now says "their history is on the laptop", and drops the age line
+too, which was making the same claim more quietly. Showing nothing is
+always available. Showing something untrue is not.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

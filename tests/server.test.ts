@@ -253,12 +253,12 @@ describe('the pairing code', () => {
     const db = provision(t.dir, 'passphrase', 'demo').db;
     const desk = new PairingDesk(3);
     for (let i = 0; i < 3; i++) {
-      assert.throws(() => desk.pair(db, 'WRONG1', 'attacker'));
+      assert.throws(() => desk.pair(db, 'WRONG1', 'attacker', 'any-chamber'));
     }
     assert.equal(desk.locked, true);
     // Even the correct code stops working once it is locked, so
     // guessing cannot be resumed by getting one right eventually.
-    assert.throws(() => desk.pair(db, desk.currentCode, 'attacker'), /Too many wrong codes/);
+    assert.throws(() => desk.pair(db, desk.currentCode, 'attacker', 'any-chamber'), /Too many wrong codes/);
     db.close(); t.cleanup();
   });
 
@@ -266,7 +266,7 @@ describe('the pairing code', () => {
     const t = tempDir();
     const db = provision(t.dir, 'passphrase', 'demo').db;
     const desk = new PairingDesk(5);
-    assert.throws(() => desk.pair(db, 'WRONG1', 'attacker'));
+    assert.throws(() => desk.pair(db, 'WRONG1', 'attacker', 'any-chamber'));
     const row = db.prepare(`SELECT count(*) AS n FROM audit_log WHERE action = 'tablet_pairing_failed'`).get() as { n: number };
     assert.equal(row.n, 1);
     db.close(); t.cleanup();

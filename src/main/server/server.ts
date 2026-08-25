@@ -15,7 +15,7 @@ import { existsSync } from 'node:fs';
 import { join, normalize, extname } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import type { Db } from '../db/open';
-import { localDate } from '../db/clock';
+import { localDate, nowIso } from '../db/clock';
 import { todaysQueue, activeChamberId, chambers } from '../queue/queue';
 import { loadChamberConfig } from '../intake/store';
 import { startIntake, saveAnswers, finishIntake, intakeState, factsFor, IntakeRefusedError } from '../intake/session';
@@ -29,6 +29,8 @@ import { unassignedActor } from '../db/users';
 import { signIn as verifySignIn, actorOf, SignInError, type SignedIn } from '../auth/session';
 import { signInList, needsSetup } from '../auth/staff';
 import { searchPatients } from '../patients/search';
+import { buildDirectory } from '../patients/directory';
+import { receiveDeskArrival } from '../queue/deskArrival';
 import { registerPatient } from '../patients/register';
 import { registerArrival } from '../queue/register';
 import { addAttachment, type AttachmentKind } from '../attachments/store';
@@ -68,6 +70,13 @@ export interface RunningServer {
   addresses: string[];
   pairingCode: string;
   pairingLocked: boolean;
+  /**
+   * Which chamber the NEXT tablet to pair belongs to. Set on the
+   * laptop, because the doctor knows which desk the thing in his hand
+   * is going to sit on. Null means the laptop's own chamber, which is
+   * right for an installation with only one.
+   */
+  pairingChamberId: string | null;
   close: () => Promise<void>;
 }
 
@@ -178,7 +187,18 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
     if (path === '/api/pair') {
       const body = (await readBody(request)) as { code?: string; label?: string };
       try {
-        const token = desk.pair(db, String(body.code ?? ''), String(body.label ?? 'front desk tablet'));
+        // Which chamber this tablet is for was decided on the laptop,
+        // not here. Falling back to the laptop's own chamber keeps a
+        // single-chamber installation working with nothing to set.
+        const chamberId = desk.chamberForNextTablet ?? activeChamberId(db);
+        if (chamberId === null) {
+          sendJson(response, 400, {
+            error: 'No chamber has been set up on the laptop yet.',
+            whatToDo: 'On the laptop, open today\'s list and choose a chamber, then pair the tablet again.',
+          });
+          return;
+        }
+        const token = desk.pair(db, String(body.code ?? ''), String(body.label ?? 'front desk tablet'), chamberId);
         sendJson(response, 200, { token });
       } catch (error) {
         sendJson(response, error instanceof PairingLockedError ? 429 : 401, {
@@ -289,6 +309,10 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
         consentProblems: consent.problems,
         consentBlocksLiveUse: consent.blocksLiveUse,
         queue: withConsent,
+        // What the tablet needs in order to keep working once this
+        // laptop is out of reach: which chamber it speaks for, and the
+        // next serial number in that chamber's register today.
+        deskChamber: deskChamberFor(db, device),
       });
       return;
     }
@@ -309,6 +333,52 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
       const body = await readFile(target);
       response.writeHead(200, { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' });
       response.end(body);
+      return;
+    }
+
+    // Handled BEFORE the sign-in check below, deliberately.
+    //
+    // An arrival taken at the desk carries its OWN author: the
+    // assistant who was standing there, checked against app_user by
+    // receiveDeskArrival. By the time it reaches the laptop, the laptop
+    // has usually been closed at one chamber and opened at the other,
+    // and the sign-in it was holding in memory went with it. Turning
+    // this away for want of a live sign-in would throw away work
+    // somebody really did two hours ago, which is the one thing this
+    // program must never do.
+    // An arrival that happened at the desk before the laptop heard of
+    // it. Safe to send twice: see src/main/queue/deskArrival.ts.
+    if (path === '/api/queue/desk-arrival') {
+      const body = (await readBody(request)) as Record<string, unknown>;
+      const chamberId = device.chamberId ?? activeChamberId(db);
+      if (chamberId === null) {
+        sendJson(response, 400, {
+          error: 'This tablet has not been told which chamber it is at.',
+          whatToDo: 'On the laptop, open the front desk tablet panel and set this tablet\'s chamber.',
+        });
+        return;
+      }
+      try {
+        const got = receiveDeskArrival(db, {
+          deskRef: String(body.deskRef ?? ''),
+          chamberId,
+          takenBy: String(body.takenBy ?? ''),
+          arrivedAt: String(body.arrivedAt ?? nowIso()),
+          visitDate: String(body.visitDate ?? localDate()),
+          serialAnnounced: Number(body.serialAnnounced ?? 0),
+          patientId: (body.patientId as string | null | undefined) ?? null,
+          newPatient: body.newPatient as never,
+          // Only ever the fallback receiver. The author of the record
+          // is arrival.takenBy, checked inside receiveDeskArrival.
+        }, actor ?? { id: null, role: 'system' });
+        sendJson(response, 200, got);
+      } catch (error) {
+        sendJson(response, 400, {
+          error: error instanceof ChamberRecallError ? error.userMessage : 'That arrival could not be saved.',
+          whatToDo: error instanceof ChamberRecallError ? error.whatToDo
+            : 'Add the patient to today\'s list on the laptop by hand.',
+        });
+      }
       return;
     }
 
@@ -373,6 +443,15 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
     // handing out number 14 from their own buffers would be worse than
     // a tablet that says plainly it cannot reach the laptop. So these
     // go straight out, and the screen says so when they fail.
+    // The directory: names and phone numbers, so the desk can tell a
+    // returning patient from a new one with the laptop at the other
+    // chamber. Nothing else about anybody is in it - see
+    // src/main/patients/directory.ts for what that means and why.
+    if (path === '/api/directory') {
+      sendJson(response, 200, buildDirectory(db, new Date().toISOString()));
+      return;
+    }
+
     if (path === '/api/patients/search') {
       const body = (await readBody(request)) as { query?: string };
       sendJson(response, 200, { results: searchPatients(db, String(body.query ?? '')) });
@@ -403,11 +482,14 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
 
     if (path === '/api/queue/arrive') {
       const body = (await readBody(request)) as { patientId?: string; allowSecondVisitToday?: boolean };
-      const chamberId = activeChamberId(db);
+      // The TABLET's chamber, not the laptop's. The laptop may be at
+      // the other chamber entirely; a serial belongs to the desk the
+      // patient is standing at.
+      const chamberId = device.chamberId ?? activeChamberId(db);
       if (chamberId === null) {
         sendJson(response, 400, {
-          error: 'No chamber has been chosen on the laptop.',
-          whatToDo: 'On the laptop, open today\'s list and choose which chamber this evening is.',
+          error: 'This tablet has not been told which chamber it is at.',
+          whatToDo: 'On the laptop, open the front desk tablet panel and set this tablet\'s chamber.',
         });
         return;
       }
@@ -571,6 +653,8 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
         port: boundPort,
         addresses: lanAddresses(),
         get pairingCode() { return desk.currentCode; },
+        get pairingChamberId() { return desk.chamberForNextTablet; },
+        set pairingChamberId(chamberId: string | null) { desk.chamberForNextTablet = chamberId; },
         get pairingLocked() { return desk.locked; },
         close: () => new Promise<void>((done) => server.close(() => done())),
       } as RunningServer);
@@ -579,3 +663,25 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
 }
 
 export { IntakeRefusedError };
+
+/**
+ * What a tablet needs to hand out serial numbers with no laptop in the
+ * room: which chamber it belongs to, and where that chamber's register
+ * has got to today.
+ *
+ * Refreshed every time the laptop is reachable. Between refreshes the
+ * tablet counts on from here on its own, which is safe because exactly
+ * one tablet does that for one chamber.
+ */
+export function deskChamberFor(db: Db, device: { chamberId: string | null }):
+  { id: string; name: string; nextSerial: number } | null {
+  const chamberId = device.chamberId ?? activeChamberId(db);
+  if (chamberId === null) return null;
+  const row = db.prepare('SELECT id, name FROM chamber WHERE id = ? AND deleted_at IS NULL')
+    .get(chamberId) as { id: string; name: string } | undefined;
+  if (row === undefined) return null;
+  const next = (db.prepare(
+    'SELECT COALESCE(max(serial_no), 0) + 1 AS n FROM visit WHERE chamber_id = ? AND visit_date = ?',
+  ).get(chamberId, localDate()) as { n: number }).n;
+  return { id: row.id, name: row.name, nextSerial: next };
+}

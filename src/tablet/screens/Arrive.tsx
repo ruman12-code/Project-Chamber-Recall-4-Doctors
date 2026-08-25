@@ -1,6 +1,17 @@
 import { useState } from 'react';
-import { api } from '../api';
-import type { PatientSearchResult } from '../../shared/patients';
+import { api, outbox, storedToken } from '../api';
+import { loadDirectory, searchDirectory } from '../directory';
+import { takeSerial } from '../serials';
+import type { PatientSearchResult, RegisterPatientInput } from '../../shared/patients';
+
+/** A patient described at the desk, to be created on the laptop when
+ *  the arrival lands. The deskRef makes a repeat harmless. */
+export type DeskNewPatient = RegisterPatientInput & { deskRef: string };
+
+/** Unique enough for one desk on one evening, and readable in a log. */
+function newRef(): string {
+  return `desk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 /**
  * The serial register, at the desk.
@@ -37,7 +48,20 @@ function ageOf(p: PatientSearchResult, bn: boolean): string {
 }
 
 export function Arrive(
-  { bn, onDone, onCancel }: { bn: boolean; onDone: (serialNo: number, name: string) => void; onCancel: () => void },
+  { bn, onDone, onCancel, deskChamber, visitDate, takenBy }: {
+    bn: boolean;
+    onDone: (serialNo: number, name: string) => void;
+    onCancel: () => void;
+    /** Which chamber this tablet speaks for. Null before it has ever
+     *  heard from the laptop, which is the one case the desk cannot
+     *  give out a number in. */
+    deskChamber: { id: string; name: string } | null;
+    visitDate: string;
+    /** The assistant standing at the desk. Their name goes on the
+     *  record, not the name of whoever the laptop has signed in when
+     *  this finally reaches it two hours later. */
+    takenBy: string | null;
+  },
 ) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PatientSearchResult[] | null>(null);
@@ -45,6 +69,10 @@ export function Arrive(
   const [problem, setProblem] = useState<Problem>(null);
   const [registering, setRegistering] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** True when the results came off this tablet's own list of names
+   *  rather than from the laptop. The screen says so, because what it
+   *  can show is thinner. */
+  const [fromCopy, setFromCopy] = useState(false);
 
   // The new-patient form.
   const [nameBn, setNameBn] = useState('');
@@ -66,54 +94,107 @@ export function Arrive(
       });
   }
 
+  /**
+   * The laptop first, because it knows how many times somebody has been
+   * before and when. When it cannot be reached, the copy of names and
+   * numbers kept on this tablet answers instead -- which is enough to
+   * tell a returning patient from a new one, and is all this tablet is
+   * ever allowed to hold.
+   */
   async function search(value: string) {
     setQuery(value);
     setProblem(null);
-    if (value.trim().length < 2) { setResults(null); return; }
+    if (value.trim().length < 2) { setResults(null); setFromCopy(false); return; }
     setSearching(true);
     try {
       const found = await api.post('/api/patients/search', { query: value }) as { results: PatientSearchResult[] };
       setResults(found.results);
-    } catch (caught) {
-      failed(caught);
-      setResults(null);
+      setFromCopy(false);
+    } catch {
+      const token = storedToken();
+      const directory = token === null ? null : await loadDirectory(token);
+      if (directory === null) {
+        setResults(null);
+        setFromCopy(false);
+        setProblem({
+          error: bn ? 'ল্যাপটপ পাওয়া যাচ্ছে না, আর এই ট্যাবে নামের তালিকাও নেই।'
+            : 'The laptop cannot be reached, and this tablet has no list of names yet.',
+          whatToDo: bn ? 'নতুন রোগী হিসেবে যোগ করুন। ল্যাপটপ এলে মিলিয়ে নেওয়া যাবে।'
+            : 'Add them as a new patient. It can be matched up when the laptop arrives.',
+        });
+      } else {
+        setResults(searchDirectory(directory, value).map((m) => ({
+          id: m.id, nameBn: m.nameBn, nameEn: m.nameEn, phone: m.phone,
+          sex: null, ageYears: null, ageIsApproximate: false,
+          visitCount: 0, lastVisitDate: null, lastChamberName: null,
+          mergedIntoPatientId: null, mergedIntoName: null,
+        })));
+        setFromCopy(true);
+      }
     } finally {
       setSearching(false);
     }
   }
 
-  async function giveSerial(patient: PatientSearchResult, allowSecondVisitToday = false) {
+  /**
+   * Give out a number and put the arrival in the outbox.
+   *
+   * ONE path, whether the laptop is reachable or not. The number comes
+   * from this tablet's own count for this chamber, which the laptop
+   * corrects every time it is in reach; the arrival goes into the
+   * outbox and is sent when it can be. With the laptop present that is
+   * immediate and nothing looks different.
+   *
+   * Doing it the same way every day is the point. Code that only runs
+   * when the wifi drops is code nobody has tried.
+   */
+  function giveSerial(patient: { id: string | null; nameBn: string | null; nameEn: string | null },
+    newPatient?: DeskNewPatient) {
+    if (deskChamber === null) {
+      setProblem({
+        error: bn ? 'এই ট্যাব কোন চেম্বারের, তা এখনো জানা নেই।'
+          : 'This tablet has not been told which chamber it is at.',
+        whatToDo: bn ? 'ডাক্তারের ল্যাপটপে একবার যুক্ত করে নিতে হবে।'
+          : 'It needs to reach the laptop once, so it can be told.',
+      });
+      return;
+    }
+    if (takenBy === null) {
+      setProblem({
+        error: bn ? 'কেউ সাইন ইন করেননি।' : 'Nobody is signed in at this desk.',
+        whatToDo: bn ? 'নিজের নাম ও পিন দিয়ে শুরু করুন।'
+          : 'Sign in first, so the record carries the name of who took it.',
+      });
+      return;
+    }
+
     setBusy(true);
     setProblem(null);
-    try {
-      const result = await api.post('/api/queue/arrive', {
-        patientId: patient.id, allowSecondVisitToday,
-      }) as { serialNo: number; alreadyOnListVisitId: string | null };
-
-      if (result.alreadyOnListVisitId !== null && !allowSecondVisitToday) {
-        // Already on today's list. Nearly always the assistant adding
-        // them twice; not impossible though, so it asks rather than
-        // refusing, and the question is in their own language.
-        const again = window.confirm(bn
-          ? 'ইনি আজ আগেই তালিকায় আছেন।\n\nআবার যোগ করবেন? সত্যিই দ্বিতীয়বার এসে থাকলেই কেবল করুন।'
-          : 'This patient is already on today\'s list.\n\nAdd them again? Only if they really have come back a second time.');
-        setBusy(false);
-        if (again) await giveSerial(patient, true);
-        return;
-      }
-      setBusy(false);
-      onDone(result.serialNo, patient.nameBn ?? patient.nameEn ?? '');
-    } catch (caught) {
-      setBusy(false);
-      failed(caught);
-    }
+    const serialNo = takeSerial(deskChamber.id, visitDate);
+    outbox.add('/api/queue/desk-arrival', {
+      deskRef: newRef(),
+      takenBy,
+      arrivedAt: new Date().toISOString(),
+      visitDate,
+      serialAnnounced: serialNo,
+      patientId: patient.id,
+      newPatient,
+    });
+    setBusy(false);
+    onDone(serialNo, patient.nameBn ?? patient.nameEn ?? '');
   }
 
-  async function registerAndArrive() {
-    setBusy(true);
-    setProblem(null);
-    try {
-      const created = await api.post('/api/patients/register', {
+  /**
+   * Somebody nobody has seen before. The patient is described here and
+   * created on the laptop when the arrival lands, keyed by a reference
+   * this tablet makes up -- so sending it twice makes one person, not
+   * two.
+   */
+  function registerAndArrive() {
+    giveSerial(
+      { id: null, nameBn: nameBn.trim(), nameEn: null },
+      {
+        deskRef: newRef(),
         fullNameBn: nameBn.trim() === '' ? null : nameBn.trim(),
         fullNameEn: null,
         phone: phone.trim() === '' ? null : phone.trim(),
@@ -121,18 +202,8 @@ export function Arrive(
         approxAgeYears: age.trim() === '' ? null : Number(age.trim()),
         sex,
         addressFreeText: null,
-      }) as { id: string };
-      setBusy(false);
-      await giveSerial({
-        id: created.id, nameBn: nameBn.trim(), nameEn: null, phone: phone.trim(), sex,
-        ageYears: age.trim() === '' ? null : Number(age.trim()), ageIsApproximate: true,
-        visitCount: 0, lastVisitDate: null, lastChamberName: null,
-        mergedIntoPatientId: null, mergedIntoName: null,
-      });
-    } catch (caught) {
-      setBusy(false);
-      failed(caught);
-    }
+      },
+    );
   }
 
   if (registering) {
@@ -206,6 +277,18 @@ export function Arrive(
         </div>
       )}
 
+      {/* Where these names came from. The laptop knows how many times
+          somebody has been before; this tablet only knows the name and
+          the number, so it says so rather than looking like it knows
+          less than it does by accident. */}
+      {fromCopy && results !== null && (
+        <div className="from-copy">
+          {bn
+            ? 'ল্যাপটপ পাওয়া যাচ্ছে না। এই ট্যাবে রাখা নাম ও নম্বরের তালিকা থেকে দেখানো হচ্ছে।'
+            : "The laptop cannot be reached. These come from the list of names and numbers kept on this tablet."}
+        </div>
+      )}
+
       <div className="patient-list">
         {searching && <div className="empty">{bn ? 'খোঁজা হচ্ছে…' : 'Looking…'}</div>}
         {!searching && results !== null && results.length === 0 && (
@@ -218,16 +301,32 @@ export function Arrive(
             onClick={() => { void giveSerial(patient); }}>
             <span className="who">
               <span className="nm">{patient.nameBn ?? patient.nameEn}</span>
-              <span className="sub">
-                {ageOf(patient, bn)}
-                {patient.sex !== null && ` · ${patient.sex}`}
-                {patient.phone !== null && ` · ${patient.phone}`}
-              </span>
-              <span className="sub">
-                {patient.visitCount === 0
-                  ? (bn ? 'আগে আসেননি' : 'no previous visit')
-                  : `${patient.visitCount} ${bn ? 'বার এসেছেন' : 'previous'} · ${patient.lastVisitDate}`}
-              </span>
+              {/* Off this tablet's own list, all that is known is a name
+                  and a number. Printing "no previous visit" here would
+                  be a lie -- the tablet has no idea, and the assistant
+                  would read it as fact. So it says what it actually
+                  knows and no more. */}
+              {fromCopy ? (
+                <>
+                  <span className="sub">{patient.phone ?? (bn ? 'নম্বর নেই' : 'no number')}</span>
+                  <span className="sub">
+                    {bn ? 'আগের রেকর্ড ল্যাপটপে আছে' : 'their history is on the laptop'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="sub">
+                    {ageOf(patient, bn)}
+                    {patient.sex !== null && ` · ${patient.sex}`}
+                    {patient.phone !== null && ` · ${patient.phone}`}
+                  </span>
+                  <span className="sub">
+                    {patient.visitCount === 0
+                      ? (bn ? 'আগে আসেননি' : 'no previous visit')
+                      : `${patient.visitCount} ${bn ? 'বার এসেছেন' : 'previous'} · ${patient.lastVisitDate}`}
+                  </span>
+                </>
+              )}
             </span>
             {patient.mergedIntoPatientId !== null && (
               <span className="state">{bn ? 'অন্য রেকর্ডে যুক্ত' : 'merged'}</span>

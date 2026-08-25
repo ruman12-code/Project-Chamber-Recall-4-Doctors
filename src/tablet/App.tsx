@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, outbox, storedToken, NeedsPairingError } from './api';
 import { Outbox, type OutboxStatus } from './outbox';
+import { storeDirectory, forgetDirectory } from './directory';
+import { syncFromLaptop, forgetSerials } from './serials';
 import { Pair } from './screens/Pair';
 import { DeskSignIn, type DeskPerson } from './screens/DeskSignIn';
 import { PickPatient, type QueueEntryWithConsent } from './screens/PickPatient';
@@ -18,6 +20,9 @@ import type { Facts } from '../main/rules/facts';
 /** Fifteen minutes with nobody touching it and the screen goes back. */
 const IDLE_CLEAR_MS = 15 * 60 * 1000;
 const SESSION_KEY = 'chamber-recall.session.v1';
+/** Which chamber this tablet is at. Kept so the desk still knows after
+ *  the tablet has been switched off and the laptop is elsewhere. */
+const DESK_CHAMBER_KEY = 'chamber-recall.deskChamber.v1';
 const DRAFT_KEY = 'chamber-recall.draft.v1';
 const LANG_KEY = 'chamber-recall.lang.v1';
 
@@ -112,6 +117,11 @@ export function App() {
   /** The serial register: registering an arrival, and the number given. */
   const [arriving, setArriving] = useState(false);
   const [justGiven, setJustGiven] = useState<{ serialNo: number; name: string } | null>(null);
+  /** Which chamber this tablet speaks for, and where its register had
+   *  got to the last time the laptop was reachable. */
+  const [deskChamber, setDeskChamber] = useState<{ id: string; name: string; nextSerial: number } | null>(
+    () => readJson<{ id: string; name: string; nextSerial: number }>(DESK_CHAMBER_KEY),
+  );
   const [showingPapers, setShowingPapers] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -133,6 +143,7 @@ export function App() {
         dataMode: 'demo' | 'live'; consent: ConsentConfig | null;
         consentBlocksLiveUse: Array<{ reason: string; whatToDo: string }>;
         people?: DeskPerson[]; signedIn?: DeskPerson | null; signInRequired?: boolean;
+        deskChamber?: { id: string; name: string; nextSerial: number } | null;
       };
       const next: CachedSession = {
         shape: CACHE_SHAPE,
@@ -148,8 +159,48 @@ export function App() {
       setSession(next);
       writeJson(SESSION_KEY, next);
       setLoadError(null);
+
+      // Everything the desk needs to keep working once this laptop is
+      // out of reach. Taken while it IS in reach, every single time.
+      const desk = raw.deskChamber ?? null;
+      setDeskChamber(desk);
+      if (desk !== null) {
+        writeJson(DESK_CHAMBER_KEY, desk);
+        // The laptop's count is the truth, but ONLY when the laptop has
+        // seen everything this tablet has given out. With arrivals
+        // still waiting in the outbox the laptop's number is behind,
+        // and moving the count back to it would hand the next patient a
+        // number somebody in the room has already been told.
+        if (outbox.status().pending === 0) {
+          syncFromLaptop(desk.id, raw.visitDate, desk.nextSerial);
+        }
+      }
+      void (async () => {
+        const token = storedToken();
+        if (token === null) return;
+        try {
+          const directory = await api.directory();
+          await storeDirectory(token, directory);
+        } catch {
+          // An out-of-date directory is worth keeping. It is only ever
+          // used to ask "have I seen this name before", and the laptop
+          // decides who anybody actually is.
+        }
+      })();
     } catch (caught) {
-      if (caught instanceof NeedsPairingError) { setPaired(false); return; }
+      if (caught instanceof NeedsPairingError) {
+        // Disconnected on the laptop, which is what somebody does the
+        // moment a tablet goes missing. Everything this tablet was
+        // holding about patients goes now: the list of names and
+        // numbers, and the count of serials. The token goes with it, so
+        // even a copy of the storage taken afterwards cannot be read.
+        forgetDirectory();
+        forgetSerials();
+        setDeskChamber(null);
+        try { localStorage.removeItem(DESK_CHAMBER_KEY); } catch { /* nothing to do */ }
+        setPaired(false);
+        return;
+      }
       // Not being able to reach the laptop is not an error worth
       // stopping for when there is a copy already on the tablet.
       setLoadError(caught instanceof Error ? caught.message : String(caught));
@@ -364,6 +415,9 @@ export function App() {
       ) : arriving ? (
         <Arrive
           bn={bn}
+          deskChamber={deskChamber}
+          visitDate={session?.visitDate ?? new Date().toISOString().slice(0, 10)}
+          takenBy={session?.signedIn?.id ?? null}
           onCancel={() => setArriving(false)}
           onDone={(serialNo, name) => {
             setArriving(false);

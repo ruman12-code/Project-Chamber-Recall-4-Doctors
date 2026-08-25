@@ -244,3 +244,12 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 .paper-shot.failed .state b { color: var(--alarm); font-size: 17px; }
 .paper-shot.failed .state span { font-size: 13px; line-height: 1.35; color: var(--muted); }
 .paper-shot .state button { font-size: 16px; padding: 10px; margin: 0; }
+
+/* Results that came off this tablet's own list of names rather than
+   from the laptop. Amber, like everything else in this program that
+   means "this is not the whole picture". */
+.from-copy {
+  background: #fdf3e0; border: 1px solid #d9a441; color: #6b4708;
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 10px;
+  font-size: 16px; line-height: 1.45;
+}

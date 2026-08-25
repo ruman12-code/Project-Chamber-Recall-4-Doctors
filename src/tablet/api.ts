@@ -1,4 +1,5 @@
 import { Outbox } from './outbox';
+import type { Directory } from './directory';
 
 const TOKEN_KEY = 'chamber-recall.token.v1';
 
@@ -50,6 +51,9 @@ async function request(path: string, body: unknown, method: 'GET' | 'POST' = 'PO
 export const api = {
   pair: (code: string, label: string) => request('/api/pair', { code, label }) as Promise<{ token: string }>,
   session: () => request('/api/session', null, 'GET') as Promise<Record<string, unknown>>,
+  // Names and phone numbers only. See src/main/patients/directory.ts
+  // for what is in it and what deliberately is not.
+  directory: () => request('/api/directory', null, 'GET') as unknown as Promise<Directory>,
   post: (path: string, body: unknown) => request(path, body),
 };
 

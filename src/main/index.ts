@@ -25,7 +25,7 @@ import { registerArrival, setVisitStatus } from './queue/register';
 import { todaysQueue, moveInQueue, activeChamberId, setActiveChamber, chambers } from './queue/queue';
 import type { QueueView, VisitStatus } from '../shared/queue';
 import { startTabletServer, DEFAULT_PORT, type RunningServer } from './server/server';
-import { pairedDevices, revokeDevice } from './server/pairing';
+import { pairedDevices, revokeDevice, setDeviceChamber } from './server/pairing';
 import { unassignedActor, laptopRole, setLaptopRole, laptopActor, type UnassignedRole } from './db/users';
 import { confirmIntake, unconfirmIntake, correctIntakeAnswer, type CorrectionInput } from './intake/confirm';
 import { loadConsentConfig } from './consent/config';
@@ -56,6 +56,7 @@ import {
   resetPinWithSpareKey, pinResetNotice, acknowledgePinReset, whichSpareKey,
 } from './auth/spareKey';
 import { homePanels, setHomePanels } from './home/panels';
+import { unresolvedSerialClashes, acknowledgeSerialClash, type SerialClash } from './queue/deskArrival';
 import { buildResearchExport, toCsv, researchReadme, recordResearchExport } from './report/research';
 import type { PilotReport } from '../shared/pilot';
 import type { PracticeSeedResult, SpareKeyStatus, SparePerson, PinResetNoticeView } from '../shared/ipc';
@@ -272,9 +273,36 @@ function registerHandlers(): void {
         pairingCode: tabletServer?.pairingCode ?? null,
         pairingLocked: tabletServer?.pairingLocked ?? false,
         devices: pairedDevices(db),
+        pairingChamberId: tabletServer?.pairingChamberId ?? activeChamberId(db),
+        chambers: chambers(db),
         problem: tabletProblem,
       },
     };
+  });
+
+  handle<Record<string, never>>(CHANNELS.tabletSetChamber, (deviceId: string, chamberId: string) => {
+    if (db === null) throw new Error('a tablet was moved before the database was unlocked');
+    requireClinicalRole(atTheLaptop(), 'move a tablet to another chamber');
+    setDeviceChamber(db, deviceId, chamberId);
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.tabletPairingChamber, (chamberId: string) => {
+    if (tabletServer !== null) tabletServer.pairingChamberId = chamberId;
+    return {} as Record<string, never>;
+  });
+
+  handle<{ clashes: SerialClash[] }>(CHANNELS.serialClashes, () => {
+    if (db === null) throw new Error('the list was asked about before the database was unlocked');
+    const chamberId = activeChamberId(db);
+    if (chamberId === null) return { clashes: [] };
+    return { clashes: unresolvedSerialClashes(db, chamberId, localDate()) };
+  });
+
+  handle<Record<string, never>>(CHANNELS.serialClashSeen, (visitId: string) => {
+    if (db === null) throw new Error('the list was changed before the database was unlocked');
+    acknowledgeSerialClash(db, visitId, atTheLaptop());
+    return {} as Record<string, never>;
   });
 
   handle<Record<string, never>>(CHANNELS.tabletRevoke, (deviceId: string) => {

@@ -16,7 +16,17 @@ export interface TabletStatus {
   addresses: string[];
   pairingCode: string | null;
   pairingLocked: boolean;
-  devices: Array<{ id: string; label: string; pairedAt: string; lastSeenAt: string | null }>;
+  devices: Array<{
+    id: string; label: string; pairedAt: string; lastSeenAt: string | null;
+    /** Which desk this tablet sits on. Its serials come from that
+     *  chamber's register, whichever chamber the laptop is at. */
+    chamberId: string | null;
+    chamberName: string | null;
+  }>;
+  /** Which chamber the NEXT tablet paired will belong to. */
+  pairingChamberId: string | null;
+  /** Every chamber, so the doctor can move a tablet to another desk. */
+  chambers: Array<{ id: string; name: string }>;
   /** Why the server is not running, in plain language. */
   problem: string | null;
 }
@@ -134,6 +144,11 @@ export const CHANNELS = {
   queueMove: 'queue:move',
   tabletStatus: 'tablet:status',
   tabletRevoke: 'tablet:revoke',
+  tabletSetChamber: 'tablet:setChamber',
+  tabletPairingChamber: 'tablet:pairingChamber',
+  /** Patients told one number at the desk and given another. */
+  serialClashes: 'queue:serialClashes',
+  serialClashSeen: 'queue:serialClashSeen',
   intakeConfirm: 'intake:confirm',
   intakeUnconfirm: 'intake:unconfirm',
   intakeCorrect: 'intake:correct',
@@ -212,6 +227,16 @@ export interface SparePerson {
 
 /** Shown to somebody whose PIN was reset by a spare key, until they
  *  say they knew about it. */
+/** A patient told one number at the desk and given another, because the
+ *  laptop had used it while the tablet was away. */
+export interface SerialClashView {
+  visitId: string;
+  serialNo: number;
+  serialAnnounced: number;
+  nameBn: string | null;
+  nameEn: string | null;
+}
+
 export interface PinResetNoticeView {
   at: string;
   using: string;

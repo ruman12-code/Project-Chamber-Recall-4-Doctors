@@ -413,11 +413,24 @@ export function Status() {
         <button onClick={openRecallCard}>Open the Recall Card</button>
       </div>}
 
-      {tablet !== null && (pinned('tablet') || showingMore) && <TabletSection status={tablet} onRevoke={async (id) => {
-        unwrap(await api.tabletRevoke(id));
-        const { value } = unwrap(await api.tabletStatus());
-        if (value) setTablet(value.status);
-      }} />}
+      {tablet !== null && (pinned('tablet') || showingMore) && <TabletSection
+        status={tablet}
+        onRevoke={async (id) => {
+          unwrap(await api.tabletRevoke(id));
+          const { value } = unwrap(await api.tabletStatus());
+          if (value) setTablet(value.status);
+        }}
+        onSetChamber={async (deviceId, chamberId) => {
+          const { failure } = unwrap(await api.tabletSetChamber(deviceId, chamberId));
+          if (failure) { setFailure(failure); return; }
+          const { value } = unwrap(await api.tabletStatus());
+          if (value) setTablet(value.status);
+        }}
+        onPairingChamber={async (chamberId) => {
+          unwrap(await api.tabletPairingChamber(chamberId));
+          const { value } = unwrap(await api.tabletStatus());
+          if (value) setTablet(value.status);
+        }} />}
 
       {(pinned('backup') || pinned('patient_copy') || showingMore) && <BackupCard
         status={backup}
@@ -528,7 +541,12 @@ export function Status() {
   );
 }
 
-function TabletSection({ status, onRevoke }: { status: TabletStatus; onRevoke: (id: string) => void }) {
+function TabletSection({ status, onRevoke, onSetChamber, onPairingChamber }: {
+  status: TabletStatus;
+  onRevoke: (id: string) => void;
+  onSetChamber: (deviceId: string, chamberId: string) => void;
+  onPairingChamber: (chamberId: string) => void;
+}) {
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>The front desk tablet</h2>
@@ -568,6 +586,20 @@ function TabletSection({ status, onRevoke }: { status: TabletStatus; onRevoke: (
             </div>
           ) : (
             <>
+              {/* Which desk the next tablet is going to sit on. Decided
+                  here rather than on the tablet: a tablet that could
+                  choose its own chamber could choose the wrong one, and
+                  its serial numbers would come out of the wrong
+                  register all evening. */}
+              {status.chambers.length > 1 && (
+                <div className="field" style={{ maxWidth: 420 }}>
+                  <label htmlFor="pairch">The next tablet paired sits at</label>
+                  <select id="pairch" value={status.pairingChamberId ?? ''}
+                    onChange={(e) => onPairingChamber(e.target.value)}>
+                    {status.chambers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="recovery-key">{status.pairingCode}</div>
               <p className="muted">
                 Type this into the tablet once. It changes every time this program starts, and
@@ -584,11 +616,20 @@ function TabletSection({ status, onRevoke }: { status: TabletStatus; onRevoke: (
             <p className="muted">None yet.</p>
           ) : (
             <table>
-              <thead><tr><th>Tablet</th><th>Paired</th><th>Last seen</th><th /></tr></thead>
+              <thead><tr><th>Tablet</th><th>At which desk</th><th>Paired</th><th>Last seen</th><th /></tr></thead>
               <tbody>
                 {status.devices.map((device) => (
                   <tr key={device.id}>
                     <td>{device.label}</td>
+                    <td>
+                      {status.chambers.length > 1 ? (
+                        <select value={device.chamberId ?? ''}
+                          style={{ margin: 0, padding: '4px 8px', fontSize: 13 }}
+                          onChange={(e) => onSetChamber(device.id, e.target.value)}>
+                          {status.chambers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      ) : (device.chamberName ?? <span className="warn">not set</span>)}
+                    </td>
                     <td className="muted">{new Date(device.pairedAt).toLocaleString()}</td>
                     <td className="muted">{device.lastSeenAt === null ? 'never' : new Date(device.lastSeenAt).toLocaleString()}</td>
                     <td><button className="secondary" style={{ margin: 0, padding: '6px 12px', fontSize: 13 }}

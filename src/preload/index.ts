@@ -16,7 +16,7 @@
 // Types are imported with `import type`, which the compiler erases, so
 // no require of a project file survives into the compiled output.
 import { contextBridge, ipcRenderer } from 'electron';
-import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result, PracticeSeedResult, SpareKeyStatus, SparePerson } from '../shared/ipc';
+import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result, PracticeSeedResult, SpareKeyStatus, SparePerson, SerialClashView } from '../shared/ipc';
 import type { RecallCard } from '../shared/recall';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 import type { QueueView, VisitStatus } from '../shared/queue';
@@ -171,4 +171,13 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('home:panels'),
   homePanelsSet: (panels: string[]): Promise<Result<{ panels: string[] }>> =>
     ipcRenderer.invoke('home:panelsSet', panels),
+
+  tabletSetChamber: (deviceId: string, chamberId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('tablet:setChamber', deviceId, chamberId),
+  tabletPairingChamber: (chamberId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('tablet:pairingChamber', chamberId),
+  serialClashes: (): Promise<Result<{ clashes: SerialClashView[] }>> =>
+    ipcRenderer.invoke('queue:serialClashes'),
+  serialClashSeen: (visitId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('queue:serialClashSeen', visitId),
 });
