@@ -1514,6 +1514,81 @@ It now says "their history is on the laptop", and drops the age line
 too, which was making the same claim more quietly. Showing nothing is
 always available. Showing something untrue is not.
 
+### 104. The tablet's list is the whole register, and carries a last visit
+
+Two corrections to decision 102, both from the doctor's side.
+
+The directory is EVERY patient, not this chamber's. A woman seen at
+Lubana in March walks into Popular in August; she is the same woman and
+the same record, and the desk at Popular has to find her or it registers
+her twice and the doctor opens a card with half her history on it.
+
+And it carries the DATE she was last seen and WHICH chamber. Decision
+103 removed a false "no previous visit" from the tablet because the
+tablet could not know. The answer he chose was not to remove the line
+but to let the tablet know: name, number, last seen, where. Still no
+diagnosis, no medicine, no test, no reading, no word anybody wrote.
+
+That is a wider thing to lose than names and numbers alone, and it was
+his to widen.
+
+### 105. The patient who came only to show a report
+
+A large share of an evening is people the doctor sent for a test last
+time, coming back with the paper. Asking them "what is troubling you
+today, and for how long" is asking the wrong question, and the answers
+are worse than useless: a screening full of "nothing" is
+indistinguishable from a screening nobody took.
+
+So the desk marks it once, before the number is given, and the questions
+about a new complaint are not asked. What the desk does instead is
+photograph the paper, which is what the patient came to hand over.
+
+Three things it is NOT. It is not a lighter kind of patient: everything
+a consultation can do, this can do. It does not switch off the rules --
+somebody who says something alarming while handing over a report is
+still moved up. And IT DOES NOT CHANGE ANYBODY'S PLACE IN THE QUEUE.
+They are counted and marked and left exactly where they arrived, because
+the doctor has not been asked yet whether he wants them interleaved.
+There is a test whose whole job is to fail if that ordering ever changes
+by accident.
+
+### 106. The bell, and why it is a bell
+
+The doctor finishes with a patient and the next one has to be walked in.
+The desk found that out by looking at a list that refreshes every twenty
+seconds, which is an age with a room full of people and no use at all if
+nobody is looking.
+
+The assistant is not watching the tablet. They are talking to somebody,
+writing on a card, answering the phone. A message that only appears on
+screen is a message nobody sees for two minutes, and two minutes is the
+doctor sitting in an empty room. So it makes a noise, and it takes the
+whole screen.
+
+A separate endpoint, a few bytes, asked every three seconds, rather than
+polling the whole session faster. And a fingerprint of the room rather
+than a timestamp, so the bell rings on a CHANGE rather than every three
+seconds.
+
+Android refuses to let a page make a noise until it has been touched.
+That cannot be argued with, so the sound is armed on the first touch of
+the session -- which the assistant makes anyway signing in -- and when
+it is not armed the screen SAYS SO rather than pretending it will be
+heard.
+
+### 107. Out of turn is worked out, not recorded, and ignores escalations
+
+A patient is being seen out of turn when somebody AHEAD of them is still
+waiting. Computed from queue_position at the moment of asking, so it
+stays true if the doctor reorders the list afterwards.
+
+Deliberately queue_position and not the serial number. A patient moved
+up by a red flag rule has a low position and a high serial, and calling
+them first is the system working exactly as designed. Announcing that as
+irregular would teach the desk that the warning means nothing, which is
+the one lesson this program must never teach.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

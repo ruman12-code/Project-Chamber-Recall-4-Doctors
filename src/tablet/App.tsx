@@ -3,6 +3,9 @@ import { api, outbox, storedToken, NeedsPairingError } from './api';
 import { Outbox, type OutboxStatus } from './outbox';
 import { storeDirectory, forgetDirectory } from './directory';
 import { syncFromLaptop, forgetSerials } from './serials';
+import { armChime, chime, chimeIsArmed } from './chime';
+import { CalledIn } from './screens/CalledIn';
+import type { DeskSignal } from './api';
 import { Pair } from './screens/Pair';
 import { DeskSignIn, type DeskPerson } from './screens/DeskSignIn';
 import { PickPatient, type QueueEntryWithConsent } from './screens/PickPatient';
@@ -59,6 +62,9 @@ interface Draft {
    * about their health until this reaches 'asking'.
    */
   stage: 'consent_care' | 'consent_research' | 'asking' | 'declined';
+  /** Here to show a test the doctor asked for last time, so the
+   *  questions about a new complaint are not asked at all. */
+  reportsOnly: boolean;
 }
 
 interface ConsentConfig {
@@ -122,6 +128,12 @@ export function App() {
   const [deskChamber, setDeskChamber] = useState<{ id: string; name: string; nextSerial: number } | null>(
     () => readJson<{ id: string; name: string; nextSerial: number }>(DESK_CHAMBER_KEY),
   );
+  /** The doctor has called somebody in and the desk has not yet said
+   *  they sent them. Takes the whole screen while it is set. */
+  const [called, setCalled] = useState<DeskSignal['inChamber']>(null);
+  /** The last state of the room this tablet has already announced, so
+   *  it announces a change rather than announcing every few seconds. */
+  const announced = useRef<string | null>(null);
   const [showingPapers, setShowingPapers] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -210,14 +222,45 @@ export function App() {
   useEffect(() => {
     if (!paired) return;
     void refresh();
+    // Who the doctor has called in. Asked far more often than the rest
+    // of the session, because between the doctor pressing Call in and
+    // the patient walking through the door there is a person waiting in
+    // an empty room.
+    const signalTimer = setInterval(() => {
+      void (async () => {
+        try {
+          const signal = await api.deskSignal();
+          if (signal === null) return;
+          // The first answer after this tablet started is not news. It
+          // is the state of the room, which the assistant can see.
+          if (announced.current === null) { announced.current = signal.at; return; }
+          if (signal.at === announced.current) return;
+          announced.current = signal.at;
+          if (signal.inChamber !== null) {
+            setCalled(signal.inChamber);
+            chime();
+          } else {
+            // The doctor has finished with somebody and nobody is in
+            // with him. Whatever was on screen stays; the list refresh
+            // shows the next patient.
+            setCalled(null);
+            void refresh();
+          }
+        } catch { /* the laptop is away; the desk carries on */ }
+      })();
+    }, 3000);
+
     const timer = setInterval(() => { void refresh(); }, 20000);
-    return () => clearInterval(timer);
+    return () => { clearInterval(timer); clearInterval(signalTimer); };
   }, [paired, refresh]);
 
   // ---- kiosk-ish: fill the screen, and do not offer a way out of it
   useEffect(() => {
     const goFullscreen = () => {
       if (document.fullscreenElement === null) void document.documentElement.requestFullscreen?.().catch(() => undefined);
+      // The same touch arms the sound. Android refuses audio until a
+      // page has been touched, and this is the first touch there is.
+      armChime();
       window.removeEventListener('pointerdown', goFullscreen);
     };
     window.addEventListener('pointerdown', goFullscreen);
@@ -308,6 +351,7 @@ export function App() {
       patient: { ageYears: entry.ageYears, sex: entry.sex },
       answers: {}, presented: [], acknowledged: [], touchedAt: Date.now(),
       stage,
+      reportsOnly: entry.visitKind === 'reports_only',
     });
     setFinished(false);
   }
@@ -371,6 +415,22 @@ export function App() {
 
   return (
     <div className="screen">
+      {/* Sits on top of whatever the assistant was doing, and takes
+          nothing away from it: no draft is cleared, no answer is lost,
+          and closing this comes straight back to the same half-typed
+          screen. */}
+      {called !== null && (
+        <CalledIn
+          serialNo={called.serialNo}
+          nameBn={called.nameBn}
+          nameEn={called.nameEn}
+          outOfTurn={called.outOfTurn}
+          silent={!chimeIsArmed()}
+          bn={bn}
+          onSent={() => setCalled(null)}
+        />
+      )}
+
       {draft !== null && firing.length > 0 && (
         <Alarm messages={firing} acknowledging={acknowledging} onAcknowledge={acknowledge} />
       )}
@@ -468,6 +528,26 @@ export function App() {
                  onDecide={(d, m, g) => decideConsent('research', d, m, g)} />
       ) : showingPapers && draft !== null ? (
         <Papers visitId={draft.visitId} bn={bn} onDone={() => setShowingPapers(false)} />
+      ) : draft.reportsOnly && !finished ? (
+        // Here to show a test the doctor asked for last time. There is
+        // no new complaint to ask about, and asking anyway would fill
+        // the record with "nothing" -- which reads exactly like a
+        // screening nobody took. So: photograph the paper, and finish.
+        <div className="done reports-only">
+          <div className="bn">শুধু রিপোর্ট দেখাতে এসেছেন</div>
+          <div className="en">Here to show a test report</div>
+          <p className="lede">
+            {bn
+              ? 'নতুন সমস্যার প্রশ্ন করা হবে না। কাগজগুলো ছবি তুলে রাখুন, ডাক্তার পর্দাতেই দেখতে পাবেন।'
+              : 'No questions about a new complaint. Photograph the papers and the doctor sees them on his screen.'}
+          </p>
+          <button className="btn" onClick={() => setShowingPapers(true)}>
+            {bn ? 'কাগজের ছবি তুলুন' : 'Photograph the reports'}
+          </button>
+          <button className="btn quiet" onClick={finish}>
+            {bn ? 'হয়ে গেছে' : 'Done'}
+          </button>
+        </div>
       ) : finished ? (
         <div className="done">
           <div className="tick">✓</div>

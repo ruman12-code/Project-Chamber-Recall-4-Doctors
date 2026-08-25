@@ -31,6 +31,7 @@ import { signInList, needsSetup } from '../auth/staff';
 import { searchPatients } from '../patients/search';
 import { buildDirectory } from '../patients/directory';
 import { receiveDeskArrival } from '../queue/deskArrival';
+import { deskSignal } from '../queue/deskSignal';
 import { registerPatient } from '../patients/register';
 import { registerArrival } from '../queue/register';
 import { addAttachment, type AttachmentKind } from '../attachments/store';
@@ -368,6 +369,7 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
           serialAnnounced: Number(body.serialAnnounced ?? 0),
           patientId: (body.patientId as string | null | undefined) ?? null,
           newPatient: body.newPatient as never,
+          visitKind: body.visitKind === 'reports_only' ? 'reports_only' : 'consultation',
           // Only ever the fallback receiver. The author of the record
           // is arrival.takenBy, checked inside receiveDeskArrival.
         }, actor ?? { id: null, role: 'system' });
@@ -447,6 +449,14 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
     // returning patient from a new one with the laptop at the other
     // chamber. Nothing else about anybody is in it - see
     // src/main/patients/directory.ts for what that means and why.
+    // Asked every few seconds. Kept to a few bytes for that reason.
+    if (path === '/api/desk-signal') {
+      const chamberId = device.chamberId ?? activeChamberId(db);
+      if (chamberId === null) { sendJson(response, 200, null); return; }
+      sendJson(response, 200, deskSignal(db, chamberId, localDate()));
+      return;
+    }
+
     if (path === '/api/directory') {
       sendJson(response, 200, buildDirectory(db, new Date().toISOString()));
       return;

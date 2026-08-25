@@ -37,6 +37,8 @@ export interface DirectoryEntry {
   nameBn: string | null;
   nameEn: string | null;
   phone: string | null;
+  lastVisitDate: string | null;
+  lastChamberName: string | null;
   sBn: string | null;
   sEn: string | null;
   sPhone: string | null;
@@ -123,6 +125,11 @@ export interface DirectoryMatch {
   nameBn: string | null;
   nameEn: string | null;
   phone: string | null;
+  /** Where and when they were last seen -- at EITHER chamber. A patient
+   *  last seen at Lubana walking into Popular is the same patient, and
+   *  the desk has to be able to say so. */
+  lastVisitDate: string | null;
+  lastChamberName: string | null;
 }
 
 /**
@@ -147,7 +154,11 @@ export function searchDirectory(directory: Directory, query: string, limit = 20)
       && ((entry.sBn !== null && entry.sBn.includes(asName))
         || (entry.sEn !== null && entry.sEn.includes(asName)));
     if (byPhone || byName) {
-      out.push({ id: entry.id, nameBn: entry.nameBn, nameEn: entry.nameEn, phone: entry.phone });
+      out.push({
+        id: entry.id, nameBn: entry.nameBn, nameEn: entry.nameEn, phone: entry.phone,
+        lastVisitDate: entry.lastVisitDate ?? null,
+        lastChamberName: entry.lastChamberName ?? null,
+      });
       if (out.length >= limit) break;
     }
   }

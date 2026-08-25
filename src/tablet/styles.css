@@ -253,3 +253,44 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
   border-radius: 8px; padding: 10px 14px; margin-bottom: 10px;
   font-size: 16px; line-height: 1.45;
 }
+
+/* Why the patient came, asked before the number is given. Two big
+   targets: this is tapped twenty times an evening with somebody
+   standing at the counter. */
+.why-here { display: flex; gap: 10px; margin-bottom: 14px; }
+.why-here button {
+  flex: 1; text-align: left; padding: 12px 14px; margin: 0;
+  background: #fff; color: var(--ink); border: 2px solid var(--line); border-radius: 10px;
+}
+.why-here button.on { border-color: var(--ink); background: #f3f5f8; }
+.why-here .t { display: block; font-size: 17px; font-weight: 700; }
+.why-here .d { display: block; font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+/* Patients on the tablet's list who are here only to show a report. */
+.state.reports { background: #eaf2fb; border-color: #9dbfe0; color: #1b4a75; }
+.done.reports-only .lede { max-width: 32rem; margin: 12px auto 20px; font-size: 17px; line-height: 1.5; }
+.done.reports-only .btn.quiet { background: #fff; color: var(--ink); border: 2px solid var(--line); }
+
+/* The doctor has called somebody in. Takes the whole screen, because it
+   is the one thing on this tablet that somebody in another room is
+   waiting on. */
+.called-in {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--page, #f3f5f8);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 24px; text-align: center;
+}
+.called-in .lead { font-size: 22px; color: var(--muted); }
+.called-in .serial {
+  font-size: min(38vw, 300px); line-height: 1; font-weight: 800;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+}
+.called-in .name { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+.called-in .out-of-turn {
+  max-width: 34rem; margin: 10px 0; padding: 12px 16px; font-size: 18px; line-height: 1.45;
+  background: #fdf3e0; border: 2px solid #d9a441; color: #6b4708; border-radius: 10px;
+}
+.called-in .silent-note {
+  max-width: 34rem; margin: 4px 0 8px; font-size: 15px; color: var(--muted);
+}
+.called-in .btn { margin-top: 18px; min-width: 18rem; }

@@ -41,6 +41,7 @@ import type { Db } from '../db/open';
 import { registerPatient } from '../patients/register';
 import { resolveToSurvivingPatient } from '../patients/search';
 import type { RegisterPatientInput } from '../../shared/patients';
+import type { VisitKind } from '../../shared/queue';
 
 export class DeskArrivalError extends ChamberRecallError {}
 
@@ -63,6 +64,8 @@ export interface DeskArrival {
   /** One of these two. An existing patient, or somebody new. */
   patientId?: string | null;
   newPatient?: RegisterPatientInput & { deskRef: string };
+  /** Why they came. Defaults to an ordinary consultation. */
+  visitKind?: VisitKind;
 }
 
 export interface DeskArrivalResult {
@@ -167,11 +170,13 @@ export function receiveDeskArrival(db: Db, arrival: DeskArrival, receivedBy: Act
     const id = newId();
     db.prepare(
       `INSERT INTO visit (id, patient_id, chamber_id, visit_date, serial_no, queue_position,
-         arrived_at, status, created_at, created_by, updated_at, desk_ref, serial_announced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?, ?, ?)`,
+         arrived_at, status, created_at, created_by, updated_at, desk_ref, serial_announced,
+         visit_kind)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?, ?, ?, ?)`,
     ).run(id, patientId, arrival.chamberId, visitDate, serialNo, serialNo, arrivedAt,
       arrivedAt, actor.id, arrivedAt, arrival.deskRef,
-      taken ? arrival.serialAnnounced : null);
+      taken ? arrival.serialAnnounced : null,
+      arrival.visitKind ?? 'consultation');
 
     recordAudit(db, {
       actor, action: 'visit_registered_at_desk', entity: 'visit', entityId: id,
@@ -180,6 +185,7 @@ export function receiveDeskArrival(db: Db, arrival: DeskArrival, receivedBy: Act
         serial_no: serialNo,
         serial_announced: taken ? arrival.serialAnnounced : null,
         arrived_at: arrivedAt,
+        visit_kind: arrival.visitKind ?? 'consultation',
       },
     });
     return {

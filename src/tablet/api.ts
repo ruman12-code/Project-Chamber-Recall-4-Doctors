@@ -1,6 +1,18 @@
 import { Outbox } from './outbox';
 import type { Directory } from './directory';
 
+/** What the front desk needs to know right now. Mirrors
+ *  src/main/queue/deskSignal.ts. */
+export interface DeskSignal {
+  inChamber: {
+    visitId: string; serialNo: number;
+    nameBn: string | null; nameEn: string | null; outOfTurn: boolean;
+  } | null;
+  nextWaiting: { visitId: string; serialNo: number; nameBn: string | null; nameEn: string | null } | null;
+  waiting: number;
+  at: string;
+}
+
 const TOKEN_KEY = 'chamber-recall.token.v1';
 
 export function storedToken(): string | null {
@@ -54,6 +66,9 @@ export const api = {
   // Names and phone numbers only. See src/main/patients/directory.ts
   // for what is in it and what deliberately is not.
   directory: () => request('/api/directory', null, 'GET') as unknown as Promise<Directory>,
+  // Asked every few seconds. A few bytes: who the doctor has called in,
+  // who is next, and how many are waiting.
+  deskSignal: () => request('/api/desk-signal', null, 'GET') as unknown as Promise<DeskSignal | null>,
   post: (path: string, body: unknown) => request(path, body),
 };
 

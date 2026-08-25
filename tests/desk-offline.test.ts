@@ -60,13 +60,18 @@ describe('finding a patient on the tablet with no laptop', () => {
   const directory: Directory = {
     takenAt: '2026-08-25T10:00:00Z',
     entries: [
+      // Last seen at LUBANA. She is about to walk into Popular.
       { id: 'p1', nameBn: 'রহিমা বেগম', nameEn: 'Rahima Begum', phone: '01711000001',
+        lastVisitDate: '2026-03-14', lastChamberName: 'Lubana',
         sBn: normaliseName('রহিমা বেগম'), sEn: normaliseName('Rahima Begum'),
         sPhone: searchablePhone('01711000001') },
       { id: 'p2', nameBn: 'সুরাইয়া আরা', nameEn: 'Suraiya Ara', phone: '+8801596176370',
+        lastVisitDate: '2026-07-11', lastChamberName: 'Popular',
         sBn: normaliseName('সুরাইয়া আরা'), sEn: normaliseName('Suraiya Ara'),
         sPhone: searchablePhone('+8801596176370') },
+      // Registered once and never actually seen.
       { id: 'p3', nameBn: null, nameEn: 'Abdul Mia', phone: null,
+        lastVisitDate: null, lastChamberName: null,
         sBn: null, sEn: normaliseName('Abdul Mia'), sPhone: null },
     ],
   };
@@ -104,8 +109,22 @@ describe('finding a patient on the tablet with no laptop', () => {
     assert.deepEqual(searchDirectory(directory, '01999999999'), []);
   });
 
-  test('what comes back is a name and a number and nothing else', () => {
+  test('a patient last seen at the OTHER chamber is found here', () => {
+    // The whole reason the directory is the whole register rather than
+    // this chamber's. Find her at Popular, or register her twice.
+    const [her] = searchDirectory(directory, 'রহিমা');
+    assert.equal(her!.lastChamberName, 'Lubana');
+    assert.equal(her!.lastVisitDate, '2026-03-14');
+  });
+
+  test('somebody registered but never seen says so, rather than nothing', () => {
+    const [him] = searchDirectory(directory, 'abdul');
+    assert.equal(him!.lastVisitDate, null);
+  });
+
+  test('what comes back is a name, a number, and when they were last seen', () => {
     const [first] = searchDirectory(directory, '01711');
-    assert.deepEqual(Object.keys(first!).sort(), ['id', 'nameBn', 'nameEn', 'phone']);
+    assert.deepEqual(Object.keys(first!).sort(),
+      ['id', 'lastChamberName', 'lastVisitDate', 'nameBn', 'nameEn', 'phone']);
   });
 });

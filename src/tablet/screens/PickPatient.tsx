@@ -55,6 +55,8 @@ export function PickPatient(
             {entry.consent?.careRecord === 'declined' && (
               <span className="state">{bn ? 'অনুমতি দেননি' : 'said no'}</span>
             )}
+            {entry.visitKind === 'reports_only'
+              && <span className="state reports">{bn ? 'শুধু রিপোর্ট' : 'reports only'}</span>}
             {entry.intakeCompleted && <span className="state done">{bn ? 'নেওয়া হয়েছে' : 'done'}</span>}
             {!entry.intakeCompleted && entry.intakeStarted && entry.consent?.careRecord !== 'declined' &&
               <span className="state">{bn ? 'অসম্পূর্ণ' : 'part done'}</span>}

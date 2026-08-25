@@ -112,6 +112,9 @@ export function Queue(
 
   const entries = view.entries;
   const count = (status: QueueEntry['status']) => entries.filter((e) => e.status === status).length;
+  const reportsOnly = entries.filter(
+    (e) => e.visitKind === 'reports_only' && (e.status === 'waiting' || e.status === 'in_chamber'),
+  ).length;
   const waitingIds = entries.filter((e) => e.status === 'waiting').map((e) => e.visitId);
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -167,6 +170,12 @@ export function Queue(
           <div className="c"><b>{count('waiting')}</b>waiting</div>
           <div className="c"><b>{count('in_chamber')}</b>with the doctor</div>
           <div className="c"><b>{count('done')}</b>seen</div>
+          {/* Counted, and shown, and that is all. The order of the list
+              is untouched: these patients sit where they arrived, until
+              a doctor says otherwise. */}
+          {reportsOnly > 0 && (
+            <div className="c reports"><b>{reportsOnly}</b>reports only</div>
+          )}
         </div>
 
         <span className="spacer" />
@@ -268,8 +277,15 @@ function Row(
         <div className="n">{name}{altName !== null && <span className="alt">{altName}</span>}</div>
         <div className="tags">
           {flagged && <span className="qtag flag">SEE SOONER</span>}
-          {!entry.intakeStarted && <span className="qtag gap">not screened</span>}
-          {entry.intakeStarted && entry.screeningIncomplete && <span className="qtag gap">screening incomplete</span>}
+          {/* Here to show a test the doctor asked for. "Not screened"
+              would be wrong for them and would read as something
+              missing, so it is not shown. */}
+          {entry.visitKind === 'reports_only'
+            ? <span className="qtag reports">reports only</span>
+            : <>
+              {!entry.intakeStarted && <span className="qtag gap">not screened</span>}
+              {entry.intakeStarted && entry.screeningIncomplete && <span className="qtag gap">screening incomplete</span>}
+            </>}
           {entry.previousVisits === 0
             ? <span className="qtag new">first visit</span>
             : <span className="qtag back">{entry.previousVisits} previous · last {entry.lastVisitDate}</span>}

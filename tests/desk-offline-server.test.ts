@@ -117,15 +117,15 @@ describe('a desk working while the laptop is at the other chamber', () => {
   });
 
 
-  test('the directory carries names and numbers and nothing else', async () => {
+  test('the directory carries a name, a number and a last visit -- and nothing else', async () => {
     const got = await call('/api/directory', null, 'GET');
     assert.equal(got.status, 200);
     const entries = got.body.entries as Array<Record<string, unknown>>;
     assert.ok(Array.isArray(entries));
     for (const entry of entries) {
       assert.deepEqual(Object.keys(entry).sort(),
-        ['id', 'nameBn', 'nameEn', 'phone', 'sBn', 'sEn', 'sPhone'],
-        'nothing about anybody beyond a name and a number may reach a tablet');
+        ['id', 'lastChamberName', 'lastVisitDate', 'nameBn', 'nameEn', 'phone', 'sBn', 'sEn', 'sPhone'],
+        'nothing beyond a name, a number and when they were last seen may reach a tablet');
     }
   });
 
@@ -173,6 +173,25 @@ describe('a desk working while the laptop is at the other chamber', () => {
     assert.equal(todaysQueue(db, 'popular', TODAY).length, 4);
     const people = db.prepare('SELECT count(*) AS n FROM patient WHERE deleted_at IS NULL').get() as { n: number };
     assert.equal(people.n, 4, 'a resend must never double the chamber');
+  });
+
+  test('it is the whole register, not this chamber\'s', async () => {
+    // A patient seen only at Lubana must be findable from the tablet at
+    // Popular, or the desk registers her again and the doctor opens a
+    // card with half her history on it.
+    const { registerPatient } = await import('../src/main/patients/register');
+    const { registerArrival } = await import('../src/main/queue/register');
+    const atLubana = registerPatient(db, {
+      fullNameBn: 'লুবানার রোগী', fullNameEn: null, phone: '01700000777', dob: null,
+      approxAgeYears: 44, sex: 'female', addressFreeText: null,
+    }, { id: biplob, role: 'front_desk' });
+    registerArrival(db, atLubana, 'lubana', { id: biplob, role: 'front_desk' });
+
+    const got = await call('/api/directory', null, 'GET');
+    const entries = got.body.entries as Array<Record<string, unknown>>;
+    const her = entries.find((e) => e.id === atLubana);
+    assert.ok(her, 'a patient of the other chamber is still in this tablet\'s list');
+    assert.equal(her!.lastChamberName, 'Lubana');
   });
 
   test('the session now says the register has moved on', async () => {

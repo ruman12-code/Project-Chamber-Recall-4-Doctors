@@ -1,5 +1,18 @@
 export type VisitStatus = 'waiting' | 'in_chamber' | 'done' | 'left';
 
+/**
+ * Why they came.
+ *
+ * 'reports_only' is somebody bringing back a test the doctor asked for
+ * last time. They are asked nothing about a new complaint, because
+ * there isn't one, and a screening full of "nothing" is worse than no
+ * screening at all -- it looks the same as one nobody took.
+ *
+ * It changes what the desk asks and NOTHING else. Not their place in
+ * the queue, not the rules, not what the doctor may do.
+ */
+export type VisitKind = 'consultation' | 'reports_only';
+
 export interface QueueRedFlag {
   ruleId: string;
   ruleVersion: string;
@@ -10,6 +23,7 @@ export interface QueueEntry {
   visitId: string;
   serialNo: number;
   status: VisitStatus;
+  visitKind: VisitKind;
   patientId: string;
   nameBn: string | null;
   nameEn: string | null;

@@ -9,6 +9,7 @@
 import type { Db } from '../db/open';
 import { newId } from '../db/ids';
 import { nowIso, localDate } from '../db/clock';
+import type { VisitKind } from '../../shared/queue';
 import { recordAudit, type Actor } from '../db/audit';
 import { recordUsage } from '../db/usage';
 import { resolveToSurvivingPatient } from '../patients/search';
@@ -35,7 +36,13 @@ export interface ArrivalResult {
  */
 export function registerArrival(
   db: Db, patientId: string, chamberId: string, actor: Actor,
-  options: { visitDate?: string; arrivedAt?: string; allowSecondVisitToday?: boolean } = {},
+  options: {
+    visitDate?: string; arrivedAt?: string; allowSecondVisitToday?: boolean;
+    /** 'reports_only' when they have come to show the doctor a test he
+     *  asked for last time. It changes what the desk asks them and
+     *  nothing else: not their place in the queue, not the rules. */
+    visitKind?: VisitKind;
+  } = {},
 ): ArrivalResult {
   const visitDate = options.visitDate ?? localDate();
   const arrivedAt = options.arrivedAt ?? nowIso();
@@ -71,13 +78,17 @@ export function registerArrival(
     const id = newId();
     db.prepare(
       `INSERT INTO visit (id, patient_id, chamber_id, visit_date, serial_no, queue_position,
-         arrived_at, status, created_at, created_by, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?)`,
-    ).run(id, realPatientId, chamberId, visitDate, next, next, arrivedAt, arrivedAt, actor.id, arrivedAt);
+         arrived_at, status, created_at, created_by, updated_at, visit_kind)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?, ?)`,
+    ).run(id, realPatientId, chamberId, visitDate, next, next, arrivedAt, arrivedAt, actor.id, arrivedAt,
+      options.visitKind ?? 'consultation');
 
     recordAudit(db, {
       actor, action: 'visit_registered', entity: 'visit', entityId: id,
-      details: { patient_id: realPatientId, chamber_id: chamberId, visit_date: visitDate, serial_no: next },
+      details: {
+        patient_id: realPatientId, chamber_id: chamberId, visit_date: visitDate, serial_no: next,
+        visit_kind: options.visitKind ?? 'consultation',
+      },
     });
     return { visitId: id, serialNo: next, alreadyOnListVisitId: null };
   });

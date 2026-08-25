@@ -30,7 +30,7 @@ import { patientAgeYears } from '../db/age';
 import { recordAudit, type Actor } from '../db/audit';
 import { setMeta, getMeta } from '../db/open';
 import { RegisterRefusedError, type VisitStatus } from './register';
-import type { QueueEntry, QueueRedFlag } from '../../shared/queue';
+import type { QueueEntry, QueueRedFlag, VisitKind } from '../../shared/queue';
 
 export type { QueueEntry, QueueRedFlag } from '../../shared/queue';
 
@@ -38,7 +38,8 @@ const STATUS_ORDER: Record<VisitStatus, number> = { in_chamber: 0, waiting: 1, d
 
 export function todaysQueue(db: Db, chamberId: string, visitDate: string, asOf: Date = new Date()): QueueEntry[] {
   const rows = db.prepare(
-    `SELECT v.id AS visitId, v.serial_no AS serialNo, v.status, v.arrived_at AS arrivedAt, v.seen_at AS seenAt,
+    `SELECT v.id AS visitId, v.serial_no AS serialNo, v.status, v.visit_kind AS visitKind,
+            v.arrived_at AS arrivedAt, v.seen_at AS seenAt,
             v.queue_position AS queuePosition,
             p.id AS patientId, p.full_name_bn AS nameBn, p.full_name_en AS nameEn, p.phone, p.sex,
             p.dob, p.approx_age_years, p.approx_age_recorded_on,
@@ -52,7 +53,8 @@ export function todaysQueue(db: Db, chamberId: string, visitDate: string, asOf: 
      LEFT JOIN intake i ON i.visit_id = v.id AND i.deleted_at IS NULL
      WHERE v.chamber_id = ? AND v.visit_date = ? AND v.deleted_at IS NULL`,
   ).all(chamberId, visitDate) as Array<{
-    visitId: string; serialNo: number; status: VisitStatus; arrivedAt: string; seenAt: string | null;
+    visitId: string; serialNo: number; status: VisitStatus; visitKind: VisitKind;
+    arrivedAt: string; seenAt: string | null;
     queuePosition: number | null; patientId: string; nameBn: string | null; nameEn: string | null;
     phone: string | null; sex: string | null; dob: string | null; approx_age_years: number | null;
     approx_age_recorded_on: string | null; intakeId: string | null; intakeCompletedAt: string | null;
@@ -89,6 +91,7 @@ export function todaysQueue(db: Db, chamberId: string, visitDate: string, asOf: 
       visitId: row.visitId,
       serialNo: row.serialNo,
       status: row.status,
+      visitKind: row.visitKind,
       patientId: row.patientId,
       nameBn: row.nameBn,
       nameEn: row.nameEn,

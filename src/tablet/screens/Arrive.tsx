@@ -73,6 +73,14 @@ export function Arrive(
    *  rather than from the laptop. The screen says so, because what it
    *  can show is thinner. */
   const [fromCopy, setFromCopy] = useState(false);
+  /**
+   * Why they came. Asked once, before the number is given, because it
+   * decides whether the assistant asks them anything else at all.
+   * Somebody bringing back a test the doctor ordered has no new
+   * complaint, and a screening full of "nothing" reads exactly like a
+   * screening nobody took.
+   */
+  const [kind, setKind] = useState<'consultation' | 'reports_only'>('consultation');
 
   // The new-patient form.
   const [nameBn, setNameBn] = useState('');
@@ -126,7 +134,10 @@ export function Arrive(
         setResults(searchDirectory(directory, value).map((m) => ({
           id: m.id, nameBn: m.nameBn, nameEn: m.nameEn, phone: m.phone,
           sex: null, ageYears: null, ageIsApproximate: false,
-          visitCount: 0, lastVisitDate: null, lastChamberName: null,
+          // visitCount stays zero because this copy does not carry it.
+          // Nothing on screen reads it while fromCopy is true.
+          visitCount: 0,
+          lastVisitDate: m.lastVisitDate, lastChamberName: m.lastChamberName,
           mergedIntoPatientId: null, mergedIntoName: null,
         })));
         setFromCopy(true);
@@ -179,6 +190,7 @@ export function Arrive(
       serialAnnounced: serialNo,
       patientId: patient.id,
       newPatient,
+      visitKind: kind,
     });
     setBusy(false);
     onDone(serialNo, patient.nameBn ?? patient.nameEn ?? '');
@@ -261,6 +273,23 @@ export function Arrive(
         <div className="en">{bn ? 'A patient has arrived' : 'রোগী এসেছেন'}</div>
       </div>
 
+      {/* Asked before the number, because it decides what happens for
+          the rest of this patient's visit at the desk. Not a lighter
+          kind of patient: it changes what they are asked and nothing
+          else -- not their place in the list, not the rules. */}
+      <div className="why-here">
+        <button className={kind === 'consultation' ? 'on' : ''}
+          onClick={() => setKind('consultation')}>
+          <span className="t">{bn ? 'ডাক্তার দেখাবেন' : 'To see the doctor'}</span>
+          <span className="d">{bn ? 'নতুন কোনো সমস্যা' : 'a new complaint'}</span>
+        </button>
+        <button className={kind === 'reports_only' ? 'on' : ''}
+          onClick={() => setKind('reports_only')}>
+          <span className="t">{bn ? 'শুধু রিপোর্ট দেখাবেন' : 'Only showing reports'}</span>
+          <span className="d">{bn ? 'গতবার ডাক্তার যে পরীক্ষা দিয়েছিলেন' : 'a test the doctor asked for'}</span>
+        </button>
+      </div>
+
       <div className="arrive-search">
         <input
           type="text" autoFocus value={query}
@@ -309,8 +338,15 @@ export function Arrive(
               {fromCopy ? (
                 <>
                   <span className="sub">{patient.phone ?? (bn ? 'নম্বর নেই' : 'no number')}</span>
+                  {/* When they were last seen, and WHERE. A patient last
+                      seen at the other chamber is the same patient, and
+                      the assistant needs to be able to say so out loud.
+                      The rest of the history stays on the laptop. */}
                   <span className="sub">
-                    {bn ? 'আগের রেকর্ড ল্যাপটপে আছে' : 'their history is on the laptop'}
+                    {patient.lastVisitDate === null
+                      ? (bn ? 'আগে আসেননি' : 'no previous visit')
+                      : `${bn ? 'শেষ এসেছেন' : 'last seen'} ${patient.lastVisitDate}`
+                        + (patient.lastChamberName === null ? '' : ` · ${patient.lastChamberName}`)}
                   </span>
                 </>
               ) : (
