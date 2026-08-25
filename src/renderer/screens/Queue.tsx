@@ -22,10 +22,21 @@ import type { QueueEntry, QueueView } from '../../shared/queue';
  * changes who the doctor sees next.
  */
 export function Queue(
-  { onClose, onOpenCard, onRecord }: {
-    onClose: () => void;
+  { onClose, onOpenCard, onRecord, embedded = false }: {
+    /**
+     * Absent when this list IS the home screen rather than a screen
+     * opened on top of it. There is nothing to close back to, so no
+     * Close button is drawn.
+     */
+    onClose?: () => void;
     onOpenCard?: (visitId: string) => void;
     onRecord?: (visitId: string) => void;
+    /**
+     * On its own, this list fills the window. On the home screen it has
+     * to flow in the page with panels underneath it, so it lets go of
+     * the viewport and bounds its own scrolling instead.
+     */
+    embedded?: boolean;
   },
 ) {
   const [view, setView] = useState<QueueView | null>(null);
@@ -100,7 +111,8 @@ export function Queue(
     if (event.key === 'ArrowDown') { event.preventDefault(); setSelected((i) => Math.min(i + 1, entries.length - 1)); }
     else if (event.key === 'ArrowUp') { event.preventDefault(); setSelected((i) => Math.max(i - 1, 0)); }
     else if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.altKey) { /* handled below */ }
-    else if (event.key === 'Escape') { onClose(); }
+    // Escape closes the list only when there is something behind it.
+    else if (event.key === 'Escape') { onClose?.(); }
   }
 
   function onKeyDownCapture(event: React.KeyboardEvent) {
@@ -124,7 +136,8 @@ export function Queue(
   }
 
   return (
-    <div className="queue" tabIndex={0} onKeyDown={onKeyDown} onKeyDownCapture={onKeyDownCapture}>
+    <div className={embedded ? 'queue embedded' : 'queue'} tabIndex={0}
+      onKeyDown={onKeyDown} onKeyDownCapture={onKeyDownCapture}>
       {/* The heading for paper. On screen the chamber is in the picker
           above; on paper it has to say which chamber and which day, at
           the top, because the sheet outlives the screen. */}
@@ -152,7 +165,7 @@ export function Queue(
         <span className="spacer" />
         <button onClick={() => { setJustAdded(null); setAdding(true); }}>Patient has arrived</button>
         <button className="secondary" onClick={() => window.print()}>Print this list</button>
-        <button className="secondary" onClick={onClose}>Close</button>
+        {onClose !== undefined && <button className="secondary" onClick={onClose}>Close</button>}
       </div>
 
       {justAdded !== null && (

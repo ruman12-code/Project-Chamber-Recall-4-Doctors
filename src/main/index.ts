@@ -55,6 +55,7 @@ import {
   setSpareCode, clearSpareCode, spareCodeIsSet, spareCodeSetAt, peopleForSpareKey,
   resetPinWithSpareKey, pinResetNotice, acknowledgePinReset, whichSpareKey,
 } from './auth/spareKey';
+import { homePanels, setHomePanels } from './home/panels';
 import { buildResearchExport, toCsv, researchReadme, recordResearchExport } from './report/research';
 import type { PilotReport } from '../shared/pilot';
 import type { PracticeSeedResult, SpareKeyStatus, SparePerson, PinResetNoticeView } from '../shared/ipc';
@@ -835,6 +836,16 @@ function registerHandlers(): void {
     if (db === null) throw new Error('a notice was acknowledged before the database was unlocked');
     acknowledgePinReset(db, atTheLaptop());
     return {} as Record<string, never>;
+  });
+
+  handle<{ panels: string[] }>(CHANNELS.homePanels, () => {
+    if (db === null) throw new Error('the home screen was asked about before the database was unlocked');
+    return { panels: homePanels(db) };
+  });
+
+  handle<{ panels: string[] }>(CHANNELS.homePanelsSet, (panels: string[]) => {
+    if (db === null) throw new Error('the home screen was changed before the database was unlocked');
+    return { panels: setHomePanels(db, panels, atTheLaptop()) };
   });
 
   handle<Record<string, never>>(CHANNELS.redFlagAcknowledge, (eventId: string) => {

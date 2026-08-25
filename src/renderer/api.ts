@@ -77,6 +77,8 @@ interface Api {
   spareKeyReset(spareKey: string, userId: string, newPin: string):
     Promise<Result<{ displayName: string; using: string }>>;
   pinResetAcknowledge(): Promise<Result<Record<string, never>>>;
+  homePanels(): Promise<Result<{ panels: string[] }>>;
+  homePanelsSet(panels: string[]): Promise<Result<{ panels: string[] }>>;
 }
 
 declare global {
@@ -162,6 +164,8 @@ export const api: Api = {
   spareKeyPeople: (spareKey) => call((a) => a.spareKeyPeople(spareKey)),
   spareKeyReset: (spareKey, userId, newPin) => call((a) => a.spareKeyReset(spareKey, userId, newPin)),
   pinResetAcknowledge: () => call((a) => a.pinResetAcknowledge()),
+  homePanels: () => call((a) => a.homePanels()),
+  homePanelsSet: (panels) => call((a) => a.homePanelsSet(panels)),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

@@ -12,6 +12,7 @@ import { Attachments } from './Attachments';
 import { PatientCopySheet } from './PatientCopySheet';
 import { PilotReportScreen } from './PilotReportScreen';
 import { roleLabel, type Role } from '../../shared/roles';
+import { HOME_PANELS, panelsForRole, type HomePanelId } from '../../shared/home';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView, TabletStatus } from '../../shared/ipc';
 import type { RecallCard } from '../../shared/recall';
 import type { AuthState } from '../../shared/ipc';
@@ -46,6 +47,9 @@ const LABELS: Record<string, string> = {
 export function Status() {
   const [summary, setSummary] = useState<DatabaseSummary | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
+  const [panels, setPanels] = useState<string[] | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [showingMore, setShowingMore] = useState(false);
   const [previewing, setPreviewing] = useState<RedFlagAlertView | null>(null);
   const [card, setCard] = useState<RecallCard | null>(null);
   const [findingPatient, setFindingPatient] = useState(false);
@@ -77,7 +81,18 @@ export function Status() {
   }, []);
   useEffect(() => { void readAuth(); }, [readAuth]);
 
+  const readPanels = useCallback(async () => {
+    const { value, failure } = unwrap(await api.homePanels());
+    if (failure) { setFailure(failure); return; }
+    setPanels(value!.panels);
+  }, []);
+  useEffect(() => { void readPanels(); }, [readPanels]);
+
   const role: Role | null = auth?.signedIn === null || auth === null ? null : (auth.signedIn.role as Role);
+  /** Is this panel pinned to the front page, and allowed for this role? */
+  const pinned = (id: HomePanelId): boolean =>
+    panels !== null && panels.includes(id) && role !== null
+    && panelsForRole(role).some((p) => p.id === id);
 
   useEffect(() => {
     void (async () => {
@@ -289,11 +304,33 @@ export function Status() {
         </div>
       )}
 
-      <h1>Chamber Recall</h1>
-      <p className="subtitle">
-        The register and the queue, the patient records, the history taken at the front desk, and
-        the consultation. Everything is on this one laptop and nothing leaves it.
-      </p>
+      {/* The home screen opens on the evening rather than on a menu.
+          Today's list is below, live, with every action on it; what
+          used to be here was a page of cards with the list itself
+          below the fold. */}
+      <div className="home-top">
+        <div className="home-who">
+          <b>{auth.signedIn.displayName}</b>
+          <span className="muted"> — {roleLabel(role ?? 'front_desk').en} · {roleLabel(role ?? 'front_desk').bn}.
+            Everything written from here carries this name.</span>
+        </div>
+        <div className="home-top-acts">
+          <button className="secondary" onClick={() => {
+            void (async () => {
+              const { failure } = unwrap(await api.signOut());
+              if (failure) { setFailure(failure); return; }
+              setCard(null); setChamber(null); setShowingQueue(false); setFindingPatient(false);
+              await readAuth();
+            })();
+          }}>Sign out</button>
+          <button className="secondary" onClick={() => setShowingMore((v) => !v)}>
+            {showingMore ? 'Hide' : 'Everything else'}
+          </button>
+          {role === 'doctor' && (
+            <button className="secondary" onClick={() => setChoosing(true)}>Choose what is here</button>
+          )}
+        </div>
+      </div>
 
       {/* Somebody with a spare key set this person's PIN. They are told
           here, and keep being told, until they say they knew about it -
@@ -321,39 +358,51 @@ export function Status() {
         </div>
       )}
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Signed in</h2>
-        <p>
-          <b>{auth.signedIn?.displayName}</b> — {roleLabel(role ?? 'front_desk').en} · {roleLabel(role ?? 'front_desk').bn}.
-          Everything written from here carries this name.
-        </p>
-        <button className="secondary" onClick={() => {
-          void (async () => {
-            const { failure } = unwrap(await api.signOut());
-            if (failure) { setFailure(failure); return; }
-            setCard(null); setChamber(null); setShowingQueue(false); setFindingPatient(false);
-            await readAuth();
-          })();
-        }}>Sign out</button>
-        {role === 'doctor' && (
-          <button className="secondary" onClick={() => setShowingPeople(true)} style={{ marginLeft: 8 }}>
-            Who works here
-          </button>
-        )}
-      </div>
-
-      {role === 'front_desk' && (
-        <div className="card">
-          <h2 style={{ marginTop: 0 }}>What you can do here</h2>
+      {choosing && role === 'doctor' && (
+        <div className="card choosing">
+          <h2 style={{ marginTop: 0 }}>What is on this screen</h2>
           <p>
-            Today's list and the patient records: give arriving patients their serial, find a
-            returning patient, and register somebody new. A patient's history is for the doctor
-            and the clinical assistant, so it is not on this screen.
+            Today's list is always here — it is what this screen is for. Everything else is your
+            choice. <b>Turning something off never puts it out of reach</b>: it moves under
+            "Everything else" at the top.
           </p>
+          {HOME_PANELS.map((panel) => {
+            const allowed = (panel.roles as readonly string[]).includes('doctor');
+            if (!allowed) return null;
+            const on = panels?.includes(panel.id) ?? false;
+            return (
+              <div className="checkline" key={panel.id}>
+                <input id={`pnl-${panel.id}`} type="checkbox" checked={on} onChange={() => {
+                  void (async () => {
+                    const next = on
+                      ? (panels ?? []).filter((p) => p !== panel.id)
+                      : [...(panels ?? []), panel.id];
+                    const { value, failure } = unwrap(await api.homePanelsSet(next));
+                    if (failure) { setFailure(failure); return; }
+                    setPanels(value!.panels);
+                  })();
+                }} />
+                <label htmlFor={`pnl-${panel.id}`}>
+                  <b>{panel.label}</b> — <span className="muted">{panel.what}</span>
+                </label>
+              </div>
+            );
+          })}
+          <button onClick={() => setChoosing(false)}>Done</button>
         </div>
       )}
 
-      {role !== 'front_desk' && <div className="card">
+      {/* The evening itself. Not behind a button: who is waiting, who is
+          with the doctor, who has been seen, and every action on each
+          of them. The front desk gets the same list without the two
+          clinical buttons, which is decided in the data layer as well
+          as here. */}
+      <Queue
+        embedded
+        onOpenCard={role === null || role === 'front_desk' ? undefined : (visitId) => { void openCardForVisit(visitId); }}
+        onRecord={role === null || role === 'front_desk' ? undefined : (visitId) => { void openChamber(visitId); }} />
+
+      {(pinned('recall_card') || showingMore) && role !== 'front_desk' && <div className="card">
         <h2 style={{ marginTop: 0 }}>The Recall Card</h2>
         <p>
           The patient who is with the doctor right now in today’s session. Confirm and Correct
@@ -364,16 +413,16 @@ export function Status() {
         <button onClick={openRecallCard}>Open the Recall Card</button>
       </div>}
 
-      {tablet !== null && <TabletSection status={tablet} onRevoke={async (id) => {
+      {tablet !== null && (pinned('tablet') || showingMore) && <TabletSection status={tablet} onRevoke={async (id) => {
         unwrap(await api.tabletRevoke(id));
         const { value } = unwrap(await api.tabletStatus());
         if (value) setTablet(value.status);
       }} />}
 
-      <BackupCard
+      {(pinned('backup') || pinned('patient_copy') || showingMore) && <BackupCard
         status={backup}
         note={backupNote}
-        canGiveCopies={role !== 'front_desk'}
+        canGiveCopies={role !== 'front_desk' && (pinned('patient_copy') || showingMore)}
         onBackup={() => {
           void (async () => {
             setBackupNote('Copying and checking…');
@@ -397,9 +446,9 @@ export function Status() {
           })();
         }}
         onGiveCopy={() => setFindingForCopy(true)}
-      />
+      />}
 
-      {role !== 'front_desk' && (
+      {(pinned('pilot_report') || showingMore) && role !== 'front_desk' && (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>The pilot report</h2>
           <p>
@@ -412,24 +461,29 @@ export function Status() {
         </div>
       )}
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Today's list</h2>
-        <p>
-          The serial register and the live queue: who has arrived, who is waiting and for how
-          long, and who is seen next. The front desk gives out the numbers on the tablet.
-        </p>
-        <button onClick={() => setShowingQueue(true)}>Open today's list</button>
-      </div>
 
-      <div className="card">
+      {(pinned('find_patient') || showingMore) && <div className="card">
         <h2 style={{ marginTop: 0 }}>Patients</h2>
         <p>
           Search by phone or name, register someone new, and put duplicate records together.
           The practice database contains deliberate duplicates to try the merge tool on.
         </p>
         <button onClick={() => setFindingPatient(true)}>Find a patient</button>
-      </div>
+      </div>}
 
+      {(pinned('who_works_here') || showingMore) && role === 'doctor' && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Who works here</h2>
+          <p>
+            Add somebody, change a PIN, or retire somebody who has left. Retiring stops them
+            signing in and leaves every record they wrote exactly as it was, with their name
+            still on it.
+          </p>
+          <button onClick={() => setShowingPeople(true)}>Who works here</button>
+        </div>
+      )}
+
+      {(pinned('database') || showingMore) && <>
       <h2>What is in the database</h2>
       <div className="grid">
         {Object.entries(summary.counts).map(([key, n]) => (
@@ -469,6 +523,7 @@ export function Status() {
         Created {summary.createdAt ? new Date(summary.createdAt).toLocaleString() : 'unknown'}
         {summary.seededAt && ` · practice data added ${new Date(summary.seededAt).toLocaleString()}`}
       </p>
+      </>}
     </div>
   );
 }

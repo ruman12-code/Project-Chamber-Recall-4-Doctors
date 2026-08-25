@@ -1378,6 +1378,48 @@ Which spare key, not who held it: a shared code cannot honestly name a
 person, and inventing an attribution would be worse than saying plainly
 that it was the spare code.
 
+### 96. The home screen opens on the evening, not on a menu
+
+What was there: a page of cards, one of which had a button that opened
+today's list. The list -- the thing the doctor came to the laptop for --
+was below the fold, behind a click.
+
+Today's list is now the home screen itself. Counts across the top, every
+patient with Card, Call in, Left, Record and Seen on their own row, and
+the panels underneath. The front desk sees the same list with the two
+clinical buttons absent, which is decided in the data layer as well as
+in the screen.
+
+The list had to learn to be embedded to do this. It was written as
+`position: fixed; inset: 0` -- it owned the window -- so dropping it
+into a page made it float over the banner and the panels. It now takes
+an `embedded` flag: flows in the page, and bounds its own scrolling so
+that forty people waiting cannot push the panels out of reach.
+
+### 97. What else is on that screen is the doctor's setting, not ours
+
+He said he wanted to decide after using it rather than before, which is
+the right way round, so it is a setting.
+
+One rule governs it: TURNING SOMETHING OFF NEVER MAKES IT UNREACHABLE.
+Everything not pinned is one tap away under "Everything else". The
+setting decides what he sees without looking for it -- never what the
+program can do. A settings screen that can hide the backup button
+until the backup is a year old would be a settings screen that loses
+records.
+
+An empty choice is a real choice and is stored as one: a doctor who
+wants nothing but the list gets nothing but the list. Only a genuinely
+broken value -- unparseable, or not an array -- falls back to the
+default, because the failure to avoid is a blank screen with no way
+back. Unknown panel ids are dropped one at a time rather than
+poisoning the whole setting, so an older installation meeting a newer
+list of panels degrades instead of resetting.
+
+One setting for the installation rather than one per person. There is
+one doctor and one laptop, and a per-person version means a schema
+change to answer a question nobody has asked.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

@@ -906,3 +906,41 @@ button.linkish:hover { color: var(--ink); }
   border: 1px solid var(--alarm); border-left-width: 5px; background: var(--alarm-wash, #fceceb);
 }
 .card.pin-reset-notice h2 { color: var(--alarm); }
+
+/* ---- The home screen: the evening, not a menu. ---------------------
+   A compact strip saying who is at the keyboard, then today's list
+   itself. What used to be here was a page of cards with the list below
+   the fold, which is the wrong way round for a screen somebody opens
+   with people already waiting. */
+.home-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding: 10px 14px; margin-bottom: 14px;
+  background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+}
+.home-who { min-width: 0; }
+.home-top-acts { display: flex; gap: 8px; flex: 0 0 auto; }
+.home-top-acts button { width: auto; padding: 5px 12px; font-size: 13px; }
+
+/* Choosing what is pinned. */
+.card.choosing .checkline { margin: 8px 0; }
+.card.choosing label { font-weight: 400; }
+
+/* Today's list when it IS the home screen rather than a screen on top
+   of one. It lets go of the viewport and flows in the page, and bounds
+   its own scrolling so the panels underneath stay reachable however
+   many patients are waiting. */
+.queue.embedded {
+  position: static; inset: auto; overflow: visible;
+  padding: 0; margin-bottom: 18px;
+}
+.queue.embedded .queue-list {
+  max-height: 58vh; overflow-y: auto;
+  border: 1px solid var(--line-soft, #e5e8ed); border-radius: 8px; padding: 6px;
+}
+.queue.embedded .queue-head h1 { font-size: 20px; }
+/* The date and the counts read as one line on the home screen. Without
+   this the date breaks across two lines and "with the doctor" wraps
+   inside its box, which makes a tidy strip look accidental. */
+.queue.embedded .queue-head > .muted { white-space: nowrap; }
+.queue.embedded .queue-counts .c { white-space: nowrap; }

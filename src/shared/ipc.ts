@@ -189,6 +189,9 @@ export const CHANNELS = {
   spareKeyPeople: 'spare:people',
   spareKeyReset: 'spare:reset',
   pinResetAcknowledge: 'spare:acknowledge',
+  // What the doctor has chosen to keep on his home screen.
+  homePanels: 'home:panels',
+  homePanelsSet: 'home:panelsSet',
 } as const;
 
 /** Whether a spare code exists, for the doctor's own screen. */
