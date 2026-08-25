@@ -93,6 +93,13 @@ export interface AuthState {
   /** True when nobody can sign in yet and the setup screen is due. */
   needsSetup: boolean;
   signedIn: SignedInView | null;
+  /**
+   * Set when the signed-in person's PIN was reset by somebody holding a
+   * spare key and they have not said they knew about it. Carried here
+   * rather than on one screen, because a notice that appears in only
+   * one place is a notice that gets missed.
+   */
+  pinReset?: PinResetNoticeView | null;
 }
 
 /** How every failure crosses the boundary. Never a raw stack trace. */
@@ -175,7 +182,37 @@ export const CHANNELS = {
   // Filling a practice database with invented people, so there is
   // something to show somebody before a real patient ever exists.
   seedPractice: 'practice:seed',
+  // The spare key: what to do when somebody has forgotten their PIN.
+  spareKeyStatus: 'spare:status',
+  spareKeySetCode: 'spare:setCode',
+  spareKeyClearCode: 'spare:clearCode',
+  spareKeyPeople: 'spare:people',
+  spareKeyReset: 'spare:reset',
+  pinResetAcknowledge: 'spare:acknowledge',
 } as const;
+
+/** Whether a spare code exists, for the doctor's own screen. */
+export interface SpareKeyStatus {
+  codeIsSet: boolean;
+  codeSetAt: string | null;
+}
+
+/** Somebody whose PIN the spare key could reset. Names and roles only:
+ *  this screen never shows a patient, a number, or a record. */
+export interface SparePerson {
+  id: string;
+  displayName: string;
+  role: string;
+  isActive: boolean;
+  canSignIn: boolean;
+}
+
+/** Shown to somebody whose PIN was reset by a spare key, until they
+ *  say they knew about it. */
+export interface PinResetNoticeView {
+  at: string;
+  using: string;
+}
 
 /**
  * What filling the practice database produced, and who can then sign

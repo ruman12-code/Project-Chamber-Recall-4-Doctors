@@ -9,7 +9,7 @@ import type { AttachmentView, AttachmentKind } from '../shared/attachments';
 import type { PatientCopy } from '../shared/patientCopy';
 import type { BackupStatus, BackupResult, BackupInspection } from '../shared/backup';
 import type { PilotReport } from '../shared/pilot';
-import type { PracticeSeedResult } from '../shared/ipc';
+import type { PracticeSeedResult, SpareKeyStatus, SparePerson } from '../shared/ipc';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -70,6 +70,13 @@ interface Api {
   pilotReport(): Promise<Result<{ report: PilotReport }>>;
   researchExport(): Promise<Result<{ folder: string | null; patients: number; rows: number; excluded: number }>>;
   seedPractice(): Promise<Result<PracticeSeedResult>>;
+  spareKeyStatus(): Promise<Result<{ status: SpareKeyStatus }>>;
+  spareKeySetCode(code: string): Promise<Result<Record<string, never>>>;
+  spareKeyClearCode(): Promise<Result<Record<string, never>>>;
+  spareKeyPeople(spareKey: string): Promise<Result<{ people: SparePerson[] }>>;
+  spareKeyReset(spareKey: string, userId: string, newPin: string):
+    Promise<Result<{ displayName: string; using: string }>>;
+  pinResetAcknowledge(): Promise<Result<Record<string, never>>>;
 }
 
 declare global {
@@ -149,6 +156,12 @@ export const api: Api = {
   pilotReport: () => call((a) => a.pilotReport()),
   researchExport: () => call((a) => a.researchExport()),
   seedPractice: () => call((a) => a.seedPractice()),
+  spareKeyStatus: () => call((a) => a.spareKeyStatus()),
+  spareKeySetCode: (code) => call((a) => a.spareKeySetCode(code)),
+  spareKeyClearCode: () => call((a) => a.spareKeyClearCode()),
+  spareKeyPeople: (spareKey) => call((a) => a.spareKeyPeople(spareKey)),
+  spareKeyReset: (spareKey, userId, newPin) => call((a) => a.spareKeyReset(spareKey, userId, newPin)),
+  pinResetAcknowledge: () => call((a) => a.pinResetAcknowledge()),
 };
 
 async function call<T extends object>(fn: (a: Api) => Promise<Result<T>>): Promise<Result<T>> {

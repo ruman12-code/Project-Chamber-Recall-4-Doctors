@@ -16,7 +16,7 @@
 // Types are imported with `import type`, which the compiler erases, so
 // no require of a project file survives into the compiled output.
 import { contextBridge, ipcRenderer } from 'electron';
-import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result, PracticeSeedResult } from '../shared/ipc';
+import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result, PracticeSeedResult, SpareKeyStatus, SparePerson } from '../shared/ipc';
 import type { RecallCard } from '../shared/recall';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 import type { QueueView, VisitStatus } from '../shared/queue';
@@ -152,4 +152,18 @@ contextBridge.exposeInMainWorld('chamberRecall', {
 
   seedPractice: (): Promise<Result<PracticeSeedResult>> =>
     ipcRenderer.invoke('practice:seed'),
+
+  spareKeyStatus: (): Promise<Result<{ status: SpareKeyStatus }>> =>
+    ipcRenderer.invoke('spare:status'),
+  spareKeySetCode: (code: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('spare:setCode', code),
+  spareKeyClearCode: (): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('spare:clearCode'),
+  spareKeyPeople: (spareKey: string): Promise<Result<{ people: SparePerson[] }>> =>
+    ipcRenderer.invoke('spare:people', spareKey),
+  spareKeyReset: (spareKey: string, userId: string, newPin: string):
+    Promise<Result<{ displayName: string; using: string }>> =>
+    ipcRenderer.invoke('spare:reset', spareKey, userId, newPin),
+  pinResetAcknowledge: (): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('spare:acknowledge'),
 });

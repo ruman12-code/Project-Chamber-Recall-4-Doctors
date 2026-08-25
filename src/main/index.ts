@@ -51,9 +51,13 @@ import { buildPatientCopy, patientCopyFiles, recordPatientCopyGiven } from './ex
 import type { PatientCopy } from '../shared/patientCopy';
 import { buildPilotReport } from './report/pilot';
 import { seedDatabase, PRACTICE_STAFF } from './seed/seed';
+import {
+  setSpareCode, clearSpareCode, spareCodeIsSet, spareCodeSetAt, peopleForSpareKey,
+  resetPinWithSpareKey, pinResetNotice, acknowledgePinReset, whichSpareKey,
+} from './auth/spareKey';
 import { buildResearchExport, toCsv, researchReadme, recordResearchExport } from './report/research';
 import type { PilotReport } from '../shared/pilot';
-import type { PracticeSeedResult } from '../shared/ipc';
+import type { PracticeSeedResult, SpareKeyStatus, SparePerson, PinResetNoticeView } from '../shared/ipc';
 import { dekOf } from './db/provision';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
@@ -405,7 +409,17 @@ function registerHandlers(): void {
 
   handle<{ auth: AuthState }>(CHANNELS.whoIsSignedIn, () => {
     if (db === null) throw new Error('sign-in was asked about before the database was unlocked');
-    return { auth: { needsSetup: needsSetup(db), signedIn: signedIn === null ? null : view(signedIn) } };
+    // The PIN-reset notice rides along with "who is signed in", so that
+    // every screen that knows who you are also knows you have not been
+    // told yet. A notice on one screen only is a notice that gets missed.
+    const notice = signedIn === null ? null : pinResetNotice(db, signedIn.id);
+    return {
+      auth: {
+        needsSetup: needsSetup(db),
+        signedIn: signedIn === null ? null : view(signedIn),
+        pinReset: notice,
+      },
+    };
   });
 
   handle<{ people: StaffView[] }>(CHANNELS.signInList, () => {
@@ -772,6 +786,55 @@ function registerHandlers(): void {
         { name: 'Shopna (front desk)', pin: '7483' },
       ],
     };
+  });
+
+  // ---- The spare key. See src/main/auth/spareKey.ts for why this is
+  // ---- a credential rather than a fourth kind of user.
+
+  handle<{ status: SpareKeyStatus }>(CHANNELS.spareKeyStatus, () => {
+    if (db === null) throw new Error('the spare key was asked about before the database was unlocked');
+    return { status: { codeIsSet: spareCodeIsSet(db), codeSetAt: spareCodeSetAt(db) } };
+  });
+
+  handle<Record<string, never>>(CHANNELS.spareKeySetCode, (code: string) => {
+    if (db === null) throw new Error('a spare code was set before the database was unlocked');
+    setSpareCode(db, code, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  handle<Record<string, never>>(CHANNELS.spareKeyClearCode, () => {
+    if (db === null) throw new Error('a spare code was cleared before the database was unlocked');
+    clearSpareCode(db, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  /**
+   * The list behind the spare key. The key is checked HERE, on every
+   * call, rather than remembered from the screen that asked for it.
+   */
+  handle<{ people: SparePerson[] }>(CHANNELS.spareKeyPeople, (spareKey: string) => {
+    if (db === null) throw new Error('the spare key list was asked for before the database was unlocked');
+    // resetPinWithSpareKey does its own check; this one is so that a
+    // wrong key never even sees the names.
+    if (whichSpareKey(db, installDir, spareKey) === null) {
+      throw new ChamberRecallError(
+        'That is not the recovery key, and not the spare code either.',
+        'The recovery key is the long line of letters printed when this was set up. The spare code is whatever the doctor chose.',
+      );
+    }
+    return { people: peopleForSpareKey(db) };
+  });
+
+  handle<{ displayName: string; using: string }>(CHANNELS.spareKeyReset,
+    (spareKey: string, userId: string, newPin: string) => {
+      if (db === null) throw new Error('a PIN was reset before the database was unlocked');
+      return resetPinWithSpareKey(db, installDir, spareKey, userId, newPin);
+    });
+
+  handle<Record<string, never>>(CHANNELS.pinResetAcknowledge, () => {
+    if (db === null) throw new Error('a notice was acknowledged before the database was unlocked');
+    acknowledgePinReset(db, atTheLaptop());
+    return {} as Record<string, never>;
   });
 
   handle<Record<string, never>>(CHANNELS.redFlagAcknowledge, (eventId: string) => {

@@ -1,0 +1,53 @@
+-- Schema 11: the spare key, and a PIN reset that leaves a mark.
+--
+-- A doctor forgot his own PIN. Reinstalling did not help, and could not:
+-- uninstalling deliberately leaves the records alone, so the program
+-- came back to the same people and the same PIN nobody could read.
+--
+-- WHY THIS IS NOT A NEW ROLE
+--
+-- The obvious answer is a fourth role, an "administrator" in app_user.
+-- It is the wrong answer. Anybody in app_user can be selected at the
+-- sign-in screen and can therefore become the author of something, and
+-- the whole point of this account is that it writes nothing clinical
+-- and never appears beside a patient's name.
+--
+-- So the spare key is not a person. It is a credential that opens ONE
+-- screen, which has ONE button on it. There is no user to sign in as,
+-- nothing to select, and no row anywhere that can point at it as an
+-- author.
+--
+-- TWO THINGS OPEN THAT SCREEN
+--
+--   the recovery key   printed at setup and kept away from the laptop.
+--                      This always works and needs no setting up, which
+--                      matters: the chamber that most needs a spare key
+--                      is the one that never got round to making one.
+--
+--   a spare code       set by the doctor for whoever helps him with the
+--                      laptop, so the recovery key can stay in its
+--                      envelope. Optional. Cleared as easily as set.
+--
+-- Neither one reaches a patient record. Both of them are useless
+-- without the passphrase, because the database is already closed.
+
+-- ==================================================================
+-- A reset PIN is never a quiet event.
+-- ==================================================================
+-- Somebody holding the spare key could reset the doctor's PIN, sign in
+-- as the doctor, and write in a patient's record under his name. The
+-- PIN layer cannot prevent that -- it never could, and the honest
+-- reading is that PINs tell colleagues apart rather than defend against
+-- somebody who already has the passphrase.
+--
+-- What the program CAN do is make it impossible for that to happen
+-- quietly. Every reset is written to the audit log, and the person
+-- whose PIN was reset is told, on their own screen, the next time they
+-- sign in -- and keeps being told until they say they knew about it.
+ALTER TABLE app_user ADD COLUMN pin_reset_at TEXT;
+-- 'recovery key' or 'spare code'. Which spare key was used, not who
+-- held it, because a shared code cannot honestly name a person.
+ALTER TABLE app_user ADD COLUMN pin_reset_with TEXT;
+-- When the person themselves acknowledged it. Null means the notice is
+-- still on their screen.
+ALTER TABLE app_user ADD COLUMN pin_reset_seen_at TEXT;

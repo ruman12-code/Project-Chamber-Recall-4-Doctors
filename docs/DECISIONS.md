@@ -1331,6 +1331,53 @@ recovered. That one is right: it protects real records, and the screen
 makes you tick a box saying you wrote it down. The difference is what is
 behind the door.
 
+### 94. The spare key is a credential, not a fourth kind of person
+
+Asked for: an administrator who can reset a forgotten PIN and reach
+nothing else.
+
+The obvious build is a fourth role in `app_user`. It is the wrong build.
+Anybody in `app_user` can be picked at the sign-in screen and can
+therefore become the author of something, and the entire point of this
+account is that it writes nothing clinical and never appears beside a
+patient's name. A role called "administrator" that must never author
+anything is a row waiting to be selected by mistake.
+
+So the spare key is not a person. It is a credential that opens ONE
+screen with ONE button on it. There is nobody to sign in as, nothing to
+select, and no row anywhere that can point at it as an author. It also
+means no migration of the role CHECK constraint, and no rebuild of a
+table that half the schema has foreign keys into.
+
+Two things open it. THE RECOVERY KEY, which always works and needs no
+setting up -- the chamber that most needs a spare key is the one that
+never got round to making one, so the answer had to work out of the box.
+And A SPARE CODE the doctor can set for whoever helps him with the
+laptop, so the recovery key can stay in its envelope.
+
+Neither is any use without the passphrase, because until that is typed
+there is no database open to reset a PIN in.
+
+### 95. A reset PIN is never a quiet event
+
+Somebody holding the spare key can reset the doctor's PIN, sign in as
+the doctor, and write in a record under his name. Four digits were never
+going to prevent that, and decision 30 already says plainly what a PIN
+protects and what it does not.
+
+What the program CAN do is make it impossible for that to happen
+quietly. Every reset goes to the audit log, naming which spare key was
+used. And the person it happened to is told, on their own screen, until
+they press "I knew about this" -- which is itself recorded, so that "I
+was never told" and "I acknowledged it" are different things afterwards.
+
+The notice travels with "who is signed in" rather than living on one
+screen, because a notice in one place is a notice that gets missed.
+
+Which spare key, not who held it: a shared code cannot honestly name a
+person, and inventing an attribution would be worse than saying plainly
+that it was the spare code.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

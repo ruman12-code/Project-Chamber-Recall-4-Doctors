@@ -879,3 +879,30 @@ button.small { margin: 6px 0 0; padding: 6px 10px; font-size: 12px; }
   border: 1px solid #d9a441; border-radius: 4px;
   padding: 1px 6px; width: fit-content;
 }
+
+/* "Forgotten your PIN?" — deliberately quiet and at the foot of the
+   sign-in screen. It is not part of an ordinary evening. */
+.si-forgotten { margin-top: 28px; text-align: center; }
+button.linkish {
+  background: none; border: none; padding: 4px 8px; width: auto;
+  color: var(--muted); font-size: 13px; text-decoration: underline;
+  text-underline-offset: 3px; cursor: pointer;
+}
+button.linkish:hover { color: var(--ink); }
+
+/* "Who works here": each person with what can be done to them. */
+.staff-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.staff-row .acts { display: flex; gap: 6px; flex: 0 0 auto; }
+.staff-row .acts button { width: auto; padding: 4px 10px; font-size: 13px; }
+.restate {
+  margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line);
+  border-left: 4px solid var(--ink); border-radius: 6px; background: var(--surface-sunk, #f5f7f9);
+}
+.restate button { width: auto; }
+
+/* A PIN reset done with a spare key. Alarm-coloured because the
+   question it asks - "was this you?" - is the one that matters. */
+.card.pin-reset-notice {
+  border: 1px solid var(--alarm); border-left-width: 5px; background: var(--alarm-wash, #fceceb);
+}
+.card.pin-reset-notice h2 { color: var(--alarm); }

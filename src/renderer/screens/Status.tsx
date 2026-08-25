@@ -295,6 +295,32 @@ export function Status() {
         the consultation. Everything is on this one laptop and nothing leaves it.
       </p>
 
+      {/* Somebody with a spare key set this person's PIN. They are told
+          here, and keep being told, until they say they knew about it -
+          because a reset that can happen quietly is a reset somebody can
+          use to sign in as the doctor. */}
+      {auth.pinReset != null && (
+        <div className="card pin-reset-notice">
+          <h2 style={{ marginTop: 0 }}>Your PIN was reset</h2>
+          <p>
+            On <b>{auth.pinReset.at.slice(0, 16).replace('T', ' at ')}</b>, somebody set a new PIN
+            for you using the <b>{auth.pinReset.using}</b>.
+          </p>
+          <p>
+            If that was you, or somebody you asked, there is nothing to do. <b>If it was not</b>,
+            say so now: whoever did it could have signed in under your name, and anything written
+            since then carries your name on it.
+          </p>
+          <button onClick={() => {
+            void (async () => {
+              const { failure } = unwrap(await api.pinResetAcknowledge());
+              if (failure) { setFailure(failure); return; }
+              await readAuth();
+            })();
+          }}>I knew about this</button>
+        </div>
+      )}
+
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Signed in</h2>
         <p>

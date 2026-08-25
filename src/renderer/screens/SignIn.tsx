@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api, unwrap, type Failure } from '../api';
 import { FailureNotice } from '../Failure';
+import { SpareKey } from './SpareKey';
 import { roleLabel, type Role } from '../../shared/roles';
-import type { StaffView, PracticeSeedResult } from '../../shared/ipc';
+import type { StaffView, PracticeSeedResult, SpareKeyStatus } from '../../shared/ipc';
 
 /**
  * Signing in.
@@ -19,6 +20,7 @@ import type { StaffView, PracticeSeedResult } from '../../shared/ipc';
  * that is part of a medical record.
  */
 export function SignIn({ onSignedIn, demo }: { onSignedIn: () => Promise<void>; demo: boolean }) {
+  const [forgotten, setForgotten] = useState(false);
   const [people, setPeople] = useState<StaffView[] | null>(null);
   const [chosen, setChosen] = useState<StaffView | null>(null);
   const [pin, setPin] = useState('');
@@ -48,6 +50,7 @@ export function SignIn({ onSignedIn, demo }: { onSignedIn: () => Promise<void>; 
     return <div className="page"><FailureNotice failure={failure} /></div>;
   }
   if (people === null) return <div className="page"><p className="muted">Reading…</p></div>;
+  if (forgotten) return <SpareKey onClose={() => setForgotten(false)} />;
 
   return (
     <div className="signin">
@@ -99,6 +102,15 @@ export function SignIn({ onSignedIn, demo }: { onSignedIn: () => Promise<void>; 
           <button disabled={busy || pin.length < 4} onClick={() => { void go(); }}>Sign in</button>
         </div>
       )}
+
+      {/* Quiet, and at the bottom, because it is not part of an ordinary
+          evening. But present, because the alternative is a chamber that
+          cannot open its own records. */}
+      <div className="si-forgotten">
+        <button className="linkish" onClick={() => setForgotten(true)}>
+          Forgotten your PIN? · পিন ভুলে গেছেন?
+        </button>
+      </div>
     </div>
   );
 }
@@ -118,13 +130,22 @@ export function SetUpPeople({ onDone, demo }: { onDone: () => Promise<void>; dem
   const [failure, setFailure] = useState<Failure | null>(null);
   const [filling, setFilling] = useState(false);
   const [practice, setPractice] = useState<PracticeSeedResult | null>(null);
+  const [changing, setChanging] = useState<StaffView | null>(null);
+  const [newPin, setNewPin] = useState('');
+  const [spare, setSpare] = useState<SpareKeyStatus | null>(null);
+  const [spareCode, setSpareCode] = useState('');
 
   const refresh = async () => {
     const { value, failure } = unwrap(await api.staffList());
     if (failure) { setFailure(failure); return; }
     setPeople(value!.people);
   };
-  useEffect(() => { void refresh(); }, []);
+  const readSpare = async () => {
+    const { value, failure } = unwrap(await api.spareKeyStatus());
+    if (failure) { setFailure(failure); return; }
+    setSpare(value!.status);
+  };
+  useEffect(() => { void refresh(); void readSpare(); }, []);
 
   async function add() {
     const { failure } = unwrap(await api.staffAdd(name.trim(), role, pin));
@@ -148,6 +169,35 @@ export function SetUpPeople({ onDone, demo }: { onDone: () => Promise<void>; dem
     if (failure) { setFailure(failure); return; }
     setPractice(value!);
     await refresh();
+  }
+
+  async function changePin() {
+    if (changing === null) return;
+    const { failure } = unwrap(await api.staffSetPin(changing.id, newPin));
+    if (failure) { setFailure(failure); return; }
+    setFailure(null); setChanging(null); setNewPin('');
+    await refresh();
+  }
+
+  async function setActive(person: StaffView, active: boolean) {
+    const { failure } = unwrap(await api.staffSetActive(person.id, active));
+    if (failure) { setFailure(failure); return; }
+    setFailure(null);
+    await refresh();
+  }
+
+  async function saveSpareCode() {
+    const { failure } = unwrap(await api.spareKeySetCode(spareCode));
+    if (failure) { setFailure(failure); return; }
+    setFailure(null); setSpareCode('');
+    await readSpare();
+  }
+
+  async function dropSpareCode() {
+    const { failure } = unwrap(await api.spareKeyClearCode());
+    if (failure) { setFailure(failure); return; }
+    setFailure(null);
+    await readSpare();
   }
 
   const hasDoctor = people.some((p) => p.role === 'doctor' && p.canSignIn && p.isActive);
@@ -231,17 +281,84 @@ export function SetUpPeople({ onDone, demo }: { onDone: () => Promise<void>; dem
         {people.length === 0 ? <p className="muted">Nobody yet.</p> : (
           <ul className="staff-list">
             {people.map((p) => (
-              <li key={p.id}>
-                <b>{p.displayName}</b> — {roleLabel(p.role as Role).en}
-                {!p.canSignIn && <span className="warn"> · no PIN yet, cannot sign in</span>}
-                {!p.isActive && <span className="warn"> · switched off</span>}
+              <li key={p.id} className="staff-row">
+                <span className="who">
+                  <b>{p.displayName}</b> — {roleLabel(p.role as Role).en}
+                  {!p.canSignIn && <span className="warn"> · no PIN yet, cannot sign in</span>}
+                  {!p.isActive && <span className="warn"> · switched off</span>}
+                </span>
+                <span className="acts">
+                  <button className="secondary" onClick={() => { setChanging(p); setNewPin(''); }}>
+                    Change PIN
+                  </button>
+                  <button className="secondary" onClick={() => { void setActive(p, !p.isActive); }}>
+                    {p.isActive ? 'Retire' : 'Bring back'}
+                  </button>
+                </span>
               </li>
             ))}
           </ul>
         )}
+
+        {/* Nobody is ever removed. Retiring stops them signing in and
+            leaves every record they wrote exactly as it was, with their
+            name still on it, because a medical record does not lose its
+            author when somebody leaves. */}
+        {changing !== null && (
+          <div className="restate">
+            <b>A new PIN for {changing.displayName}</b>
+            <div className="field">
+              <label htmlFor="chpin">Four to eight digits</label>
+              <input id="chpin" type="password" inputMode="numeric" autoFocus value={newPin}
+                onChange={(e) => setNewPin(e.target.value.replace(/[^0-9]/g, ''))}
+                onKeyDown={(e) => { if (e.key === 'Enter') void changePin(); }} />
+            </div>
+            <button disabled={newPin.length < 4} onClick={() => { void changePin(); }}>Set it</button>
+            <button className="secondary" style={{ marginLeft: 8 }}
+              onClick={() => { setChanging(null); setNewPin(''); }}>Cancel</button>
+          </div>
+        )}
         <button disabled={!hasDoctor} onClick={() => { void onDone(); }}>
           {hasDoctor ? 'Done — go to sign in' : 'A doctor is needed before this can be finished'}
         </button>
+      </div>
+
+      {/* The spare key. Optional, because the recovery key already
+          works and needs no setting up - this exists so the recovery
+          key can stay in its envelope. */}
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>If somebody forgets their PIN</h2>
+        <p>
+          Anybody holding the <b>recovery key</b> — the long line of letters printed when this was
+          set up — can already set a new PIN, from the "Forgotten your PIN?" line on the sign-in
+          screen. That works today and needs nothing from you.
+        </p>
+        <p>
+          You can also set a <b>spare code</b> for whoever helps you with the laptop, so the
+          recovery key can stay where it is. It opens the same one screen: a list of names and a
+          new PIN. It reaches no patient, no list and no report.
+        </p>
+        {spare?.codeIsSet === true ? (
+          <>
+            <p className="muted">A spare code is set{spare.codeSetAt !== null && ` (${spare.codeSetAt.slice(0, 10)})`}.</p>
+            <button className="secondary" onClick={() => { void dropSpareCode(); }}>Remove the spare code</button>
+          </>
+        ) : (
+          <>
+            <div className="field">
+              <label htmlFor="spc">A spare code, at least eight characters</label>
+              <input id="spc" type="text" value={spareCode} autoComplete="off"
+                onChange={(e) => setSpareCode(e.target.value)} />
+            </div>
+            <button disabled={spareCode.trim().length < 8} onClick={() => { void saveSpareCode(); }}>
+              Set the spare code
+            </button>
+          </>
+        )}
+        <p className="muted">
+          Whichever key is used, the reset is written into the record and the person it happened to
+          is told on their own screen until they say they knew about it.
+        </p>
       </div>
     </div>
   );
