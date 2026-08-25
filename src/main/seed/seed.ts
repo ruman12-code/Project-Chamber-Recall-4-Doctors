@@ -31,7 +31,7 @@ import type { Db } from '../db/open';
 import { setMeta, dataMode } from '../db/open';
 import { newId } from '../db/ids';
 import { normaliseName, searchablePhone } from '../db/names';
-import { hashPin } from '../auth/pin';
+import { storedPin } from '../auth/pin';
 import { recordAudit } from '../db/audit';
 import { recordUsage } from '../db/usage';
 import { SeedRefusedError } from '../../shared/errors';
@@ -241,11 +241,14 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
     // two must not be able to drift apart.
     const users = PRACTICE_STAFF.map((p) => ({ id: newId(), ...p }));
     for (const u of users) {
-      const pin = hashPin(u.pin);
+      const pin = storedPin(u.pin);
       db.prepare(
-        `INSERT INTO app_user (id, display_name, role, pin_salt, pin_hash, pin_set_at, is_active, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
-      ).run(u.id, u.display_name, u.role, pin.salt, pin.hash, isoAt(startDate, 9, 0), isoAt(startDate, 9, 0));
+        `INSERT INTO app_user (id, display_name, role, pin_salt, pin_hash, pin_set_at,
+                               pin_offline_salt, pin_offline_hash, pin_offline_iterations,
+                               is_active, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+      ).run(u.id, u.display_name, u.role, pin.salt, pin.hash, isoAt(startDate, 9, 0),
+            pin.offlineSalt, pin.offlineHash, pin.offlineIterations, isoAt(startDate, 9, 0));
       recordAudit(db, { actor: system, action: 'user_created', entity: 'app_user', entityId: u.id, details: { role: u.role, source: 'seed' } });
     }
     result.users = users.length;

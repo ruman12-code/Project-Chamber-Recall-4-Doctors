@@ -19,20 +19,52 @@ When the doctor arrives and opens the laptop on that chamber's wifi,
 everything the desk did goes across in a few seconds, in the order it
 happened, and today's list is there before he sits down.
 
-## What it still needs the laptop for, once
+- **Sign in**, with the attendant's own PIN, so their name goes on
+  everything they take.
 
-**Signing in.** Biplob taps his name and types his PIN, and that is
-checked on the laptop. The PIN itself never reaches the tablet, and it
-never will: a four-digit PIN sitting on a tablet in a waiting room would
-be guessable in seconds.
+## Signing in, and what that costs
 
-So the tablet has to see the laptop **once** — at the start of the day,
-or the evening before — and after that it works alone. In practice the
-doctor passes through, or the tablet is signed in before he leaves.
+Biplob taps his name and types his PIN. The laptop is asked first, every
+time; when it answers, that is the sign-in and nothing else happens.
 
-If nobody has signed in and the laptop cannot be reached, the desk
-cannot give out numbers, and it says so plainly rather than recording
-work against nobody.
+When the laptop **cannot be reached** — which is the whole point of this
+page — the tablet checks the PIN itself and opens. The screen says so,
+in a band across the top, for as long as it lasts.
+
+This is worth setting out honestly, because it is the one place where
+something about a PIN leaves the laptop.
+
+**What the tablet is given.** For **front desk people only**, a second
+verifier for their PIN, in a form a browser can compute. Not the PIN.
+Not the value the laptop signs people in with. The doctor's PIN and the
+clinical assistant's PIN are never given to any tablet at all.
+
+**What it is worth to somebody who steals the tablet.** They could, with
+the device taken apart and a lot of patience, work out a front desk PIN.
+Deliberately slow arithmetic makes that hours rather than seconds, and
+five wrong tries stop the tablet opening itself at all until it has
+reached the laptop again. What they would then have is a screen that
+asks a patient screening questions. Not the records — those are on the
+laptop, behind the passphrase. Not anybody's history — no tablet ever
+holds any. Not the ability to write anything into the record: the laptop
+still checks the real PIN before it accepts a single line, so a tablet
+opened this way has nothing accepted until somebody signs in for real.
+
+**What actually protects a lost tablet** is the same as it has always
+been: disconnect it on the laptop. That clears the pairing, and every
+one of these verifiers goes with it, permanently.
+
+**Three things have to be true for this to be worth it**, and they are:
+the tablet has a screen lock of its own; it is pinned to this one app
+(step 6 of the tablet setup); and a lost tablet is disconnected the same
+day. Without those, do not use this — sign in with the laptop present
+each morning instead.
+
+**One thing to know about upgrading.** A PIN set by a version of this
+program from before this existed has no such verifier, so the tablet
+cannot open for that person on its own. It says so on their name, and
+names them at the bottom of the sign-in screen. The doctor setting their
+PIN again on the laptop is the whole fix.
 
 ---
 
@@ -42,7 +74,8 @@ work against nobody.
 | --- | --- |
 | Every patient's **name and phone number** | Any diagnosis, medicine, test or note |
 | The questions, and the red flag rules | Any previous visit, date or reading |
-| Today's arrivals it has taken and not yet sent | Anybody's PIN, or anything to sign in with |
+| Today's arrivals it has taken and not yet sent | Any PIN, in any form, for the doctor or the assistant |
+| A way to check the **front desk's** PIN when the laptop is away | The value the laptop itself signs anybody in with |
 | Which chamber it sits at | The records, in any form |
 
 The list of names is **encrypted** on the tablet, and disconnecting the

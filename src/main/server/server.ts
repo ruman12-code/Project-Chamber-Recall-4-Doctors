@@ -28,6 +28,7 @@ import { PairingDesk, deviceForToken, PairingLockedError } from './pairing';
 import { unassignedActor } from '../db/users';
 import { signIn as verifySignIn, actorOf, SignInError, type SignedIn } from '../auth/session';
 import { signInList, needsSetup } from '../auth/staff';
+import { deskKeys, deskPeopleWithoutOfflineKeys } from '../auth/offlinePin';
 import { searchPatients } from '../patients/search';
 import { buildDirectory } from '../patients/directory';
 import { receiveDeskArrival } from '../queue/deskArrival';
@@ -254,6 +255,35 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
       return;
     }
 
+    // What lets the front desk into their own tablet on the evening the
+    // laptop is at the other chamber. It sits up here, above the line
+    // that refuses everything to a tablet nobody has signed in on, and
+    // it has to: this IS how somebody signs in when the laptop cannot
+    // be asked. Putting it below that line made the tablet ask the
+    // laptop for permission to work without the laptop.
+    //
+    // What is in it: for FRONT DESK people only, a PBKDF2 verifier over
+    // their PIN. Never the doctor's, never the clinical assistant's,
+    // and never the scrypt hash this route's neighbour above checks --
+    // that has never left the laptop and does not start now.
+    //
+    // What it does not do: sign anybody in. A tablet opened with it
+    // still has no session here, so everything it does is refused and
+    // held in its outbox until it signs in for real. It opens a screen.
+    // See src/main/auth/offlinePin.ts and src/tablet/deskKeys.ts, which
+    // between them say what this protects and what it does not.
+    if (path === '/api/desk-keys') {
+      sendJson(response, 200, {
+        keys: deskKeys(db),
+        // Front desk people whose PIN predates offline verifiers. Named
+        // rather than left off the list, because the fix -- the doctor
+        // setting their PIN again -- is not guessable from a name that
+        // is simply missing.
+        needPinSetAgain: deskPeopleWithoutOfflineKeys(db),
+      });
+      return;
+    }
+
     if (path === '/api/signout') {
       deskSessions.delete(device.id);
       sendJson(response, 200, { ok: true });
@@ -292,9 +322,12 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
 
       sendJson(response, 200, {
         device,
-        // Names and roles only. No PIN, no hash, nothing that could be
-        // used to sign in as somebody - the PIN is checked on the
-        // laptop and never leaves it.
+        // Names and roles only. No PIN and no hash here: signing in
+        // through this route is checked on the laptop, against the
+        // scrypt hash, which never leaves it. (The front desk's second,
+        // offline-only verifier is a separate route with its own
+        // reasoning -- see /api/desk-keys below. Nothing that opens a
+        // record is in either.)
         people: signInList(db).map((p) => ({ id: p.id, displayName: p.displayName, role: p.role })),
         signedIn: atTheDesk === null ? null
           : { id: atTheDesk.id, displayName: atTheDesk.displayName, role: atTheDesk.role },

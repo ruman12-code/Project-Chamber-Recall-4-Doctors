@@ -69,6 +69,25 @@ Overview together**, then enter the PIN.
 not.** It is the only thing stopping a waiting patient wandering out of
 the app and into the browser.
 
+### Three different PINs, and none of them is the same one
+
+It is worth being clear about this, because they get confused:
+
+| | What it opens | Who sets it |
+| --- | --- | --- |
+| **The tablet's lock screen** | The tablet itself, after it sleeps | Whoever sets the tablet up |
+| **The unpinning PIN** | Getting out of this app, on this tablet | Same, in step 6 above |
+| **Biplob's Chamber Recall PIN** | The intake, under his own name | The doctor, on the laptop |
+
+The first two are Android's and are the same for everybody at that desk.
+The third is personal: it is what puts a name against every answer a
+patient gives, and two people at the same desk must never share one.
+
+**Turn the tablet's own lock screen on.** It is not optional. Everything
+on the page about signing in without the laptop — see
+[TWO-CHAMBERS.md](TWO-CHAMBERS.md) — assumes the device itself is
+locked when it is put down.
+
 ## 7. Settings worth changing while you are there
 
 - **Screen timeout: 10 minutes.** Shorter and the assistant is
@@ -88,7 +107,17 @@ The tablet does **not** hold patient records. It holds:
 - the questions and the red flag rules, which are not confidential;
 - its pairing token;
 - anything not yet sent to the laptop, which is usually nothing and at
-  most one patient's answers.
+  most one patient's answers;
+- the names and phone numbers of patients, encrypted, so the desk can
+  tell a returning patient from a new one with the laptop away;
+- a way to check the **front desk's** PINs when the laptop cannot be
+  reached — never the doctor's, never the assistant's. See
+  [TWO-CHAMBERS.md](TWO-CHAMBERS.md) for exactly what that is worth to
+  somebody who steals the tablet, which is less than it sounds and more
+  than nothing.
+
+Disconnecting the tablet on the laptop destroys the last two along with
+the token. That is why it is step one.
 
 Two things to do, in order:
 

@@ -121,6 +121,15 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 .desk-person.on { border-color: var(--ink); background: #f2f5ff; }
 .desk-person .n { font-size: 19px; font-weight: 800; line-height: 1.2; }
 .desk-person .r { font-size: 15px; color: var(--muted); }
+/* Whether this tablet could let this person in with the laptop at the
+   other chamber. On the button, before anybody types a PIN, rather
+   than discovered at the moment somebody is waiting. */
+.desk-person .alone {
+  margin-top: 4px; font-size: 13px; font-weight: 700; color: #1c6b3a;
+  background: #eef7f1; border-radius: 6px; padding: 2px 8px;
+}
+.desk-person .alone.need { color: #7a4a00; background: #fdf3e2; }
+.lede.small { font-size: 15px; }
 .desk-pin { display: flex; flex-direction: column; gap: 10px; }
 .desk-pin label { font-size: 18px; font-weight: 700; }
 .desk-pin input {

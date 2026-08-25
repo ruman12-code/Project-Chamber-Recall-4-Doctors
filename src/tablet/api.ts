@@ -1,5 +1,6 @@
 import { Outbox } from './outbox';
 import type { Directory } from './directory';
+import type { DeskKeys } from './deskKeys';
 
 /** What the front desk needs to know right now. Mirrors
  *  src/main/queue/deskSignal.ts. */
@@ -27,18 +28,34 @@ export function forgetToken(): void {
 
 export class NeedsPairingError extends Error {}
 
+/**
+ * The wifi is down, or the laptop is at the other chamber, or it is
+ * shut. Named rather than left as a bare fetch failure, because the
+ * one thing the tablet must never do is treat "I could not ask" the
+ * same as "the answer was no" -- one of those means carry on from what
+ * this tablet already knows, and the other means refuse.
+ */
+export class LaptopUnreachableError extends Error {}
+
 export interface ApiFailure { error: string; whatToDo: string }
 
 async function request(path: string, body: unknown, method: 'GET' | 'POST' = 'POST'): Promise<unknown> {
   const token = storedToken();
-  const response = await fetch(path, {
-    method,
-    headers: {
-      'content-type': 'application/json',
-      ...(token === null ? {} : { 'x-chamber-token': token }),
-    },
-    body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
-  });
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method,
+      headers: {
+        'content-type': 'application/json',
+        ...(token === null ? {} : { 'x-chamber-token': token }),
+      },
+      body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
+    });
+  } catch (caught) {
+    throw new LaptopUnreachableError(
+      caught instanceof Error ? caught.message : 'The laptop could not be reached.',
+    );
+  }
 
   const text = await response.text();
   const parsed = text === '' ? {} : JSON.parse(text) as Record<string, unknown>;
@@ -69,6 +86,10 @@ export const api = {
   // Asked every few seconds. A few bytes: who the doctor has called in,
   // who is next, and how many are waiting.
   deskSignal: () => request('/api/desk-signal', null, 'GET') as unknown as Promise<DeskSignal | null>,
+  // What lets the front desk open this tablet with the laptop at the
+  // other chamber. Front desk only, and see src/tablet/deskKeys.ts for
+  // exactly what it does and does not protect.
+  deskKeys: () => request('/api/desk-keys', null, 'GET') as unknown as Promise<Omit<DeskKeys, 'takenAt'>>,
   post: (path: string, body: unknown) => request(path, body),
 };
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { provision } from '../src/main/db/provision';
 import { nowIso } from '../src/main/db/clock';
 import type { Db } from '../src/main/db/open';
-import { checkPin, hashPin, verifyPin, BadPinError } from '../src/main/auth/pin';
+import { checkPin, storedPin, verifyPin, BadPinError } from '../src/main/auth/pin';
 import { needsSetup, signInList, allStaff, addStaff, setPin, setStaffActive, StaffError } from '../src/main/auth/staff';
 import { signIn, SignInError, resetSignInAttempts } from '../src/main/auth/session';
 import { tempDir } from './helpers';
@@ -52,15 +52,15 @@ describe('PINs', () => {
   });
 
   test('the right PIN verifies and a wrong one does not', () => {
-    const { salt, hash } = hashPin('4021');
+    const { salt, hash } = storedPin('4021');
     assert.equal(verifyPin('4021', salt, hash), true);
     assert.equal(verifyPin('4022', salt, hash), false);
     assert.equal(verifyPin('', salt, hash), false);
   });
 
   test('two people with the same PIN do not share a stored value', () => {
-    const a = hashPin('4021');
-    const b = hashPin('4021');
+    const a = storedPin('4021');
+    const b = storedPin('4021');
     assert.notEqual(a.salt, b.salt);
     assert.notEqual(a.hash, b.hash);
   });

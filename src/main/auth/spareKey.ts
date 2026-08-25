@@ -29,7 +29,7 @@ import { ChamberRecallError } from '../../shared/errors';
 import { recordAudit, type Actor } from '../db/audit';
 import { getMeta, setMeta, type Db } from '../db/open';
 import { nowIso } from '../db/clock';
-import { hashPin, checkPin } from './pin';
+import { storedPin, checkPin } from './pin';
 import { unlockWithRecoveryKey, parseKeystore } from '../keystore/keystore';
 import { keystorePath } from '../paths';
 import { readFileSync } from 'node:fs';
@@ -201,14 +201,17 @@ export function resetPinWithSpareKey(
     );
   }
 
-  const { salt, hash } = hashPin(newPin);
+  const stored = storedPin(newPin);
   const at = nowIso();
   db.prepare(
     `UPDATE app_user
         SET pin_salt = ?, pin_hash = ?, pin_set_at = ?,
+            pin_offline_salt = ?, pin_offline_hash = ?, pin_offline_iterations = ?,
             pin_reset_at = ?, pin_reset_with = ?, pin_reset_seen_at = NULL
       WHERE id = ?`,
-  ).run(salt, hash, at, at, using, userId);
+  ).run(stored.salt, stored.hash, at,
+        stored.offlineSalt, stored.offlineHash, stored.offlineIterations,
+        at, using, userId);
 
   recordAudit(db, {
     actor: { id: null, role: 'system' },

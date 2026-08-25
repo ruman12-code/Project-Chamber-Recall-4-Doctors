@@ -1700,6 +1700,117 @@ This was caught by looking at the screen, not by a test. It is the
 third time on this project that the software was correct and the
 sentence was not.
 
+### 114. The tablet checks the front desk's PIN itself, and only theirs
+
+The desk could not open its own tablet on the evening the doctor had
+taken the laptop to the other chamber -- which is the exact evening
+this whole arrangement exists for. The PIN was checked on the laptop,
+and the laptop was not there.
+
+You were offered two ways out and chose this one after the objection
+below was put to you, so here is what was built and what it costs.
+
+**What the tablet is given.** For front desk people only, a second
+verifier for their PIN: PBKDF2-HMAC-SHA256, its own random salt,
+600,000 iterations. PBKDF2 because a browser can compute it and cannot
+compute scrypt; its own salt so it cannot be played against the real
+one. Never the PIN. Never the scrypt hash the laptop signs people in
+with. The doctor's PIN and the clinical assistant's PIN are never sent
+to any tablet at all -- everything that reads a history or confirms an
+intake is done by those two, on the laptop.
+
+**The objection, and why it was acceptable.** A verifier for a
+four-digit secret, on a device in a waiting room, can be ground down by
+somebody who takes the tablet apart. 600,000 iterations makes that
+hours rather than seconds and five wrong tries stop the tablet opening
+itself at all, but neither makes it impossible. What it buys them is a
+kiosk that asks a patient screening questions: not the database, which
+is on the laptop behind SQLCipher; not any history, which no tablet
+ever holds; and not the ability to write anything, because --
+
+**-- the offline check opens a screen and signs nothing.** This is the
+part that made it safe enough to build. A tablet opened without the
+laptop has no session on the laptop, so every record it takes is
+refused and held in its outbox. The moment the laptop is reachable the
+tablet signs in to it for real, with the PIN the person actually typed,
+checked against the scrypt hash that never left. The laptop still
+decides whose name goes on a record. Nothing about attribution changed.
+
+**What actually protects a lost tablet** is unchanged: disconnect it on
+the laptop, which clears the pairing token and makes every verifier on
+it permanently unreadable, along with the directory. That was the
+answer before this and it is the answer now.
+
+**Three conditions, written into the tablet documentation.** The tablet
+has its own screen lock; it is pinned to this one app with an unpinning
+PIN; and a lost tablet is disconnected the same day. Without all three,
+this should not be used.
+
+### 115. There is exactly one way to set a PIN
+
+Four places could set a PIN: adding somebody, changing a PIN, the spare
+key, and the practice seed. Each wrote the scrypt hash. A fifth will
+exist one day, and one that wrote the hash and forgot the new offline
+verifier would leave that person unable to open the tablet on the
+evening the laptop is away -- and nothing would say so until it
+happened.
+
+So `hashPin` was replaced by `storedPin`, which returns both and cannot
+be asked for only one, and every site was moved to it. The rename was
+the point: a site left on the old name would not have compiled.
+
+A test then asserts the invariant directly -- no user anywhere has a
+PIN hash without an offline verifier beside it -- so a fifth site that
+finds another way to write the column fails in the test run rather than
+at a front desk on a Tuesday.
+
+### 116. A PIN from before this existed is named, not quietly dropped
+
+An upgraded database has PINs with no offline verifier. Those people
+cannot open the tablet on their own, and the fix is the doctor setting
+their PIN again on the laptop -- which nobody would guess from a name
+that simply does not work when the laptop is away.
+
+So the tablet is told who they are and says so twice: on the name
+itself, and in a line naming them and the fix. The verified upgrade
+path returns exactly that, and it is what a real chamber upgrading mid
+pilot will see.
+
+### 117. Choosing a name the tablet cannot open costs nothing
+
+The first version counted every refusal towards the lockout, including
+choosing somebody this tablet has no key for, on the theory that
+refusals would otherwise say which names are worth grinding at.
+
+They already do. The sign-in screen puts "opens without the laptop" on
+the buttons that do, before anybody types anything, because the desk
+needs to know which of them can start the evening. So counting it hid
+nothing, and cost something real: the doctor tapping his own name three
+times out of habit would lock his own front desk out of their tablet
+for the evening.
+
+A wrong PIN costs an attempt. A name that was never openable does not.
+
+### 118. Two bugs the screenshots caught, both about a screen contradicting itself
+
+The first: the route that hands a tablet its offline keys sat below the
+line that refuses everything to a tablet nobody has signed in on. The
+tablet was asking the laptop for permission to work without the laptop.
+It answered 401, the keys were never stored, and the sign-in screen
+looked exactly as it had before -- which is the worst way for this to
+fail, because it fails on the evening nobody is watching.
+
+The second: a tablet opened without the laptop showed the band saying
+so, and beside it, in green, the word "connected". Both were true in a
+narrow sense -- the outbox had not tried anything yet -- and the screen
+was still lying. Being opened without the laptop IS being out of reach
+of it, and the strip now says so until the real sign-in goes through.
+
+A third, from the same run: when the laptop came back, the tablet
+signed in for real and then threw the desk out to the sign-in screen
+for twenty seconds, because the session had been read a line before the
+sign-in was made. The sign-in now happens first.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

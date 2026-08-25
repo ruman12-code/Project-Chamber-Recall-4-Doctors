@@ -11,7 +11,7 @@ import { nowIso } from '../db/clock';
 import { recordAudit, type Actor } from '../db/audit';
 import { ChamberRecallError } from '../../shared/errors';
 import { ROLES, type Role } from '../../shared/roles';
-import { checkPin, hashPin } from './pin';
+import { checkPin, storedPin } from './pin';
 
 export class StaffError extends ChamberRecallError {}
 
@@ -109,15 +109,18 @@ export function addStaff(db: Db, input: NewStaffInput, actor: Actor): string {
   }
 
   checkPin(input.pin);
-  const { salt, hash } = hashPin(input.pin);
+  const pin = storedPin(input.pin);
   const id = newId();
   const at = nowIso();
 
   const write = db.transaction(() => {
     db.prepare(
-      `INSERT INTO app_user (id, display_name, role, pin_salt, pin_hash, pin_set_at, is_active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
-    ).run(id, displayName, input.role, salt, hash, at, at);
+      `INSERT INTO app_user (id, display_name, role, pin_salt, pin_hash, pin_set_at,
+                             pin_offline_salt, pin_offline_hash, pin_offline_iterations,
+                             is_active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+    ).run(id, displayName, input.role, pin.salt, pin.hash, at,
+          pin.offlineSalt, pin.offlineHash, pin.offlineIterations, at);
     recordAudit(db, {
       actor: needsSetup(db) ? { id: null, role: 'system' } : actor,
       action: 'user_created', entity: 'app_user', entityId: id,
@@ -144,10 +147,15 @@ export function setPin(db: Db, userId: string, pin: string, actor: Actor): void 
   if (user === undefined) throw new StaffError('That person is not here.', 'Check the list and try again.');
 
   checkPin(pin);
-  const { salt, hash } = hashPin(pin);
+  const stored = storedPin(pin);
   const write = db.transaction(() => {
-    db.prepare('UPDATE app_user SET pin_salt = ?, pin_hash = ?, pin_set_at = ? WHERE id = ?')
-      .run(salt, hash, nowIso(), userId);
+    db.prepare(
+      `UPDATE app_user
+          SET pin_salt = ?, pin_hash = ?, pin_set_at = ?,
+              pin_offline_salt = ?, pin_offline_hash = ?, pin_offline_iterations = ?
+        WHERE id = ?`,
+    ).run(stored.salt, stored.hash, nowIso(),
+          stored.offlineSalt, stored.offlineHash, stored.offlineIterations, userId);
     recordAudit(db, {
       actor, action: 'user_pin_changed', entity: 'app_user', entityId: userId,
       details: { by_themselves: actor.id === userId },

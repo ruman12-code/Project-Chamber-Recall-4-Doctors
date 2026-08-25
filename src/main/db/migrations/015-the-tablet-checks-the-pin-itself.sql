@@ -1,0 +1,42 @@
+-- Schema 15: the tablet has to let Ruhul in when the laptop is at the
+-- other chamber.
+--
+-- The tablet is pinned to one app and the attendant types their PIN to
+-- open it. Until now that PIN was checked by the laptop over wifi, which
+-- is exactly the thing that is not there on the evening the doctor is at
+-- the other chamber. The desk would be locked out of its own tablet.
+--
+-- So the tablet gets its own way to check a PIN, and this is where the
+-- material for it is kept.
+--
+-- BE PRECISE ABOUT WHAT THIS IS
+--
+-- This is a SECOND verifier for the same PIN, in a form a browser can
+-- compute: PBKDF2-HMAC-SHA256, per-user salt, a deliberately high
+-- iteration count. It exists because WebCrypto cannot do scrypt, and the
+-- canonical scrypt hash must never leave the laptop.
+--
+-- What it buys: the desk can open the kiosk with no wifi.
+--
+-- What it costs, stated plainly: a copy of this verifier is sent to
+-- paired tablets, so a PIN's verifier now exists somewhere other than
+-- the laptop. On the tablet it is encrypted under the pairing token, so
+-- disconnecting the tablet destroys it -- but somebody who takes a
+-- tablet apart properly could grind offline against four digits and win.
+--
+-- Three things bound that, and all three are why this was acceptable:
+--   1. Only front desk PINs are ever sent. The doctor's PIN and the
+--      clinical assistant's PIN never leave the laptop, so nothing that
+--      confirms a history or opens a record is on any tablet.
+--   2. Winning gets somebody a kiosk that asks a patient questions. It
+--      does not get them the database, which is on the laptop behind
+--      SQLCipher, or any patient history, which the tablet never holds.
+--   3. What is actually written still goes through the laptop, which
+--      checks the real scrypt hash before it accepts a word of it. The
+--      offline check opens a screen. It does not sign anything.
+ALTER TABLE app_user ADD COLUMN pin_offline_salt TEXT;
+ALTER TABLE app_user ADD COLUMN pin_offline_hash TEXT;
+
+-- Written down rather than assumed, so a verifier made by an older
+-- version is still checkable after the cost is raised.
+ALTER TABLE app_user ADD COLUMN pin_offline_iterations INTEGER;

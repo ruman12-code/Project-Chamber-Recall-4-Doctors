@@ -25,6 +25,7 @@
 // pick the same PIN do not share a hash.
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { ChamberRecallError } from '../../shared/errors';
+import { offlineVerifier } from './offlinePin';
 
 export class BadPinError extends ChamberRecallError {}
 
@@ -69,10 +70,40 @@ export function checkPin(pin: string): void {
   }
 }
 
-export function hashPin(pin: string): { salt: string; hash: string } {
+/**
+ * Everything that has to be written when a PIN is set.
+ *
+ * There is one of these and every write site uses it, because there
+ * are four places a PIN can be set -- adding somebody, changing a PIN,
+ * the spare key, and the practice seed -- and a fifth will exist one
+ * day. A site that wrote the scrypt hash and forgot the offline
+ * verifier would leave that person unable to open the tablet on the
+ * evening the laptop is at the other chamber, and nothing would say
+ * so. So the two are made together and there is no way to ask for
+ * only one.
+ *
+ * The invariant this exists to hold is checked in the tests: no user
+ * anywhere has a pin_hash without a pin_offline_hash.
+ */
+export interface StoredPin {
+  salt: string;
+  hash: string;
+  offlineSalt: string;
+  offlineHash: string;
+  offlineIterations: number;
+}
+
+export function storedPin(pin: string): StoredPin {
   const salt = randomBytes(16);
   const hash = scryptSync(pin, salt, SCRYPT.keyLength, SCRYPT);
-  return { salt: salt.toString('hex'), hash: hash.toString('hex') };
+  const offline = offlineVerifier(pin);
+  return {
+    salt: salt.toString('hex'),
+    hash: hash.toString('hex'),
+    offlineSalt: offline.salt,
+    offlineHash: offline.hash,
+    offlineIterations: offline.iterations,
+  };
 }
 
 export function verifyPin(pin: string, salt: string | null, hash: string | null): boolean {

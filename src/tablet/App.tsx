@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, outbox, storedToken, NeedsPairingError } from './api';
+import { api, outbox, storedToken, NeedsPairingError, LaptopUnreachableError } from './api';
 import { Outbox, type OutboxStatus } from './outbox';
 import { storeDirectory, forgetDirectory } from './directory';
 import { syncFromLaptop, forgetSerials } from './serials';
@@ -8,6 +8,9 @@ import { CalledIn } from './screens/CalledIn';
 import type { DeskSignal } from './api';
 import { Pair } from './screens/Pair';
 import { DeskSignIn, type DeskPerson } from './screens/DeskSignIn';
+import {
+  storeDeskKeys, loadDeskKeys, forgetDeskKeys, clearOfflineFailures, type DeskKeys,
+} from './deskKeys';
 import { PickPatient, type QueueEntryWithConsent } from './screens/PickPatient';
 import { Arrive } from './screens/Arrive';
 import { Papers } from './screens/Papers';
@@ -137,8 +140,48 @@ export function App() {
   const announced = useRef<string | null>(null);
   const [showingPapers, setShowingPapers] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Opened without the laptop.
+   *
+   * In memory, never written down. Two reasons, and both matter: the
+   * PIN is in here so that the moment the laptop is reachable the
+   * tablet can sign in to it for real and stop holding the outbox; and
+   * a tablet that is switched off and on has to ask again, which is the
+   * same rule it already followed when the laptop restarted mid-evening.
+   *
+   * This is not a signed-in state as far as the laptop is concerned.
+   * Nothing opened this way is accepted by the laptop until the real
+   * sign-in below has happened. It opens the kiosk; it signs nothing.
+   */
+  const [offlineDesk, setOfflineDesk] = useState<{ who: DeskPerson; pin: string } | null>(null);
+  /**
+   * What this tablet has been given for opening itself with no laptop.
+   *
+   * Held here rather than read by the sign-in screen, because the first
+   * time a tablet is paired the sign-in screen is already on screen
+   * before the keys have finished arriving. Read once for a tablet that
+   * was switched off and on, and replaced every time the laptop is
+   * reached, so a PIN the doctor changed this afternoon stops working
+   * here the moment the laptop is next in reach.
+   */
+  const [deskKeys, setDeskKeys] = useState<DeskKeys | null>(null);
+  /** The same thing, readable from inside refresh, which is built once
+   *  and would otherwise go on seeing the value this was when the
+   *  tablet started -- null, forever, and the real sign-in would never
+   *  be made. */
+  const offlineDeskRef = useRef<{ who: DeskPerson; pin: string } | null>(null);
+  useEffect(() => { offlineDeskRef.current = offlineDesk; }, [offlineDesk]);
 
   useEffect(() => { outbox.start(); return outbox.onChange(setStatus); }, []);
+  // A tablet switched on with the laptop already away has only what it
+  // was given last time. Read before anything is asked of the wifi.
+  useEffect(() => {
+    void (async () => {
+      const token = storedToken();
+      if (token === null) return;
+      setDeskKeys(await loadDeskKeys(token));
+    })();
+  }, [paired]);
   useEffect(() => { localStorage.setItem(LANG_KEY, bn ? 'bn' : 'en'); }, [bn]);
   useEffect(() => { if (draft !== null) writeJson(DRAFT_KEY, draft); }, [draft]);
 
@@ -150,6 +193,34 @@ export function App() {
    */
   const refresh = useCallback(async () => {
     try {
+      // Somebody got into this tablet without the laptop, and the
+      // laptop may be back. Sign in to it for real BEFORE asking for
+      // the session -- with the PIN they actually typed, checked
+      // against the scrypt hash that never left the laptop. Doing it
+      // first is not tidiness: the session that comes back a line later
+      // is what the screen believes about who is holding this tablet,
+      // and signing in after reading it threw the desk back out to the
+      // sign-in screen for twenty seconds in the middle of an evening.
+      //
+      // Until this succeeds the outbox is refused and holds, which is
+      // correct: the laptop decides whose name goes on a record, and it
+      // has not yet agreed to this one.
+      const opened = offlineDeskRef.current;
+      if (opened !== null) {
+        try {
+          await api.post('/api/signin', { userId: opened.who.id, pin: opened.pin });
+          clearOfflineFailures();
+          setOfflineDesk(null);
+        } catch (caught) {
+          // Could not be asked at all: stay as we are and try again on
+          // the next refresh. Anything else is an answer -- the PIN was
+          // changed on the laptop since, or the person was switched off
+          // -- and the desk has to sign in again, which dropping the
+          // offline session is what makes the screen ask for.
+          if (!(caught instanceof LaptopUnreachableError)) setOfflineDesk(null);
+        }
+      }
+
       const raw = await api.session() as unknown as {
         questionnaire: Questionnaire | null; rulebook: Rulebook | null;
         queue: QueueEntryWithConsent[]; chamber: { name: string | null }; visitDate: string;
@@ -199,7 +270,18 @@ export function App() {
           // used to ask "have I seen this name before", and the laptop
           // decides who anybody actually is.
         }
+        try {
+          const fresh = { ...await api.deskKeys(), takenAt: new Date().toISOString() };
+          await storeDeskKeys(token, fresh);
+          setDeskKeys(fresh);
+        } catch {
+          // Same reasoning: what is already here still opens the tablet
+          // on the evening the laptop is at the other chamber. A PIN the
+          // doctor has since changed stops working the next time this
+          // succeeds, which is the next time the laptop is reachable.
+        }
       })();
+
     } catch (caught) {
       if (caught instanceof NeedsPairingError) {
         // Disconnected on the laptop, which is what somebody does the
@@ -209,6 +291,9 @@ export function App() {
         // even a copy of the storage taken afterwards cannot be read.
         forgetDirectory();
         forgetSerials();
+        forgetDeskKeys();
+        setDeskKeys(null);
+        setOfflineDesk(null);
         setDeskChamber(null);
         try { localStorage.removeItem(DESK_CHAMBER_KEY); } catch { /* nothing to do */ }
         setPaired(false);
@@ -325,8 +410,10 @@ export function App() {
   // Nobody writes anything from a tablet that nobody has signed in on.
   // The laptop refuses it anyway; asking here means the assistant finds
   // out at the start of the evening rather than after typing a history.
-  if (session !== null && session.signInRequired && session.signedIn === null) {
-    return <DeskSignIn people={session.people} bn={bn} onSignedIn={() => { void refresh(); }} />;
+  if (session !== null && session.signInRequired && session.signedIn === null && offlineDesk === null) {
+    return <DeskSignIn people={session.people} bn={bn} deskKeys={deskKeys}
+      onSignedIn={() => { void refresh(); }}
+      onOffline={(who, pin) => { setOfflineDesk({ who, pin }); }} />;
   }
 
   const questionnaire = session?.questionnaire ?? null;
@@ -421,7 +508,12 @@ export function App() {
     setAcknowledging(false);
   }
 
-  const offline = status.offlineSince !== null;
+  // Being opened without the laptop IS being out of reach of it, and
+  // the strip must not say "connected" on a screen that has just said
+  // the tablet let somebody in because the laptop could not be asked.
+  // offlineDesk clears the moment the real sign-in goes through, so
+  // this stops saying it at exactly the right moment.
+  const offline = status.offlineSince !== null || offlineDesk !== null;
 
   return (
     <div className="screen">
@@ -463,13 +555,32 @@ export function App() {
         <button className={`lang ${bn ? '' : 'on'}`} onClick={() => setBn(false)}>English</button>
       </div>
 
-      {offline && (
+      {offline && offlineDesk === null && (
         <div className="notice">
           <div className="t">{bn ? 'ল্যাপটপের সাথে সংযোগ নেই — কাজ চালিয়ে যান।' : 'No connection to the laptop — carry on.'}</div>
           <div className="d">
             {bn
               ? `যা লিখছেন সব ট্যাবলেটে জমা থাকছে${status.pending > 0 ? ` (${status.pending}টি)` : ''} এবং সংযোগ ফিরলে নিজেই চলে যাবে।`
               : `Everything is being kept on the tablet${status.pending > 0 ? ` (${status.pending} waiting)` : ''} and goes across on its own when the wifi returns.`}
+          </div>
+        </div>
+      )}
+
+      {/* Opened without the laptop. Said out loud, because the desk has
+          to know that nothing they do this evening has reached the
+          laptop yet -- and because "who is holding this tablet" is not
+          settled until the laptop has checked the PIN itself. */}
+      {offlineDesk !== null && (
+        <div className="notice">
+          <div className="t">
+            {bn
+              ? `ল্যাপটপ ছাড়া খোলা হয়েছে — ${offlineDesk.who.displayName}`
+              : `Opened without the laptop — ${offlineDesk.who.displayName}`}
+          </div>
+          <div className="d">
+            {bn
+              ? `ল্যাপটপ চালু হলে আপনার নামে নিজে থেকেই সাইন ইন হয়ে যাবে এবং জমে থাকা সব চলে যাবে${status.pending > 0 ? ` (${status.pending}টি)` : ''}।`
+              : `When the laptop is next reachable this tablet signs in under your name on its own, and everything waiting here${status.pending > 0 ? ` (${status.pending})` : ''} goes across.`}
           </div>
         </div>
       )}
@@ -488,7 +599,7 @@ export function App() {
           bn={bn}
           deskChamber={deskChamber}
           visitDate={session?.visitDate ?? new Date().toISOString().slice(0, 10)}
-          takenBy={session?.signedIn?.id ?? null}
+          takenBy={session?.signedIn?.id ?? offlineDesk?.who.id ?? null}
           onCancel={() => setArriving(false)}
           onDone={(serialNo, name) => {
             setArriving(false);
