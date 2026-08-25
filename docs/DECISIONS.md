@@ -1589,6 +1589,60 @@ them first is the system working exactly as designed. Announcing that as
 irregular would teach the desk that the warning means nothing, which is
 the one lesson this program must never teach.
 
+### 108. The next patient comes up by itself
+
+Item 4 waited for the doctor to press Call in. Asked for, and right: the
+commonest thing that happens is not the doctor asking for somebody by
+number, it is the doctor finishing with one patient and the next one
+going in.
+
+So when the room empties and somebody is waiting, the tablet says who is
+next without anybody pressing anything, and chimes. It says "the doctor
+is free -- next patient" rather than "the doctor has called", because
+those are different facts and the desk should be able to tell them
+apart. Never out of turn: this IS the turn, by definition.
+
+### 109. "First visit" is a clinical statement, so it has to be true
+
+On the first evening this program runs, every patient is new to IT and
+almost none of them are new to the doctor. The register is empty, and
+the screen would print "first visit" against a woman he has been
+treating since 2019 -- and would keep printing it for weeks, until she
+accumulated visits here.
+
+That is not cosmetic. "First visit" tells the doctor there is no history
+to look for and tells the desk to take a full set of details. It is the
+same class of fault as decision 103, where the tablet claimed a patient
+had never been before because it could not see that she had.
+
+So the desk asks one question when registering somebody: have you been
+to this doctor before, and since when. A four-digit year that could
+actually have happened is kept. Anything else -- "about five years", "a
+long time" -- is DROPPED rather than turned into a date by arithmetic
+nobody checked, because a wrong year on a record is worse than no year.
+
+It is recorded as having come from the patient, because it is their
+estimate rather than the doctor's knowledge.
+
+What it changes: one sentence on one screen becomes "coming since 2019 ·
+first on this system" instead of "first visit". It gates nothing, orders
+nothing and decides nothing else.
+
+### 110. Still not a back-fill
+
+The alternative to decision 109 was typing four years of paper into the
+database before launch. It would take weeks, put transcription errors
+into a clinical record, and cover data no patient has consented to.
+
+The paper stays paper. It is photographed when the patient brings it,
+into the encrypted database, unaltered -- which is a real record from
+day one and one nobody had to retype. The doctor writes two or three
+lines of background at the first consultation, which is the part that
+actually matters on a Recall Card and takes thirty seconds.
+
+By week four the frequent attenders have real history here, and it is
+history somebody verified.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

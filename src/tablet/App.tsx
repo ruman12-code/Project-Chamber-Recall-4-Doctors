@@ -130,7 +130,8 @@ export function App() {
   );
   /** The doctor has called somebody in and the desk has not yet said
    *  they sent them. Takes the whole screen while it is set. */
-  const [called, setCalled] = useState<DeskSignal['inChamber']>(null);
+  const [called, setCalled] = useState<
+    (NonNullable<DeskSignal['inChamber']> & { nextUp?: boolean }) | null>(null);
   /** The last state of the room this tablet has already announced, so
    *  it announces a change rather than announcing every few seconds. */
   const announced = useRef<string | null>(null);
@@ -239,10 +240,19 @@ export function App() {
           if (signal.inChamber !== null) {
             setCalled(signal.inChamber);
             chime();
+          } else if (signal.nextWaiting !== null) {
+            // The doctor has finished with somebody and the room is
+            // empty. The desk should not have to wait for him to press
+            // anything: the next serial comes up by itself, because the
+            // patient after this one is what the desk does next every
+            // single time.
+            //
+            // Never out of turn -- this IS the turn, by definition.
+            setCalled({ ...signal.nextWaiting, outOfTurn: false, nextUp: true });
+            chime();
           } else {
-            // The doctor has finished with somebody and nobody is in
-            // with him. Whatever was on screen stays; the list refresh
-            // shows the next patient.
+            // Nobody with the doctor and nobody waiting. The evening is
+            // caught up.
             setCalled(null);
             void refresh();
           }
@@ -425,6 +435,7 @@ export function App() {
           nameBn={called.nameBn}
           nameEn={called.nameEn}
           outOfTurn={called.outOfTurn}
+          nextUp={called.nextUp === true}
           silent={!chimeIsArmed()}
           bn={bn}
           onSent={() => setCalled(null)}

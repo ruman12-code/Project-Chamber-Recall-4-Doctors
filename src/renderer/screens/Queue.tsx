@@ -286,8 +286,15 @@ function Row(
               {!entry.intakeStarted && <span className="qtag gap">not screened</span>}
               {entry.intakeStarted && entry.screeningIncomplete && <span className="qtag gap">screening incomplete</span>}
             </>}
+          {/* "First visit" is a clinical statement: it says there is no
+              history to look for. Against somebody the doctor has been
+              treating since 2019 it is false, and stays false for weeks
+              until they accumulate visits here. So it is only printed
+              for somebody who really is new. */}
           {entry.previousVisits === 0
-            ? <span className="qtag new">first visit</span>
+            ? (entry.attendingSince === null
+              ? <span className="qtag new">first visit</span>
+              : <span className="qtag since">coming since {entry.attendingSince} · first on this system</span>)
             : <span className="qtag back">{entry.previousVisits} previous · last {entry.lastVisitDate}</span>}
         </div>
       </div>

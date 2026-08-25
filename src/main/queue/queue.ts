@@ -41,7 +41,7 @@ export function todaysQueue(db: Db, chamberId: string, visitDate: string, asOf: 
     `SELECT v.id AS visitId, v.serial_no AS serialNo, v.status, v.visit_kind AS visitKind,
             v.arrived_at AS arrivedAt, v.seen_at AS seenAt,
             v.queue_position AS queuePosition,
-            p.id AS patientId, p.full_name_bn AS nameBn, p.full_name_en AS nameEn, p.phone, p.sex,
+            p.id AS patientId, p.attending_since AS attendingSince, p.full_name_bn AS nameBn, p.full_name_en AS nameEn, p.phone, p.sex,
             p.dob, p.approx_age_years, p.approx_age_recorded_on,
             i.id AS intakeId, i.completed_at AS intakeCompletedAt,
             (SELECT count(*) FROM visit pv WHERE pv.patient_id = p.id AND pv.visit_date < v.visit_date
@@ -55,7 +55,8 @@ export function todaysQueue(db: Db, chamberId: string, visitDate: string, asOf: 
   ).all(chamberId, visitDate) as Array<{
     visitId: string; serialNo: number; status: VisitStatus; visitKind: VisitKind;
     arrivedAt: string; seenAt: string | null;
-    queuePosition: number | null; patientId: string; nameBn: string | null; nameEn: string | null;
+    queuePosition: number | null; patientId: string; attendingSince: string | null;
+    nameBn: string | null; nameEn: string | null;
     phone: string | null; sex: string | null; dob: string | null; approx_age_years: number | null;
     approx_age_recorded_on: string | null; intakeId: string | null; intakeCompletedAt: string | null;
     previousVisits: number; lastVisitDate: string | null;
@@ -103,6 +104,7 @@ export function todaysQueue(db: Db, chamberId: string, visitDate: string, asOf: 
       seenAt: row.seenAt,
       waitedMinutes: Math.max(0, Math.round((until - new Date(row.arrivedAt).getTime()) / 60000)),
       previousVisits: row.previousVisits,
+      attendingSince: row.attendingSince,
       lastVisitDate: row.lastVisitDate,
       redFlags: row.intakeId === null ? [] : flagsByIntake.get(row.intakeId) ?? [],
       intakeStarted: row.intakeId !== null,

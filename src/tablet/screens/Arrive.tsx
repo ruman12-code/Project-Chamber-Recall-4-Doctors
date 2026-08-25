@@ -87,6 +87,9 @@ export function Arrive(
   const [phone, setPhone] = useState('');
   const [age, setAge] = useState('');
   const [sex, setSex] = useState<'male' | 'female' | 'other' | null>(null);
+  /** The year they say they started coming to this doctor, if they have
+   *  been before. Left empty for somebody genuinely new. */
+  const [since, setSince] = useState('');
 
   function failed(caught: unknown): void {
     const error = caught as Error & { whatToDo?: string; errorBn?: string | null; whatToDoBn?: string | null };
@@ -214,6 +217,7 @@ export function Arrive(
         approxAgeYears: age.trim() === '' ? null : Number(age.trim()),
         sex,
         addressFreeText: null,
+        attendingSince: since.trim() === '' ? null : since.trim(),
       },
     );
   }
@@ -237,6 +241,17 @@ export function Arrive(
           <label htmlFor="a-age">{bn ? 'বয়স (আনুমানিক হলেও চলবে)' : 'Age (an estimate is fine)'}</label>
           <input id="a-age" type="text" inputMode="numeric" value={age}
             onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ''))} />
+
+          {/* Asked because on the first evening this program runs, every
+              patient is new to IT, and most of them are not new to the
+              doctor. Without this the screen tells him "first visit"
+              about somebody he has been treating for years. */}
+          <label htmlFor="a-since">
+            {bn ? 'আগে থেকে এই ডাক্তার দেখান? কোন সাল থেকে' : 'Been to this doctor before? Since which year'}
+          </label>
+          <input id="a-since" type="text" inputMode="numeric" value={since}
+            placeholder={bn ? 'যেমন ২০১৯ — না জানলে খালি রাখুন' : 'e.g. 2019 — leave empty if they have not'}
+            onChange={(e) => setSince(e.target.value)} />
 
           <label>{bn ? 'লিঙ্গ' : 'Sex'}</label>
           <div className="arrive-sex">

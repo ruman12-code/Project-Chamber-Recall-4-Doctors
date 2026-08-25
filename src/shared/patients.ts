@@ -22,6 +22,16 @@ export interface RegisterPatientInput {
   approxAgeYears: number | null;
   sex: 'male' | 'female' | 'other' | null;
   addressFreeText: string | null;
+  /**
+   * The year they say they started coming to this doctor, when it is
+   * before this program existed. Null for somebody genuinely new.
+   *
+   * This is not a back-fill of their history -- the paper stays paper.
+   * It exists so the software stops printing "first visit" against a
+   * woman the doctor has been treating since 2019, which is a clinical
+   * statement and is simply false.
+   */
+  attendingSince?: string | null;
 }
 
 export interface MergeComparison {

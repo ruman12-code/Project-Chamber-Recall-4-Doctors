@@ -59,8 +59,8 @@ export function registerPatient(db: Db, input: RegisterPatientInput, actor: Acto
     db.prepare(
       `INSERT INTO patient (id, full_name_bn, full_name_en, search_name_bn, search_name_en,
          phone, search_phone, dob, approx_age_years, approx_age_recorded_on, sex, address_free_text,
-         created_at, created_by, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         created_at, created_by, updated_at, attending_since, attending_since_source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id, nameBn === '' ? null : nameBn, nameEn === '' ? null : nameEn,
       normaliseName(nameBn), normaliseName(nameEn),
@@ -69,10 +69,16 @@ export function registerPatient(db: Db, input: RegisterPatientInput, actor: Acto
       input.approxAgeYears === null ? null : localDate(),
       input.sex, input.addressFreeText?.trim() ?? null,
       at, actor.id, at,
+      normaliseAttendingSince(input.attendingSince ?? null),
+      input.attendingSince == null || input.attendingSince === '' ? null : 'patient',
     );
     recordAudit(db, {
       actor, action: 'patient_registered', entity: 'patient', entityId: id,
-      details: { has_phone: phone !== null && phone !== '', age_given_as: input.dob !== null ? 'date_of_birth' : input.approxAgeYears !== null ? 'estimate' : 'not_given' },
+      details: {
+        has_phone: phone !== null && phone !== '',
+        age_given_as: input.dob !== null ? 'date_of_birth' : input.approxAgeYears !== null ? 'estimate' : 'not_given',
+        attending_since: normaliseAttendingSince(input.attendingSince ?? null),
+      },
     });
   });
   write();
@@ -126,4 +132,22 @@ export function updatePatient(db: Db, id: string, edit: PatientEdit, actor: Acto
     recordAudit(db, { actor, action: 'patient_updated', entity: 'patient', entityId: id, details: { changed } });
   });
   write();
+}
+
+/**
+ * A year, or nothing.
+ *
+ * The desk types whatever the patient says -- "2019", "19", "about five
+ * years". Only a four-digit year that could actually have happened is
+ * kept; anything else is dropped rather than stored as a guess, because
+ * a wrong year on a record is worse than no year.
+ */
+export function normaliseAttendingSince(input: string | null): string | null {
+  if (input === null) return null;
+  const digits = input.trim().match(/\b(19|20)\d{2}\b/);
+  if (digits === null) return null;
+  const year = Number(digits[0]);
+  const thisYear = new Date().getFullYear();
+  if (year < 1950 || year > thisYear) return null;
+  return String(year);
 }

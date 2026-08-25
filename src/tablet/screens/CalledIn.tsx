@@ -11,12 +11,19 @@
  * being typed is lost to this.
  */
 export function CalledIn(
-  { serialNo, nameBn, nameEn, outOfTurn, silent, bn, onSent }: {
+  { serialNo, nameBn, nameEn, outOfTurn, nextUp, silent, bn, onSent }: {
     serialNo: number;
     nameBn: string | null;
     nameEn: string | null;
     /** Somebody who was ahead of them is still waiting. */
     outOfTurn: boolean;
+    /**
+     * True when the doctor has just finished with somebody and this is
+     * simply who is next, rather than a patient he asked for by number.
+     * The desk is being told to send them in either way; the difference
+     * is only in what the screen says at the top.
+     */
+    nextUp: boolean;
     /** The tablet cannot make a noise yet, so the screen has to say so. */
     silent: boolean;
     bn: boolean;
@@ -26,7 +33,11 @@ export function CalledIn(
   const name = nameBn ?? nameEn ?? '';
   return (
     <div className="called-in">
-      <div className="lead">{bn ? 'ডাক্তার ডেকেছেন' : 'The doctor has called'}</div>
+      <div className="lead">
+        {nextUp
+          ? (bn ? 'ডাক্তার ফাঁকা আছেন — পরের রোগী' : 'The doctor is free — next patient')
+          : (bn ? 'ডাক্তার ডেকেছেন' : 'The doctor has called')}
+      </div>
       <div className="serial">{serialNo}</div>
       <div className="name">{name}</div>
 

@@ -959,3 +959,7 @@ button.linkish:hover { color: var(--ink); }
    counted, and left exactly where they arrived in the list. */
 .qtag.reports { background: #eaf2fb; border-color: #9dbfe0; color: #1b4a75; }
 .queue-counts .c.reports { border-color: #9dbfe0; background: #eaf2fb; color: #1b4a75; }
+
+/* Somebody the doctor has been seeing for years, whose record here
+   starts today. Not "first visit", which would be false. */
+.qtag.since { background: #f2eefc; border-color: #c3b4e8; color: #4a3b78; }

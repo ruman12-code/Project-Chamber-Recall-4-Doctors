@@ -38,6 +38,12 @@ export interface QueueEntry {
   /** Visits before today. Zero means this is their first time. */
   previousVisits: number;
   lastVisitDate: string | null;
+  /**
+   * The year they say they started coming to this doctor, from before
+   * this program existed. Set means "first visit HERE, not first visit
+   * ever", and the screen must not say otherwise.
+   */
+  attendingSince: string | null;
   redFlags: QueueRedFlag[];
   intakeStarted: boolean;
   intakeCompleted: boolean;
