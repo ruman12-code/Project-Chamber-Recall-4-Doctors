@@ -462,6 +462,11 @@ table.vitals th, table.vitals td { padding: 1px 5px; }
   font: inherit; font-size: 15px; padding: 8px 10px;
   border: 2px solid var(--line); border-radius: 6px; background: #fff;
 }
+/* The chamber this list belongs to. A statement, not a control: it was
+   chosen on the way in and there is exactly one place to change it. */
+.queue-head .qchamber { font-size: 17px; font-weight: 700; }
+.queue-head .qchamber::before { content: '·'; color: var(--muted); margin-right: 12px; font-weight: 400; }
+.queue-head button.quiet { padding: 6px 12px; font-size: 13px; }
 .queue-head .spacer { flex: 1; }
 .queue-head button { margin: 0; padding: 11px 18px; font-size: 15px; }
 .queue-counts { display: flex; gap: 8px; }
@@ -514,7 +519,8 @@ table.vitals th, table.vitals td { padding: 1px 5px; }
    not a control on paper, so it goes. */
 @media print {
   body { background: #fff; }
-  .no-print, .queue-head button, .qrow .acts, .qrow .nudge, .queue-head select { display: none !important; }
+  .no-print, .queue-head button, .qrow .acts, .qrow .nudge,
+  .queue-head select, .queue-head .qchamber { display: none !important; }
   .queue { position: static; padding: 0; overflow: visible; height: auto; }
   .queue-list { overflow: visible; gap: 0; }
   .qrow { break-inside: avoid; border-radius: 0; border-left-width: 1px; opacity: 1 !important;
@@ -963,3 +969,59 @@ button.linkish:hover { color: var(--ink); }
 /* Somebody the doctor has been seeing for years, whose record here
    starts today. Not "first visit", which would be false. */
 .qtag.since { background: #f2eefc; border-color: #c3b4e8; color: #4a3b78; }
+
+/* ---- Which chamber am I in? ------------------------------------------
+   The first screen after signing in. Two cards, as large as the screen
+   allows, because this is answered from across a desk while taking a
+   coat off. */
+.which-chamber { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+.which-chamber h1 { font-size: 30px; margin: 0 0 6px; }
+.chamber-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px; margin-top: 26px; align-items: stretch;
+}
+.chamber-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  width: 100%; margin: 0; padding: 26px 28px; text-align: left;
+  background: var(--paper); color: var(--ink);
+  border: 2px solid var(--line); border-radius: 14px; cursor: pointer;
+}
+.chamber-card:hover { border-color: var(--ink); }
+.chamber-card.flagged { border-color: var(--alarm); background: var(--alarm-wash, #fceceb); }
+.chamber-card .cname { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+.chamber-card .cflag {
+  font-size: 14px; font-weight: 700; color: #fff; background: var(--alarm);
+  border-radius: 6px; padding: 4px 10px;
+}
+/* Always one row of three. Wrapping put "seen" on a line of its own on
+   the chamber with the longest name, so the same three numbers sat in a
+   different shape on each card and had to be re-read every time. */
+.chamber-card .cnums {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  width: 100%; margin-top: 2px;
+}
+.chamber-card .cn {
+  background: var(--page, #f3f5f8); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 10px; font-size: 12.5px; line-height: 1.25; color: var(--muted);
+}
+.chamber-card .cn b {
+  display: block; font-size: 24px; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+/* Pushed to the bottom so the two footing lines sit at the same height
+   on every card however many lines the chamber's name takes. */
+.chamber-card .cfoot { font-size: 14px; color: var(--muted); margin-top: auto; }
+.chamber-card .ctablet { font-size: 13px; color: var(--muted); }
+.chamber-card .ctablet.on { color: var(--signed, #1c6b3a); }
+
+/* The evening at one chamber is finished. Offered, never taken: the
+   doctor decides when it is over, and somebody may still walk in. */
+.session-over {
+  border: 1px solid var(--signed, #1c6b3a); border-left-width: 5px; border-radius: 8px;
+  background: #eef7f1; color: var(--ink);
+  padding: 12px 16px; margin-bottom: 10px; font-size: 15px; line-height: 1.5;
+}
+.session-over button { width: auto; margin: 8px 0 0; padding: 6px 14px; font-size: 14px; }
+/* Nobody was seen at all. Still not an alarm -- it is the end of a
+   quiet evening as often as it is people giving up -- but it does not
+   get the green tick either. */
+.session-over.none-seen { border-color: var(--line); background: var(--paper); }

@@ -16,7 +16,7 @@
 // Types are imported with `import type`, which the compiler erases, so
 // no require of a project file survives into the compiled output.
 import { contextBridge, ipcRenderer } from 'electron';
-import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result, PracticeSeedResult, SpareKeyStatus, SparePerson, SerialClashView } from '../shared/ipc';
+import type { InstallationStatus, DatabaseSummary, RedFlagStatus, RedFlagAlertView, Result, PracticeSeedResult, SpareKeyStatus, SparePerson, SerialClashView, ChamberCardView } from '../shared/ipc';
 import type { RecallCard } from '../shared/recall';
 import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '../shared/patients';
 import type { QueueView, VisitStatus } from '../shared/queue';
@@ -167,6 +167,8 @@ contextBridge.exposeInMainWorld('chamberRecall', {
   pinResetAcknowledge: (): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('spare:acknowledge'),
 
+  chamberCards: (): Promise<Result<{ chambers: ChamberCardView[] }>> =>
+    ipcRenderer.invoke('chambers:cards'),
   homePanels: (): Promise<Result<{ panels: string[] }>> =>
     ipcRenderer.invoke('home:panels'),
   homePanelsSet: (panels: string[]): Promise<Result<{ panels: string[] }>> =>

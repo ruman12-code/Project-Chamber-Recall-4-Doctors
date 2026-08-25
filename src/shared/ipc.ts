@@ -207,6 +207,8 @@ export const CHANNELS = {
   // What the doctor has chosen to keep on his home screen.
   homePanels: 'home:panels',
   homePanelsSet: 'home:panelsSet',
+  /** The chambers, as the doctor sees them when he sits down. */
+  chamberCards: 'chambers:cards',
 } as const;
 
 /** Whether a spare code exists, for the doctor's own screen. */
@@ -235,6 +237,19 @@ export interface SerialClashView {
   serialAnnounced: number;
   nameBn: string | null;
   nameEn: string | null;
+}
+
+/** One chamber, on the screen the doctor sees first. */
+export interface ChamberCardView {
+  id: string;
+  name: string;
+  waiting: number;
+  withDoctor: number;
+  seen: number;
+  flagged: number;
+  reportsOnly: number;
+  longestWaitMinutes: number | null;
+  tabletPaired: boolean;
 }
 
 export interface PinResetNoticeView {

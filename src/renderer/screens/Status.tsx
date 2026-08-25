@@ -11,6 +11,7 @@ import { PrescriptionSheet } from './PrescriptionSheet';
 import { Attachments } from './Attachments';
 import { PatientCopySheet } from './PatientCopySheet';
 import { PilotReportScreen } from './PilotReportScreen';
+import { WhichChamber } from './WhichChamber';
 import { roleLabel, type Role } from '../../shared/roles';
 import { HOME_PANELS, panelsForRole, type HomePanelId } from '../../shared/home';
 import type { DatabaseSummary, RedFlagStatus, RedFlagAlertView, TabletStatus } from '../../shared/ipc';
@@ -50,6 +51,14 @@ export function Status() {
   const [panels, setPanels] = useState<string[] | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [showingMore, setShowingMore] = useState(false);
+  /**
+   * Which chamber the doctor said he is in, this session. Null means
+   * the question has not been answered yet and the chamber cards are
+   * the screen. Not remembered across sign-ins: he may well be in the
+   * other one tomorrow, and a laptop that assumes otherwise would put
+   * a patient on the wrong list.
+   */
+  const [inChamber, setInChamber] = useState<{ id: string; name: string } | null>(null);
   const [previewing, setPreviewing] = useState<RedFlagAlertView | null>(null);
   const [card, setCard] = useState<RecallCard | null>(null);
   const [findingPatient, setFindingPatient] = useState(false);
@@ -288,10 +297,23 @@ export function Status() {
     />;
   }
 
+  // Which room am I in? Answered before anything else, because whose
+  // list he sees and which front desk he is connected to both follow
+  // from it. Front desk staff at the laptop answer it too: the register
+  // belongs to a chamber just as much as the consultation does.
+  if (inChamber === null) {
+    return <WhichChamber
+      signedInName={auth.signedIn.displayName}
+      onPick={(id, name) => setInChamber({ id, name })} />;
+  }
+
   if (findingPatient) return <PatientSearch onClose={() => setFindingPatient(false)} />;
   if (showingQueue) {
     return <Queue
       onClose={() => setShowingQueue(false)}
+      onChangeChamber={() => {
+        setInChamber(null); setCard(null); setChamber(null); setShowingQueue(false);
+      }}
       onOpenCard={role === null || role === 'front_desk' ? undefined : (visitId) => { void openCardForVisit(visitId); }}
       onRecord={role === null || role === 'front_desk' ? undefined : (visitId) => { void openChamber(visitId); }} />;
   }
@@ -310,6 +332,8 @@ export function Status() {
           below the fold. */}
       <div className="home-top">
         <div className="home-who">
+          <b>{inChamber.name}</b>
+          <span className="muted"> — </span>
           <b>{auth.signedIn.displayName}</b>
           <span className="muted"> — {roleLabel(role ?? 'front_desk').en} · {roleLabel(role ?? 'front_desk').bn}.
             Everything written from here carries this name.</span>
@@ -320,9 +344,14 @@ export function Status() {
               const { failure } = unwrap(await api.signOut());
               if (failure) { setFailure(failure); return; }
               setCard(null); setChamber(null); setShowingQueue(false); setFindingPatient(false);
+              setInChamber(null);
               await readAuth();
             })();
           }}>Sign out</button>
+          <button className="secondary" onClick={() => {
+            setInChamber(null); setCard(null); setChamber(null);
+            setShowingQueue(false); setFindingPatient(false);
+          }}>Change chamber</button>
           <button className="secondary" onClick={() => setShowingMore((v) => !v)}>
             {showingMore ? 'Hide' : 'Everything else'}
           </button>
@@ -399,6 +428,9 @@ export function Status() {
           as here. */}
       <Queue
         embedded
+        onSessionOver={() => {
+          setInChamber(null); setCard(null); setChamber(null);
+        }}
         onOpenCard={role === null || role === 'front_desk' ? undefined : (visitId) => { void openCardForVisit(visitId); }}
         onRecord={role === null || role === 'front_desk' ? undefined : (visitId) => { void openChamber(visitId); }} />
 

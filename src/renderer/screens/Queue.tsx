@@ -23,7 +23,7 @@ import type { SerialClashView } from '../../shared/ipc';
  * changes who the doctor sees next.
  */
 export function Queue(
-  { onClose, onOpenCard, onRecord, embedded = false }: {
+  { onClose, onOpenCard, onRecord, embedded = false, onSessionOver, onChangeChamber }: {
     /**
      * Absent when this list IS the home screen rather than a screen
      * opened on top of it. There is nothing to close back to, so no
@@ -38,6 +38,22 @@ export function Queue(
      * the viewport and bounds its own scrolling instead.
      */
     embedded?: boolean;
+    /**
+     * Everybody who came has been seen. Offered rather than taken: the
+     * doctor decides when the evening is over, not a count reaching
+     * zero. Somebody may still walk in.
+     */
+    onSessionOver?: () => void;
+    /**
+     * Which chamber this list belongs to is decided once, on the way in,
+     * and it is not decided again here. This list used to carry its own
+     * chamber picker, which meant two controls for one fact: switching
+     * with the picker left the name in the strip above still saying the
+     * old chamber. Now the chamber is stated, not offered, and the one
+     * way back to the choice is this -- passed only where the strip
+     * carrying it is not on screen.
+     */
+    onChangeChamber?: () => void;
   },
 ) {
   const [view, setView] = useState<QueueView | null>(null);
@@ -148,22 +164,19 @@ export function Queue(
   return (
     <div className={embedded ? 'queue embedded' : 'queue'} tabIndex={0}
       onKeyDown={onKeyDown} onKeyDownCapture={onKeyDownCapture}>
-      {/* The heading for paper. On screen the chamber is in the picker
-          above; on paper it has to say which chamber and which day, at
-          the top, because the sheet outlives the screen. */}
+      {/* The heading for paper. On screen the chamber is named beside
+          the title; on paper it has to say which chamber and which day,
+          at the top, because the sheet outlives the screen. */}
       <div className="print-only print-head">
         {view.chamberName} — {view.visitDate}
       </div>
 
       <div className="queue-head">
         <h1>Today's list</h1>
-        <select
-          value={view.chamberId ?? ''}
-          onChange={(e) => { void act(api.queueSetChamber(e.target.value)); }}
-          aria-label="Which chamber"
-        >
-          {view.chambers.map((chamber) => <option key={chamber.id} value={chamber.id}>{chamber.name}</option>)}
-        </select>
+        <span className="qchamber">{view.chamberName}</span>
+        {onChangeChamber !== undefined && (
+          <button className="secondary quiet" onClick={onChangeChamber}>Change chamber</button>
+        )}
         <span className="muted">{view.visitDate}</span>
 
         <div className="queue-counts">
@@ -183,6 +196,34 @@ export function Queue(
         <button className="secondary" onClick={() => window.print()}>Print this list</button>
         {onClose !== undefined && <button className="secondary" onClick={onClose}>Close</button>}
       </div>
+
+      {/* Nobody is waiting and nobody is with the doctor. Offered, not
+          taken: the doctor decides when an evening is over, and
+          somebody may still walk through the door.
+
+          The sentence says what actually happened rather than one
+          cheerful line for every ending. An evening where four people
+          gave up and went home before they were called is not an
+          evening where everybody was seen, and it must not read like
+          one -- that is the ending the doctor most needs to notice. */}
+      {onSessionOver !== undefined && entries.length > 0
+        && count('waiting') === 0 && count('in_chamber') === 0 && (
+        <div className={count('done') === 0 ? 'session-over none-seen' : 'session-over'}>
+          <b>
+            {count('done') === 0
+              ? `Nobody is waiting in ${view.chamberName}.`
+              : count('left') === 0
+                ? `Everybody who came has been seen in ${view.chamberName}.`
+                : `Everybody still here has been seen in ${view.chamberName}.`}
+          </b>{' '}
+          {count('done') > 0 && `${count('done')} seen`}
+          {count('done') > 0 && count('left') > 0 && ', '}
+          {count('left') > 0
+            && `${count('left')} left without being seen`}
+          {(count('done') > 0 || count('left') > 0) && '.'}
+          <button onClick={onSessionOver}>Finish here and choose a chamber</button>
+        </div>
+      )}
 
       {justAdded !== null && (
         <div className="banner" style={{ marginBottom: 0 }}>

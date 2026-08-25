@@ -56,6 +56,7 @@ import {
   resetPinWithSpareKey, pinResetNotice, acknowledgePinReset, whichSpareKey,
 } from './auth/spareKey';
 import { homePanels, setHomePanels } from './home/panels';
+import { chamberCards, type ChamberCard } from './queue/chambers';
 import { unresolvedSerialClashes, acknowledgeSerialClash, type SerialClash } from './queue/deskArrival';
 import { buildResearchExport, toCsv, researchReadme, recordResearchExport } from './report/research';
 import type { PilotReport } from '../shared/pilot';
@@ -864,6 +865,11 @@ function registerHandlers(): void {
     if (db === null) throw new Error('a notice was acknowledged before the database was unlocked');
     acknowledgePinReset(db, atTheLaptop());
     return {} as Record<string, never>;
+  });
+
+  handle<{ chambers: ChamberCard[] }>(CHANNELS.chamberCards, () => {
+    if (db === null) throw new Error('the chambers were asked for before the database was unlocked');
+    return { chambers: chamberCards(db) };
   });
 
   handle<{ panels: string[] }>(CHANNELS.homePanels, () => {

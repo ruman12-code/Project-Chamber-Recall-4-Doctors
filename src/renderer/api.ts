@@ -9,7 +9,7 @@ import type { AttachmentView, AttachmentKind } from '../shared/attachments';
 import type { PatientCopy } from '../shared/patientCopy';
 import type { BackupStatus, BackupResult, BackupInspection } from '../shared/backup';
 import type { PilotReport } from '../shared/pilot';
-import type { PracticeSeedResult, SpareKeyStatus, SparePerson, SerialClashView } from '../shared/ipc';
+import type { PracticeSeedResult, SpareKeyStatus, SparePerson, SerialClashView, ChamberCardView } from '../shared/ipc';
 
 interface Api {
   status(): Promise<Result<{ status: InstallationStatus }>>;
@@ -77,6 +77,7 @@ interface Api {
   spareKeyReset(spareKey: string, userId: string, newPin: string):
     Promise<Result<{ displayName: string; using: string }>>;
   pinResetAcknowledge(): Promise<Result<Record<string, never>>>;
+  chamberCards(): Promise<Result<{ chambers: ChamberCardView[] }>>;
   homePanels(): Promise<Result<{ panels: string[] }>>;
   homePanelsSet(panels: string[]): Promise<Result<{ panels: string[] }>>;
   tabletSetChamber(deviceId: string, chamberId: string): Promise<Result<Record<string, never>>>;
@@ -168,6 +169,7 @@ export const api: Api = {
   spareKeyPeople: (spareKey) => call((a) => a.spareKeyPeople(spareKey)),
   spareKeyReset: (spareKey, userId, newPin) => call((a) => a.spareKeyReset(spareKey, userId, newPin)),
   pinResetAcknowledge: () => call((a) => a.pinResetAcknowledge()),
+  chamberCards: () => call((a) => a.chamberCards()),
   homePanels: () => call((a) => a.homePanels()),
   homePanelsSet: (panels) => call((a) => a.homePanelsSet(panels)),
   tabletSetChamber: (deviceId, chamberId) => call((a) => a.tabletSetChamber(deviceId, chamberId)),

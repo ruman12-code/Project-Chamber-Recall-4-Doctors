@@ -1643,6 +1643,63 @@ actually matters on a Recall Card and takes thirty seconds.
 By week four the frequent attenders have real history here, and it is
 history somebody verified.
 
+### 111. The first question is which room, not which menu
+
+The doctor holds two chambers on the same evening. Everything follows
+from which one he is sitting in: whose list he sees, which front desk
+tablet is his, and which register a serial comes out of. So it is the
+first screen after signing in, not a setting buried behind a menu.
+
+Each chamber is one large card carrying enough to tell him what he is
+walking into before he taps: how many are waiting, how many he has
+already seen, how long the person who has waited longest has waited,
+how many came only to show reports, and whether a tablet is paired
+there. A chamber holding a screening warning nobody has acknowledged
+wears an alarm border, so if both have people in them the one to open
+first says so itself.
+
+The cards are always in the same order -- the order the chambers were
+created -- and never sorted by how busy they are. Sorting would move
+Lubana under his thumb on a quiet evening and somewhere else on a busy
+one, and the cost of tapping the wrong chamber is working the wrong
+list.
+
+The evening ends back here. When nobody is waiting and nobody is with
+the doctor, the list offers to finish and return to the choice. Offered,
+never taken: he decides when an evening is over, and somebody may still
+walk through the door at ten to nine.
+
+### 112. Two controls for one fact is one control too many
+
+Today's list used to carry its own chamber dropdown. Once the chamber
+was chosen on the way in, that dropdown was a second way to change the
+same thing -- and switching with it left the name in the strip above
+still showing the old chamber. The screen would then say Lubana at the
+top and list Green Life underneath.
+
+The dropdown is gone. The list states its chamber and does not offer to
+change it; the one way back to the choice is Change chamber, which
+clears it properly. The rule this came from: if two places on a screen
+can disagree about the same fact, one of them is going to.
+
+### 113. The end-of-evening line says what actually happened
+
+The first version of the finish panel said "Everybody who came has been
+seen" and then counted. On an evening where four people gave up waiting
+and went home before they were called, it said "Everybody who came has
+been seen. 0 patients, 4 left without being seen." -- a cheerful lie
+about the one ending the doctor most needs to notice.
+
+Now the sentence is built from what happened. Nobody seen at all reads
+"Nobody is waiting in Lubana. 4 left without being seen", on plain
+paper rather than the green of a finished evening. Some seen and some
+gone reads "Everybody still here has been seen". Only an evening where
+nobody left gets "Everybody who came has been seen".
+
+This was caught by looking at the screen, not by a test. It is the
+third time on this project that the software was correct and the
+sentence was not.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere
