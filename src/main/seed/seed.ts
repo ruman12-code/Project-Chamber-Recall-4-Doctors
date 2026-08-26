@@ -182,7 +182,7 @@ function makePhysiology(rng: Rng, ageYears: number): Physiology {
  * docs/INSTALL-WINDOWS.md as well.
  */
 export const PRACTICE_STAFF = [
-  { display_name: 'Dr. Prof. Maruf Bin Habib', role: 'doctor' as const, pin: '4021', speed: 1, skip: 0 },
+  { display_name: 'Prof. Dr. Maruf Bin Habib', role: 'doctor' as const, pin: '4021', speed: 1, skip: 0 },
   { display_name: 'Assistant Doctor Lubana', role: 'clinical_assistant' as const, pin: '5390', speed: 1, skip: 0 },
   { display_name: 'Assistant Doctor Popular', role: 'clinical_assistant' as const, pin: '2648', speed: 1, skip: 0 },
   { display_name: 'Ruhul (Lubana)', role: 'front_desk' as const, pin: '6172', speed: 1.0, skip: 0.12 },

@@ -131,6 +131,8 @@ export function SetUpPeople({ onDone, demo }: { onDone: () => Promise<void>; dem
   const [filling, setFilling] = useState(false);
   const [practice, setPractice] = useState<PracticeSeedResult | null>(null);
   const [changing, setChanging] = useState<StaffView | null>(null);
+  /** Correcting a name. The same person, not a replacement for them. */
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [newPin, setNewPin] = useState('');
   const [spare, setSpare] = useState<SpareKeyStatus | null>(null);
   const [spareCode, setSpareCode] = useState('');
@@ -176,6 +178,14 @@ export function SetUpPeople({ onDone, demo }: { onDone: () => Promise<void>; dem
     const { failure } = unwrap(await api.staffSetPin(changing.id, newPin));
     if (failure) { setFailure(failure); return; }
     setFailure(null); setChanging(null); setNewPin('');
+    await refresh();
+  }
+
+  async function rename() {
+    if (renaming === null) return;
+    const { failure } = unwrap(await api.staffRename(renaming.id, renaming.name));
+    if (failure) { setFailure(failure); return; }
+    setFailure(null); setRenaming(null);
     await refresh();
   }
 
@@ -288,6 +298,9 @@ export function SetUpPeople({ onDone, demo }: { onDone: () => Promise<void>; dem
                   {!p.isActive && <span className="warn"> · switched off</span>}
                 </span>
                 <span className="acts">
+                  <button className="secondary" onClick={() => { setRenaming({ id: p.id, name: p.displayName }); }}>
+                    Rename
+                  </button>
                   <button className="secondary" onClick={() => { setChanging(p); setNewPin(''); }}>
                     Change PIN
                   </button>
@@ -304,6 +317,26 @@ export function SetUpPeople({ onDone, demo }: { onDone: () => Promise<void>; dem
             leaves every record they wrote exactly as it was, with their
             name still on it, because a medical record does not lose its
             author when somebody leaves. */}
+        {renaming !== null && (
+          <div className="restate">
+            <b>What is this person called?</b>
+            <p className="muted" style={{ margin: '4px 0 0' }}>
+              This is the name on every record they have already written, and it changes
+              on all of them — it is the same person, spelt correctly. The old spelling is
+              kept in the audit trail.
+            </p>
+            <div className="field">
+              <label htmlFor="rename">Their name</label>
+              <input id="rename" autoFocus value={renaming.name}
+                onChange={(e) => setRenaming({ ...renaming, name: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') void rename(); }} />
+            </div>
+            <button disabled={renaming.name.trim() === ''} onClick={() => { void rename(); }}>Save</button>
+            <button className="secondary" style={{ marginLeft: 8 }}
+              onClick={() => setRenaming(null)}>Cancel</button>
+          </div>
+        )}
+
         {changing !== null && (
           <div className="restate">
             <b>A new PIN for {changing.displayName}</b>

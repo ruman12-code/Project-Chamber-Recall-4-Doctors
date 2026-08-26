@@ -166,6 +166,7 @@ export const CHANNELS = {
   staffAdd: 'auth:staffAdd',
   staffSetPin: 'auth:staffSetPin',
   staffSetActive: 'auth:staffSetActive',
+  staffRename: 'auth:staffRename',
   // The chamber: vitals and the consultation.
   chamberOpen: 'chamber:open',
   chamberView: 'chamber:view',

@@ -2082,6 +2082,36 @@ The edit control sits BESIDE the card, not on it. The card is one large
 button, and a button inside a button is a tap that does two things and
 the doctor finds out which afterwards.
 
+### 133. The people live in the database, and there was no way to fix a name
+
+He installed the new version and the old names were still there. He
+asked whether he had misunderstood. He had not; the instruction was
+incomplete.
+
+Staff are rows in the database, not code. Installing a new version
+replaces the program and never touches the records -- which is the
+correct behaviour and the whole reason an upgrade does not lose four
+months of patients. Renaming PRACTICE_STAFF changes who a NEW practice
+database is created with. It cannot reach one that already exists.
+
+The gap was that there was no way to reach it either. A person could be
+added, given a new PIN, or retired. Their name, once typed, was
+permanent. A name typed wrong on the first evening was wrong forever,
+and it is the name printed on every record that person writes.
+
+**Why renaming and not replacing.** The obvious workaround -- retire
+them, add them again spelt correctly -- is wrong here. Every history,
+vital sign and prescription points at the person who wrote it, and the
+screens show that person's current name. Retiring Biplob and creating a
+new Biplob leaves months of records attributed to somebody switched
+off, and the new one has no history behind them. Renaming keeps the
+thread: same person, same id, same work, spelt correctly from now on.
+The old spelling goes in the audit, so a record signed under it can
+still be explained a year later.
+
+The same reasoning gave the chambers a rename in decision 132. It
+should have given one to the people at the same time.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

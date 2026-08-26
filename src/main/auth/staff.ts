@@ -190,6 +190,74 @@ export function setPin(db: Db, userId: string, pin: string, actor: Actor): void 
  * wrote stays exactly where it is. A record does not lose its author
  * because the author found another job.
  */
+/**
+ * Correcting somebody's name.
+ *
+ * The people in this program live in the DATABASE, not in the program,
+ * so installing a new version never changes them -- which is right, and
+ * which left the doctor with no way at all to fix a name typed wrong on
+ * the first evening. It is his own staff on his own screen and he could
+ * not touch it.
+ *
+ * WHY RENAMING RATHER THAN REPLACING IS THE CORRECT OPERATION
+ *
+ * The obvious workaround is to switch the person off and add them again
+ * under the right name. That is wrong here. Every history, vital sign
+ * and prescription in the record points at the person who wrote it, and
+ * the screens show that person's CURRENT name. Retiring Biplob and
+ * creating a new Biplob leaves four months of records attributed to
+ * somebody switched off, and the new one has no history at all.
+ *
+ * Renaming keeps the thread. The same person, the same id, the same
+ * work behind them, spelt correctly from now on -- and the old spelling
+ * is in the audit trail, so a record signed under the old name can
+ * still be explained.
+ */
+export function renameStaff(db: Db, userId: string, displayName: string, actor: Actor): void {
+  requireDoctorOrSetup(db, actor, 'change somebody\u2019s name');
+
+  const name = displayName.trim().replace(/\s+/g, ' ');
+  if (name === '') {
+    throw new StaffError(
+      'A name cannot be empty.',
+      'This is the name that goes on every record this person writes, so it has to say who they are.',
+    );
+  }
+  if (name.length > 80) {
+    throw new StaffError(
+      'That name is too long.',
+      'Use the name people call them at the desk. It has to fit on a sign-in button and on a printed sheet.',
+    );
+  }
+
+  const user = db.prepare(
+    'SELECT display_name AS displayName FROM app_user WHERE id = ? AND deleted_at IS NULL',
+  ).get(userId) as { displayName: string } | undefined;
+  if (user === undefined) throw new StaffError('That person is not here.', 'Check the list and try again.');
+  if (user.displayName === name) return;
+
+  const clash = db.prepare(
+    'SELECT id FROM app_user WHERE lower(display_name) = lower(?) AND id <> ? AND deleted_at IS NULL',
+  ).get(name, userId);
+  if (clash !== undefined) {
+    throw new StaffError(
+      `Somebody called "${name}" is already here.`,
+      'Two people with the same name on screen is how a record ends up attributed to the wrong one. Add something that tells them apart, such as a second name.',
+    );
+  }
+
+  const write = db.transaction(() => {
+    db.prepare('UPDATE app_user SET display_name = ? WHERE id = ?').run(name, userId);
+    // Both spellings, so a record signed under the old one can still be
+    // explained a year from now.
+    recordAudit(db, {
+      actor, action: 'user_renamed', entity: 'app_user', entityId: userId,
+      details: { from: user.displayName, to: name },
+    });
+  });
+  write();
+}
+
 export function setStaffActive(db: Db, userId: string, active: boolean, actor: Actor): void {
   requireDoctorOrSetup(db, actor, 'remove somebody');
   if (userId === actor.id && !active) {

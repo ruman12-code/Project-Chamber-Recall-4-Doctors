@@ -33,7 +33,7 @@ import { confirmIntake, unconfirmIntake, correctIntakeAnswer, type CorrectionInp
 import { loadConsentConfig } from './consent/config';
 import type { TabletStatus, AuthState, SignedInView, StaffView } from '../shared/ipc';
 import { signIn as doSignIn, signOutAudit, actorOf, type SignedIn } from './auth/session';
-import { needsSetup, signInList, allStaff, addStaff, setPin, setStaffActive } from './auth/staff';
+import { needsSetup, signInList, allStaff, addStaff, setPin, setStaffActive, renameStaff } from './auth/staff';
 import { openEncounter, saveDraft, setMedications, setInvestigations, confirmEncounter, unconfirmEncounter }
   from './clinical/encounter';
 import { saveVitals, questionsAbout } from './clinical/vitals';
@@ -505,6 +505,15 @@ function registerHandlers(): void {
   handle<Record<string, never>>(CHANNELS.staffSetPin, (userId: string, pin: string) => {
     if (db === null) throw new Error('a PIN was changed before the database was unlocked');
     setPin(db, userId, pin, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  // Correcting a name. The people live in the database, not in the
+  // program, so a new version never changes them -- which left a name
+  // typed wrong on the first evening wrong forever.
+  handle<Record<string, never>>(CHANNELS.staffRename, (userId: string, displayName: string) => {
+    if (db === null) throw new Error('a name was changed before the database was unlocked');
+    renameStaff(db, userId, displayName, atTheLaptop());
     return {} as Record<string, never>;
   });
 

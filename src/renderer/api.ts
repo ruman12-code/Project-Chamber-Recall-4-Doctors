@@ -78,6 +78,7 @@ interface Api {
     Promise<Result<{ displayName: string; using: string }>>;
   pinResetAcknowledge(): Promise<Result<Record<string, never>>>;
   chamberCards(): Promise<Result<{ chambers: ChamberCardView[] }>>;
+  staffRename(userId: string, displayName: string): Promise<Result<Record<string, never>>>;
   chamberRename(chamberId: string, name: string): Promise<Result<Record<string, never>>>;
   chamberSetLogo(chamberId: string): Promise<Result<{ chosen: boolean }>>;
   chamberClearLogo(chamberId: string): Promise<Result<Record<string, never>>>;
@@ -173,6 +174,7 @@ export const api: Api = {
   spareKeyReset: (spareKey, userId, newPin) => call((a) => a.spareKeyReset(spareKey, userId, newPin)),
   pinResetAcknowledge: () => call((a) => a.pinResetAcknowledge()),
   chamberCards: () => call((a) => a.chamberCards()),
+  staffRename: (userId: string, displayName: string) => call((a) => a.staffRename(userId, displayName)),
   chamberRename: (chamberId: string, name: string) => call((a) => a.chamberRename(chamberId, name)),
   chamberSetLogo: (chamberId: string) => call((a) => a.chamberSetLogo(chamberId)),
   chamberClearLogo: (chamberId: string) => call((a) => a.chamberClearLogo(chamberId)),
