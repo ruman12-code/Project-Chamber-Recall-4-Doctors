@@ -1970,6 +1970,36 @@ The count of photographs is on the patient's row on both screens, which
 is the confirmation the assistant needs and the signal the doctor
 needs.
 
+### 128. The tablet still cannot OPEN without the laptop, and that is a real gap
+
+Everything built for the two-chamber evening — the directory of names,
+the offline PIN, the serial buffer, the outbox — works in a page that is
+already open. None of it helps with the thing that comes first: the
+page itself is served by the laptop, so with the laptop away Chrome
+shows its grey "This site can't be reached" and there is nothing to run.
+
+That was found on a real tablet, by pointing it at the laptop's address
+with the laptop off, which is exactly what a real evening does.
+
+**Why it is not a small fix.** The app's files have to live on the
+tablet. A browser will only keep them for a site it treats as a secure
+context, and `http://192.168.0.104:8137` is not one — plain HTTP on a
+LAN address never is. So it needs HTTPS, which on a private network
+means the laptop making its own certificate and that certificate being
+installed on each tablet once, by hand, in Android's settings.
+
+That is a genuine improvement beyond this problem: today patient names
+and phone numbers cross the chamber's wifi in the clear.
+
+**Deferred, deliberately, with the pilot demo close.** It changes how
+every tablet is set up and the certificate step cannot be tested from
+here — the doctor's cousin would be the first person ever to run it,
+during a demonstration. So the demo goes out on the build that works,
+with the limit written down in TWO-CHAMBERS.md and ANDROID-TABLET.md:
+open the page while the laptop is on, and leave it open.
+
+Next milestone after the feedback.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

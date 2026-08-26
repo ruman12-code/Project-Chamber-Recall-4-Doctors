@@ -88,6 +88,17 @@ on the page about signing in without the laptop — see
 [TWO-CHAMBERS.md](TWO-CHAMBERS.md) — assumes the device itself is
 locked when it is put down.
 
+## 6a. Leave the page open
+
+The tablet's screen comes from the laptop. Once it has loaded it keeps
+working if the laptop leaves the room, but it cannot **load** without
+it — so closing the tab, restarting the tablet, or the pinned app being
+killed all leave Chrome's grey "This site can't be reached" until the
+laptop is back.
+
+So: open it while the laptop is on, pin it, and leave it. See
+[TWO-CHAMBERS.md](TWO-CHAMBERS.md) for what is being done about this.
+
 ## 7. Settings worth changing while you are there
 
 - **Screen timeout: 10 minutes.** Shorter and the assistant is

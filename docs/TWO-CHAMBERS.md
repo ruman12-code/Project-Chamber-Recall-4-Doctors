@@ -7,7 +7,36 @@ This is how the front desk works during that gap, and what it costs.
 
 ---
 
-## What the desk can do with no laptop in the room
+## First: the tablet has to have the page OPEN already
+
+This is the honest limit of the current build, and it is worth reading
+before anything below.
+
+The tablet's screen is served **by the laptop**. Everything on this page
+happens in a page that is already open: once it has loaded, it keeps
+working when the laptop walks away — searching, screening, serial
+numbers, the lot. But **loading** it needs the laptop reachable.
+
+So this is what breaks it, and all three look the same from the outside
+(Chrome's grey "This site can't be reached"):
+
+- closing the tab, or the browser
+- restarting the tablet
+- the pinned app being killed and reopened
+
+**For now, open the tablet's page while the laptop is on, and leave it
+open.** Do not close the tab at the end of an evening.
+
+Making the tablet open on its own with no laptop means putting the app's
+files on the tablet itself, and Android only allows that for a site it
+considers secure — which `http://192.168.0.104:8137` is not. The fix is
+HTTPS plus a certificate installed on each tablet once. It is a real
+piece of work and it is **not in this build**; it is the next milestone
+after the pilot demo.
+
+---
+
+## What the desk can do with no laptop in the room, once the page is open
 
 - **Find a returning patient** by name or phone number.
 - **Register somebody new** — name, mobile, age, sex.
