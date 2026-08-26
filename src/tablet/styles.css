@@ -91,13 +91,23 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 .patient {
   display: flex; align-items: center; gap: 16px; width: 100%; text-align: left;
   border: 3px solid var(--line); background: #fff; padding: 14px 18px; min-height: 86px;
+  /* The list is a flex column, so without this a row is squeezed
+     shorter than its own contents once there are more patients than
+     fit -- and the name paints straight through the row below. The
+     min-height was hiding it; on a narrow screen it stopped hiding it. */
+  flex-shrink: 0;
 }
 .patient.flagged { border-color: var(--alarm); background: #fdeceb; }
 .patient .serial { font-size: 34px; font-weight: 800; min-width: 66px; text-align: center; }
 .patient .nm { font-size: 24px; font-weight: 700; line-height: 1.2; }
 .patient .sub { font-size: 15px; color: var(--muted); }
-.patient .state { margin-left: auto; font-size: 14px; font-weight: 700; padding: 6px 12px; border-radius: 999px; border: 2px solid var(--line); }
+/* The badges wrap under the name rather than sitting in the row. On a
+   phone the row has no spare width, and margin-left:auto put them on
+   top of the patient's name. */
+.patient .states { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.patient .state { font-size: 14px; font-weight: 700; padding: 5px 11px; border-radius: 999px; border: 2px solid var(--line); }
 .patient .state.done { background: #eef7f0; border-color: #b6d6bd; color: #1d6b2f; }
+.patient .state.papers { background: #f2f4f8; border-color: #bcc6d6; color: #33445c; }
 
 .empty { padding: 60px 20px; text-align: center; color: var(--muted); font-size: 20px; }
 
@@ -187,7 +197,10 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 /* The patient row: name above the details, state pill hard right.
    These were inline spans, so the name and the age ran together and
    the pill stretched across the row. */
-.patient .who { flex: 1; min-width: 0; display: block; }
+/* min-width:0 lets the column actually shrink, and break-word stops a
+   long Bangla name painting outside it. Both are needed: without the
+   second, the text overflows the box the first one shrank. */
+.patient .who { flex: 1; min-width: 0; display: block; overflow-wrap: anywhere; }
 .patient .nm, .patient .sub { display: block; }
 .patient .state { flex: none; white-space: nowrap; }
 
@@ -320,6 +333,57 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 /* What the second button will do, before it is pressed. An assistant
    must be able to press it without wondering whether they are about to
    send somebody home. */
+/* The desk has run out of moves and a person has to decide. Amber,
+   because it is a situation to act on, not a failure. */
+.called-in .stuck {
+  max-width: 34rem; margin-top: 14px; padding: 12px 16px; font-size: 16px; line-height: 1.45;
+  background: #fdf3e0; border: 2px solid #d9a441; color: #6b4708; border-radius: 10px;
+}
 .called-in .reassure {
   max-width: 34rem; margin-top: 14px; font-size: 15px; line-height: 1.5; color: var(--muted);
+}
+
+
+/* ===============================================================
+   A PHONE, OR A SMALL TABLET HELD UPRIGHT
+   ---------------------------------------------------------------
+   Everything above is laid out for a 10" tablet lying flat on a
+   counter, which is what the chamber will use. It is not what gets
+   used to try the thing out: that is somebody's phone, about 360
+   points wide, and at that width two and three column grids of 24px
+   Bangla give you long words painted straight through their own
+   borders.
+   One column, and type that fits. Nothing here changes the tablet.
+   =============================================================== */
+@media (max-width: 700px) {
+  /* Answer buttons: one per row, always. Three 110px columns cannot
+     hold "আগের প্রেস্ক্রিপশনের ওষুধ" and never could. */
+  .answers.two, .answers.three { grid-template-columns: 1fr; }
+  .opt { font-size: 19px; min-height: 62px; padding: 12px 14px; overflow-wrap: anywhere; }
+  .opt.scale { min-height: 84px; font-size: 22px; }
+  .opt .en { font-size: 13px; }
+
+  /* Signing in, and photographing paper: same reasoning. */
+  .desk-people { grid-template-columns: 1fr; }
+  .paper-shots { grid-template-columns: 1fr; }
+
+  .prompt .bn { font-size: 26px; }
+  .prompt .en { font-size: 16px; }
+
+  .patient { min-height: 72px; padding: 12px 14px; gap: 12px; align-items: flex-start; }
+  .patient .serial { font-size: 28px; min-width: 44px; }
+  .patient .nm { font-size: 19px; }
+  .patient .sub { font-size: 14px; }
+  .patient .state { font-size: 12.5px; padding: 4px 9px; border-width: 2px; }
+
+  .topbar { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .topbar .who { font-size: 15px; flex-basis: 100%; }
+  .topbar .who small { font-size: 12px; }
+  .topbar .spacer { display: none; }
+  .topbar .conn { font-size: 12px; padding: 4px 10px; }
+  .topbar .lang { font-size: 14px; padding: 6px 12px; }
+  .called-in .serial { font-size: min(46vw, 220px); }
+  .called-in .name { font-size: 22px; }
+  .called-in .acts { flex-direction: column; align-items: stretch; }
+  .called-in .btn { min-width: 0; width: 100%; }
 }

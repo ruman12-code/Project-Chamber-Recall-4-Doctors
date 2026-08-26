@@ -68,6 +68,8 @@ interface Draft {
   /** Here to show a test the doctor asked for last time, so the
    *  questions about a new complaint are not asked at all. */
   reportsOnly: boolean;
+  /** Photographs of this patient's paper already taken today. */
+  attachmentCount: number;
 }
 
 interface ConsentConfig {
@@ -135,7 +137,8 @@ export function App() {
    *  they sent them. Takes the whole screen while it is set. */
   const [called, setCalled] = useState<
     (NonNullable<DeskSignal['inChamber']>
-      & { nextUp?: boolean; noAnswer?: number; onlyOneWaiting?: boolean }) | null>(null);
+      & { nextUp?: boolean; noAnswer?: number; onlyOneWaiting?: boolean;
+          flagged?: boolean; allFlaggedUnanswered?: boolean }) | null>(null);
   /** The last state of the room this tablet has already announced, so
    *  it announces a change rather than announcing every few seconds. */
   const announced = useRef<string | null>(null);
@@ -450,8 +453,18 @@ export function App() {
       answers: {}, presented: [], acknowledged: [], touchedAt: Date.now(),
       stage,
       reportsOnly: entry.visitKind === 'reports_only',
+      attachmentCount: entry.attachmentCount,
     });
     setFinished(false);
+    // A patient here only to show a report, whose paper has not been
+    // photographed yet, needs the camera and nothing else -- so open it
+    // straight away. If the pictures have ALREADY been taken, do not:
+    // reopening the camera every time somebody taps the name is how the
+    // assistant ends up with four photographs of the same page and no
+    // way back to the list.
+    setShowingPapers(
+      entry.visitKind === 'reports_only' && entry.attachmentCount === 0,
+    );
   }
 
   function decideConsent(
@@ -570,6 +583,7 @@ export function App() {
           nextUp={called.nextUp === true}
           noAnswer={called.noAnswer ?? 0}
           onlyOneWaiting={called.onlyOneWaiting === true}
+          stuckOnFlagged={called.allFlaggedUnanswered === true}
           silent={!chimeIsArmed()}
           bn={bn}
           onSent={() => setCalled(null)}
@@ -696,7 +710,20 @@ export function App() {
         <Consent part={consentConfig.research} bn={bn}
                  onDecide={(d, m, g) => decideConsent('research', d, m, g)} />
       ) : showingPapers && draft !== null ? (
-        <Papers visitId={draft.visitId} bn={bn} onDone={() => setShowingPapers(false)} />
+        <Papers visitId={draft.visitId} bn={bn} onDone={() => {
+          // A reports-only patient is finished the moment their paper
+          // is photographed -- there are no questions to come back to.
+          // So close the visit and go back to today's list, which is
+          // where the assistant needs to be: the next patient is
+          // standing at the counter. The list shows the count of papers
+          // under the name, which is the confirmation that it saved.
+          if (draft.reportsOnly && !finished) {
+            outbox.add('/api/intake/finish', { visitId: draft.visitId });
+            clearScreen();
+            return;
+          }
+          setShowingPapers(false);
+        }} />
       ) : draft.reportsOnly && !finished ? (
         // Here to show a test the doctor asked for last time. There is
         // no new complaint to ask about, and asking anyway would fill
@@ -710,8 +737,17 @@ export function App() {
               ? 'নতুন সমস্যার প্রশ্ন করা হবে না। কাগজগুলো ছবি তুলে রাখুন, ডাক্তার পর্দাতেই দেখতে পাবেন।'
               : 'No questions about a new complaint. Photograph the papers and the doctor sees them on his screen.'}
           </p>
+          {draft.attachmentCount > 0 && (
+            <p className="lede">
+              {bn
+                ? `এই রোগীর ${draft.attachmentCount}টি কাগজের ছবি আগেই তোলা হয়েছে।`
+                : `${draft.attachmentCount} photograph${draft.attachmentCount === 1 ? '' : 's'} of this patient's paper ${draft.attachmentCount === 1 ? 'has' : 'have'} already been taken.`}
+            </p>
+          )}
           <button className="btn" onClick={() => setShowingPapers(true)}>
-            {bn ? 'কাগজের ছবি তুলুন' : 'Photograph the reports'}
+            {draft.attachmentCount > 0
+              ? (bn ? 'আরও কাগজ যোগ করুন' : 'Add more paper')
+              : (bn ? 'কাগজের ছবি তুলুন' : 'Photograph the reports')}
           </button>
           <button className="btn quiet" onClick={finish}>
             {bn ? 'হয়ে গেছে' : 'Done'}

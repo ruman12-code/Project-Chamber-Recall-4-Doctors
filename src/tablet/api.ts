@@ -15,6 +15,11 @@ export interface DeskSignal {
     noAnswer: number;
     /** Nobody else is waiting, so there is nobody to move on to. */
     onlyOneWaiting: boolean;
+    /** A screening rule flagged this patient. */
+    flagged: boolean;
+    /** Every flagged patient waiting has been called with no answer.
+     *  The desk cannot move past them, and needs telling why. */
+    allFlaggedUnanswered: boolean;
   } | null;
   waiting: number;
   at: string;

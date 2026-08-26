@@ -43,6 +43,25 @@ export function signInList(db: Db): StaffMember[] {
   return rows(db, `WHERE pin_hash IS NOT NULL AND is_active = 1 AND deleted_at IS NULL`);
 }
 
+/**
+ * Who the TABLET offers to sign in. The front desk, and nobody else.
+ *
+ * The tablet is the front desk's -- it sits on their counter and it
+ * asks patients screening questions. The doctor and the clinical
+ * assistant work at the laptop, and offering their names on a screen
+ * in a waiting room is three wrong things at once: it invites somebody
+ * to sign in as the doctor, it puts the doctor's name in front of
+ * every patient who glances at the counter, and it is a list of PINs
+ * worth guessing. None of them can open this tablet offline either --
+ * see src/main/auth/offlinePin.ts -- so a name that cannot work is
+ * being offered as though it could.
+ */
+export function deskSignInList(db: Db): StaffMember[] {
+  return rows(db,
+    `WHERE pin_hash IS NOT NULL AND is_active = 1 AND deleted_at IS NULL
+       AND role = 'front_desk'`);
+}
+
 /** Everyone, including people who cannot sign in yet, for the doctor. */
 export function allStaff(db: Db): StaffMember[] {
   // The placeholder users from before sign-in existed are not people

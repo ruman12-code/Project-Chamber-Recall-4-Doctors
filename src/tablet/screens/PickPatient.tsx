@@ -45,19 +45,32 @@ export function PickPatient(
             onClick={() => onPick(entry)}
           >
             <span className="serial">{entry.serialNo}</span>
+            {/* Name, then age, then the badges -- all in one column that
+                is allowed to shrink. They used to sit in the row itself
+                with margin-left:auto, which is fine on a wide tablet and
+                paints the badges straight over the name on a phone. */}
             <span className="who">
               <span className="nm">{entry.nameBn ?? entry.nameEn}</span>
               <span className="sub">
                 {entry.ageYears === null ? (bn ? 'বয়স জানা নেই' : 'age not known') : `${entry.ageYears}`}
                 {entry.sex !== null && ` · ${entry.sex}`}
               </span>
+              <span className="states">
+                {entry.consent?.careRecord === 'declined' && (
+                  <span className="state">{bn ? 'অনুমতি দেননি' : 'said no'}</span>
+                )}
+                {entry.visitKind === 'reports_only'
+                  && <span className="state reports">{bn ? 'শুধু রিপোর্ট' : 'reports only'}</span>}
+                {entry.intakeCompleted && <span className="state done">{bn ? 'নেওয়া হয়েছে' : 'done'}</span>}
+                {/* The paper this patient already brought. Shown so the
+                    assistant can see it is done without opening it. */}
+                {entry.attachmentCount > 0 && (
+                  <span className="state papers">
+                    {bn ? `${entry.attachmentCount}টি কাগজ` : `${entry.attachmentCount} paper${entry.attachmentCount === 1 ? '' : 's'}`}
+                  </span>
+                )}
+              </span>
             </span>
-            {entry.consent?.careRecord === 'declined' && (
-              <span className="state">{bn ? 'অনুমতি দেননি' : 'said no'}</span>
-            )}
-            {entry.visitKind === 'reports_only'
-              && <span className="state reports">{bn ? 'শুধু রিপোর্ট' : 'reports only'}</span>}
-            {entry.intakeCompleted && <span className="state done">{bn ? 'নেওয়া হয়েছে' : 'done'}</span>}
             {!entry.intakeCompleted && entry.intakeStarted && entry.consent?.careRecord !== 'declined' &&
               <span className="state">{bn ? 'অসম্পূর্ণ' : 'part done'}</span>}
           </button>

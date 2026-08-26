@@ -88,6 +88,21 @@ export function todaysQueue(db: Db, chamberId: string, visitDate: string, asOf: 
 
   const noAnswer = noAnswerCounts(db, chamberId, visitDate);
 
+  // Photographs of the paper the patient brought today. Counted so the
+  // tablet stops pushing the camera at an assistant who has already
+  // taken them, and so the doctor can see there is something to look at.
+  const papers = new Map<string, number>(
+    (db.prepare(
+      `SELECT a.visit_id AS visitId, count(*) AS n
+         FROM attachment a
+         JOIN visit v ON v.id = a.visit_id
+        WHERE v.chamber_id = ? AND v.visit_date = ? AND v.deleted_at IS NULL
+          AND a.deleted_at IS NULL
+        GROUP BY a.visit_id`,
+    ).all(chamberId, visitDate) as Array<{ visitId: string; n: number }>)
+      .map((r) => [r.visitId, r.n]),
+  );
+
   const entries: QueueEntry[] = rows.map((row) => {
     const until = row.seenAt === null ? asOf.getTime() : new Date(row.seenAt).getTime();
     const screening = row.intakeId === null ? undefined : screeningByIntake.get(row.intakeId);
@@ -111,6 +126,7 @@ export function todaysQueue(db: Db, chamberId: string, visitDate: string, asOf: 
       lastVisitDate: row.lastVisitDate,
       redFlags: row.intakeId === null ? [] : flagsByIntake.get(row.intakeId) ?? [],
       calledNoAnswer: noAnswer.get(row.visitId) ?? 0,
+      attachmentCount: papers.get(row.visitId) ?? 0,
       intakeStarted: row.intakeId !== null,
       intakeCompleted: row.intakeCompletedAt !== null,
       screeningRan: screening?.ran ?? false,

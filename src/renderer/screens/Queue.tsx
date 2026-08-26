@@ -161,6 +161,13 @@ export function Queue(
     }
   }
 
+  // Who the desk is calling for, and who it has already called without
+  // an answer. Both come from the data layer; neither reorders anything.
+  const upNext = entries.find((e) => e.visitId === view.upNextVisitId);
+  const passedOver = entries.filter(
+    (e) => e.status === 'waiting' && e.calledNoAnswer > 0 && e.visitId !== view.upNextVisitId,
+  );
+
   return (
     <div className={embedded ? 'queue embedded' : 'queue'} tabIndex={0}
       onKeyDown={onKeyDown} onKeyDownCapture={onKeyDownCapture}>
@@ -222,6 +229,36 @@ export function Queue(
             && `${count('left')} left without being seen`}
           {(count('done') > 0 || count('left') > 0) && '.'}
           <button onClick={onSessionOver}>Finish here and choose a chamber</button>
+        </div>
+      )}
+
+      {/* Who is actually walking in next.
+          Not the first person on the list -- that stops being true the
+          moment the desk calls a number and nobody stands up. The desk
+          moves on; without this the doctor sits waiting for serial 1
+          while serial 2 is coming through the door.
+          Read from the same rule the tablet uses (upNext.ts), so the
+          two screens cannot say different things. */}
+      {upNext !== undefined && (
+        <div className="up-next">
+          {/* While somebody is in the room this is who follows them, and
+              it must not read as though it were the patient in front of
+              him. Two words, and the ambiguity is gone. */}
+          <span className="lbl">{count('in_chamber') > 0 ? 'After this one' : 'Next in'}</span>
+          <span className="sn">{upNext.serialNo}</span>
+          <span className="nm">{upNext.nameBn ?? upNext.nameEn ?? ''}</span>
+          {upNext.calledNoAnswer > 0 && (
+            <span className="why">
+              the desk has called this number {upNext.calledNoAnswer}× already
+            </span>
+          )}
+          {passedOver.length > 0 && (
+            <span className="why">
+              {passedOver.map((e) => e.serialNo).join(', ')}{' '}
+              {passedOver.length === 1 ? 'was' : 'were'} called and did not come —{' '}
+              still waiting, still on this list
+            </span>
+          )}
         </div>
       )}
 

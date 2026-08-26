@@ -24,6 +24,7 @@ import type { PatientSearchResult, RegisterPatientInput, MergePreview } from '..
 import { registerArrival, setVisitStatus } from './queue/register';
 import { todaysQueue, moveInQueue, activeChamberId, setActiveChamber, chambers } from './queue/queue';
 import type { QueueView, VisitStatus } from '../shared/queue';
+import { upNextInChamber } from './queue/upNext';
 import { startTabletServer, DEFAULT_PORT, type RunningServer } from './server/server';
 import { pairedDevices, revokeDevice, setDeviceChamber } from './server/pairing';
 import { unassignedActor, laptopRole, setLaptopRole, laptopActor, type UnassignedRole } from './db/users';
@@ -323,6 +324,11 @@ function registerHandlers(): void {
         visitDate: localDate(),
         chambers: all,
         entries: chamberId === null ? [] : todaysQueue(db, chamberId, localDate()),
+        // Who the front desk is calling for right now. The same rule
+        // the tablet uses, read from the same place, so the two screens
+        // cannot tell the doctor and the assistant different things.
+        upNextVisitId: chamberId === null ? null
+          : upNextInChamber(db, chamberId, localDate())?.visitId ?? null,
       },
     };
   });

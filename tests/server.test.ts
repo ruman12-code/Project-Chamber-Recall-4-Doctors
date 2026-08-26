@@ -326,11 +326,23 @@ describe('signing in at the front desk', () => {
 
   test('the tablet is told who may sign in, and never anything to sign in with', async () => {
     const body = await session();
-    const people = body.people as Array<Record<string, unknown>>;
-    assert.equal(people.length, 2);
     const raw = JSON.stringify(body);
     assert.ok(!raw.includes('pin_hash') && !raw.includes('pin_salt') && !raw.includes('6172'),
       'nothing that could be used to sign in as somebody may cross the wifi');
+  });
+
+  test('the tablet offers the front desk and nobody else', async () => {
+    const body = await session();
+    const people = body.people as Array<{ displayName: string; role: string }>;
+    // The tablet sits on the front desk's counter, in a waiting room.
+    // Offering the doctor's name there invites somebody to sign in as
+    // him, puts his name in front of every patient at the counter, and
+    // advertises a PIN worth guessing. None of them can open the tablet
+    // without the laptop either, so the name would not even work.
+    assert.deepEqual([...new Set(people.map((p) => p.role))], ['front_desk']);
+    assert.ok(people.length > 0, 'the front desk has to be able to sign in');
+    const names = JSON.stringify(people);
+    assert.ok(!/doctor|assistant/i.test(names), 'a clinical name reached the waiting room');
   });
 
   test('a tablet nobody has signed in on cannot write', async () => {

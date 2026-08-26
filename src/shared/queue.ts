@@ -53,6 +53,14 @@ export interface QueueEntry {
    * and decide, which is a decision only he makes.
    */
   calledNoAnswer: number;
+  /**
+   * Photographs of the paper this patient brought today.
+   *
+   * Here so that neither screen has to guess: the tablet stops shoving
+   * the camera at an assistant who has already taken the pictures, and
+   * the doctor can see there is something to look at.
+   */
+  attachmentCount: number;
   intakeStarted: boolean;
   intakeCompleted: boolean;
   screeningRan: boolean;
@@ -60,6 +68,16 @@ export interface QueueEntry {
 }
 
 export interface QueueView {
+  /**
+   * Who the front desk is calling for right now.
+   *
+   * Not a reordering -- nobody's serial or place changes, ever. It is
+   * the answer to "who is actually walking in next", which stops being
+   * "the first person waiting" the moment the desk calls a number and
+   * nobody stands up. The doctor needs it at the top of his screen so
+   * he knows serial 1 is not coming and serial 2 is.
+   */
+  upNextVisitId: string | null;
   chamberId: string | null;
   chamberName: string | null;
   visitDate: string;

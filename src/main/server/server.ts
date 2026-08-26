@@ -27,7 +27,7 @@ import { consentAudioDir } from '../paths';
 import { PairingDesk, deviceForToken, PairingLockedError } from './pairing';
 import { unassignedActor } from '../db/users';
 import { signIn as verifySignIn, actorOf, SignInError, type SignedIn } from '../auth/session';
-import { signInList, needsSetup } from '../auth/staff';
+import { deskSignInList, needsSetup } from '../auth/staff';
 import { deskKeys, deskPeopleWithoutOfflineKeys } from '../auth/offlinePin';
 import { searchPatients } from '../patients/search';
 import { buildDirectory } from '../patients/directory';
@@ -329,7 +329,8 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
         // offline-only verifier is a separate route with its own
         // reasoning -- see /api/desk-keys below. Nothing that opens a
         // record is in either.)
-        people: signInList(db).map((p) => ({ id: p.id, displayName: p.displayName, role: p.role })),
+        // The front desk, and nobody else. See deskSignInList.
+        people: deskSignInList(db).map((p) => ({ id: p.id, displayName: p.displayName, role: p.role })),
         signedIn: atTheDesk === null ? null
           : { id: atTheDesk.id, displayName: atTheDesk.displayName, role: atTheDesk.role },
         signInRequired: !beforeSetup,

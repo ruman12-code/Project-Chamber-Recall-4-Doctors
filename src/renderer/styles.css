@@ -973,6 +973,25 @@ button.linkish:hover { color: var(--ink); }
    and this is information for the doctor, not an alarm. */
 .qtag.noanswer { background: #fdf3e0; border-color: #d9a441; color: #6b4708; }
 
+/* Who is actually walking in next. Sits above the list because the
+   doctor looks up when the door opens, not down. Quiet on purpose --
+   it is the ordinary state of an evening, not an alarm. */
+.up-next {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px;
+  border: 1px solid var(--line); border-left: 5px solid var(--ink);
+  border-radius: 8px; background: var(--paper);
+  padding: 10px 16px; margin-bottom: 10px;
+}
+.up-next .lbl {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.up-next .sn { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.up-next .nm { font-size: 18px; font-weight: 700; }
+.up-next .why {
+  flex-basis: 100%; font-size: 13px; color: var(--muted);
+}
+
 /* ---- Which chamber am I in? ------------------------------------------
    The first screen after signing in. Two cards, as large as the screen
    allows, because this is answered from across a desk while taking a

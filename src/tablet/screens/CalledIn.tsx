@@ -31,7 +31,7 @@
  */
 export function CalledIn(
   { serialNo, nameBn, nameEn, outOfTurn, nextUp, noAnswer, onlyOneWaiting,
-    silent, bn, onSent, onNoAnswer }: {
+    stuckOnFlagged, silent, bn, onSent, onNoAnswer }: {
     serialNo: number;
     nameBn: string | null;
     nameEn: string | null;
@@ -48,6 +48,13 @@ export function CalledIn(
     noAnswer: number;
     /** Nobody else is waiting, so there is nobody to move on to. */
     onlyOneWaiting: boolean;
+    /**
+     * Every patient a rule flagged has been called and none of them
+     * came. The desk cannot be moved past them -- a flagged patient is
+     * never called after an unflagged one -- so the tablet says so
+     * rather than looking as though it ignored the tap.
+     */
+    stuckOnFlagged: boolean;
     /** The tablet cannot make a noise yet, so the screen has to say so. */
     silent: boolean;
     bn: boolean;
@@ -108,7 +115,15 @@ export function CalledIn(
       {/* What that button will actually do, before it is pressed. The
           assistant has to be able to press it without wondering whether
           they are about to send somebody home. */}
-      {onNoAnswer !== undefined && (
+      {onNoAnswer !== undefined && stuckOnFlagged && (
+        <div className="stuck">
+          {bn
+            ? 'যাঁদের স্ক্রিনিংয়ে সতর্কতা এসেছে তাঁদের সবাইকে ডাকা হয়েছে, কেউ সাড়া দেননি। এঁদের আগে অন্য কাউকে ডাকা হবে না। ডাক্তারকে জানান।'
+            : 'Everybody whose screening raised a warning has been called and none of them came. Nobody else will be called before them. Tell the doctor.'}
+        </div>
+      )}
+
+      {onNoAnswer !== undefined && !stuckOnFlagged && (
         <div className="reassure">
           {onlyOneWaiting
             ? (bn

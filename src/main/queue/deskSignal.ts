@@ -30,13 +30,13 @@
 // and asking for "the first person waiting" would hand the desk the
 // same empty chair for the rest of the evening.
 //
-// So next is: the waiting patient called the FEWEST times with no
-// answer, and among those, the one furthest up the queue. The desk
-// walks down the room, everybody gets a second call before anybody
-// gets a third, and somebody who was outside on the phone comes back
-// round rather than being dropped.
+// The rule itself lives in src/main/queue/upNext.ts and the DOCTOR's
+// list reads the very same function. That is deliberate: the one thing
+// worse than the desk calling the wrong number is the desk and the
+// doctor each being told a different number.
 import type { Db } from '../db/open';
 import { noAnswerCounts } from './noAnswer';
+import { pickUpNext } from './upNext';
 
 export interface DeskSignal {
   /** Who is with the doctor now. Null between patients. */
@@ -69,26 +69,27 @@ export function deskSignal(db: Db, chamberId: string, visitDate: string): DeskSi
   const rows = db.prepare(
     `SELECT v.id AS visitId, v.serial_no AS serialNo, v.status,
             COALESCE(v.queue_position, v.serial_no) AS pos,
-            p.full_name_bn AS nameBn, p.full_name_en AS nameEn
+            p.full_name_bn AS nameBn, p.full_name_en AS nameEn,
+            EXISTS (SELECT 1 FROM intake i
+                      JOIN red_flag_event e ON e.intake_id = i.id
+                     WHERE i.visit_id = v.id) AS flaggedInt
        FROM visit v JOIN patient p ON p.id = v.patient_id
       WHERE v.chamber_id = ? AND v.visit_date = ? AND v.deleted_at IS NULL
       ORDER BY pos`,
   ).all(chamberId, visitDate) as Array<{
     visitId: string; serialNo: number; status: string; pos: number;
-    nameBn: string | null; nameEn: string | null;
+    nameBn: string | null; nameEn: string | null; flaggedInt: number;
   }>;
 
-  const waiting = rows.filter((r) => r.status === 'waiting');
+  const waiting = rows.filter((r) => r.status === 'waiting')
+    .map((r) => ({ ...r, flagged: r.flaggedInt === 1 }));
   const called = rows.find((r) => r.status === 'in_chamber') ?? null;
 
-  // Fewest unanswered calls first, then queue order. Nobody is moved
-  // and nothing is skipped: this is only which of the people already
-  // waiting the desk should shout for next.
+  // The shared rule -- see upNext.ts. Nobody is moved and nothing is
+  // skipped: this is only which of the people already waiting the desk
+  // should shout for next, and the doctor's screen is told the same.
   const noAnswer = noAnswerCounts(db, chamberId, visitDate);
-  const upNext = [...waiting].sort((a, b) => {
-    const byCalls = (noAnswer.get(a.visitId) ?? 0) - (noAnswer.get(b.visitId) ?? 0);
-    return byCalls !== 0 ? byCalls : a.pos - b.pos;
-  })[0] ?? null;
+  const upNext = pickUpNext(waiting, noAnswer);
 
   return {
     inChamber: called === null ? null : {
@@ -98,14 +99,7 @@ export function deskSignal(db: Db, chamberId: string, visitDate: string): DeskSi
       nameEn: called.nameEn,
       outOfTurn: waiting.some((w) => w.pos < called.pos),
     },
-    nextWaiting: upNext === null ? null : {
-      visitId: upNext.visitId,
-      serialNo: upNext.serialNo,
-      nameBn: upNext.nameBn,
-      nameEn: upNext.nameEn,
-      noAnswer: noAnswer.get(upNext.visitId) ?? 0,
-      onlyOneWaiting: waiting.length === 1,
-    },
+    nextWaiting: upNext,
     waiting: waiting.length,
     // Not a clock reading: a fingerprint of the answer. Two identical
     // situations give the same string, so the tablet announces a change
@@ -117,7 +111,7 @@ export function deskSignal(db: Db, chamberId: string, visitDate: string): DeskSi
       // A second unanswered call on the same person IS news -- it is
       // what moves the screen on -- so the count is part of the
       // fingerprint even though the name has not changed.
-      String(upNext === null ? 0 : noAnswer.get(upNext.visitId) ?? 0),
+      String(upNext?.noAnswer ?? 0),
     ].join('|'),
   };
 }

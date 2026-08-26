@@ -1876,6 +1876,100 @@ and that patient does not appear, that is news for him -- he is sitting
 in an empty room waiting for them -- not something for the desk to
 quietly move past.
 
+### 123. The desk's calling order ignored the red flags. That was the bug.
+
+Found on a real phone, in a screenshot, and it is the worst thing this
+project has done to date.
+
+The doctor's list has always sorted flagged patients above unflagged
+ones, with a comment saying no control anywhere reverses it. When the
+front desk got its own "who is next" -- for the bell, and then for the
+next-patient screen -- that rule was written fresh, from calls and
+queue position, and it did not look at the flag at all.
+
+So the laptop showed three SEE SOONER patients at the top, and the
+tablet was about to have the assistant shout serial 9 across the
+waiting room. A patient a screening rule had escalated would have been
+called after patients it had not. That is de-escalation. It is the one
+thing the brief forbids outright, and it happened in the one place
+nobody thinks of as clinical: the order a number is called in.
+
+Three things came out of it:
+
+**One rule, one file, both screens.** `src/main/queue/upNext.ts` holds
+the ordering and the desk signal and the doctor's list both call it.
+There is now nothing to disagree with.
+
+**The flag is the outer key**, exactly as on the doctor's list: flagged
+before unflagged, then fewest unanswered calls, then queue position.
+Not answering can never demote anybody, which is tested directly.
+
+**`flagged` is not optional on the row type.** When it was added the
+compiler pointed straight at the second caller that had not been
+updated. A boolean that defaults to false is a flag that quietly
+becomes "not urgent", so there is no default.
+
+### 124. A flagged patient who does not answer stops the desk, and says so
+
+The rule above has a consequence worth stating: because a flagged
+patient is never called after an unflagged one, a flagged patient who
+is not in the room blocks the calling order. "Nobody came" stops moving
+things on.
+
+That is the correct way round -- the alternative is a rule that drops
+an escalation because somebody was in the toilet -- but a screen that
+appears to ignore a tap is its own failure. So when every flagged
+patient waiting has been called with no answer, the tablet says exactly
+that, and says to tell the doctor. The desk is not stuck; it has run
+out of moves the software is allowed to make, and the next move is a
+person's.
+
+### 125. The tablet offers the front desk and nobody else
+
+The sign-in screen listed everybody with a PIN, doctors included. On a
+screen that sits on a counter in a waiting room that is three wrong
+things at once: it invites somebody to sign in as the doctor, it puts
+his name in front of every patient who glances down, and it advertises
+which PINs are worth guessing.
+
+It was also a lie by then. Since the offline PIN work, only front desk
+verifiers are ever sent to a tablet -- so the doctor's name was being
+offered on a screen that could not have let him in.
+
+### 126. Everything was laid out for a tablet, and got tried on a phone
+
+The chamber will use a 10" tablet flat on a counter. What actually gets
+used to try the thing out is somebody's phone, about 360 points wide,
+and at that width the two and three column answer grids gave 110px
+cells to 24px Bangla. Long words painted straight through their own
+borders. The patient rows were worse: the badges sat in the row with
+`margin-left: auto` and printed over the patient's name.
+
+One media query, one column, type that fits, and the badges moved to
+wrap under the name instead of sharing the row.
+
+The row heights turned up a real bug underneath. `.patient-list` is a
+flex column, so a row will happily be squeezed shorter than its own
+contents; `min-height: 86px` had been hiding that at tablet width for
+months. `flex-shrink: 0` is the actual fix and it was always needed.
+
+### 127. The camera is opened when there is nothing to photograph, and never after
+
+A patient here only to show a report went to the camera, and went back
+to the camera every time the assistant tapped their name -- with no way
+to today's list except finishing an intake that does not exist for
+them. Four photographs of the same page and a stuck screen.
+
+Now: the camera opens by itself only when that patient has no paper
+photographed yet. Once there is something, the name opens the ordinary
+screen with a count of what is already there and a button to add more.
+And photographing a reports-only patient's paper finishes the visit and
+goes back to today's list, because the next patient is at the counter.
+
+The count of photographs is on the patient's row on both screens, which
+is the confirmation the assistant needs and the signal the doctor
+needs.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere
