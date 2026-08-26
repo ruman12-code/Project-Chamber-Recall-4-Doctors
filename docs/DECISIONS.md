@@ -2112,6 +2112,30 @@ still be explained a year later.
 The same reasoning gave the chambers a rename in decision 132. It
 should have given one to the people at the same time.
 
+### 134. The program knew where the records were and never said so
+
+He was told to delete the data folder to start again, and could not
+find it. Two reasons, and only one of them was his.
+
+The path given to him was wrong -- "Chamber Recall" rather than
+"chamber-recall". Electron names the folder from the app's internal
+`name`, and electron-builder's `productName` never reaches the packaged
+package.json. INSTALL-WINDOWS.md had it right all along; the wrong
+version was written from memory instead of read.
+
+The other reason is the software's. `InstallationStatus.dataDir` has
+always carried the real path to the window, and no screen has ever
+displayed it. On Windows the folder sits inside AppData, which Explorer
+hides, so a person who is not told the exact path cannot find it by
+looking. That folder is needed for a backup, for moving to a
+replacement laptop, and for starting the practice data over -- three
+things the pilot depends on.
+
+"Where the records are kept" now sits under Everything else: the path,
+selectable, and a button that opens the folder. The one thing this
+program stores lives in one folder, which was always the design; it
+just never said which one.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

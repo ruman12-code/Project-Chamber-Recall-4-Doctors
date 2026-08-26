@@ -973,6 +973,15 @@ button.linkish:hover { color: var(--ink); }
    and this is information for the doctor, not an alarm. */
 .qtag.noanswer { background: #fdf3e0; border-color: #d9a441; color: #6b4708; }
 
+/* A path is read character by character and often typed somewhere else,
+   so it gets a box, a monospace face, and permission to wrap anywhere
+   rather than running off the side of the card. */
+.datadir code {
+  display: block; background: var(--page, #f3f5f8); border: 1px solid var(--line);
+  border-radius: 6px; padding: 10px 12px; font-size: 14px;
+  overflow-wrap: anywhere; user-select: all;
+}
+
 /* Who is actually walking in next. Sits above the list because the
    doctor looks up when the door opens, not down. Quiet on purpose --
    it is the ordinary state of an evening, not an alarm. */

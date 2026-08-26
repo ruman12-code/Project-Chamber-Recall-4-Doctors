@@ -209,6 +209,7 @@ export const CHANNELS = {
   homePanels: 'home:panels',
   homePanelsSet: 'home:panelsSet',
   /** The chambers, as the doctor sees them when he sits down. */
+  openDataFolder: 'app:openDataFolder',
   chamberCards: 'chambers:cards',
   chamberRename: 'chambers:rename',
   chamberSetLogo: 'chambers:setLogo',

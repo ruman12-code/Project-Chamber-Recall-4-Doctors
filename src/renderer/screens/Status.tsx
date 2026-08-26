@@ -51,6 +51,14 @@ export function Status() {
   const [panels, setPanels] = useState<string[] | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [showingMore, setShowingMore] = useState(false);
+  /** Where the records are kept on this laptop. Asked for once. */
+  const [dataDir, setDataDir] = useState<string | null>(null);
+  useEffect(() => {
+    void (async () => {
+      const { value } = unwrap(await api.status());
+      setDataDir(value?.status.dataDir ?? null);
+    })();
+  }, []);
   /**
    * Which chamber the doctor said he is in, this session. Null means
    * the question has not been answered yet and the chamber cards are
@@ -516,6 +524,27 @@ export function Status() {
         </p>
         <button onClick={() => setFindingPatient(true)}>Find a patient</button>
       </div>}
+
+      {/* The folder the records live in.
+          The program has always known this and never said it, so the
+          only way to find it was to be told -- and on Windows it sits
+          inside AppData, which Explorer hides. It is needed for a
+          backup, for moving to a replacement laptop, and for starting
+          the practice data over. */}
+      {showingMore && dataDir !== null && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Where the records are kept</h2>
+          <p>
+            Everything this program stores is in this one folder — the records, the key
+            file, and the photographs. Copying this folder copies the whole installation.
+          </p>
+          <p className="datadir"><code>{dataDir}</code></p>
+          <button onClick={() => { void api.openDataFolder(); }}>Open this folder</button>
+          <p className="muted" style={{ marginBottom: 0 }}>
+            Close this program before copying, moving or deleting anything in there.
+          </p>
+        </div>
+      )}
 
       {(pinned('who_works_here') || showingMore) && role === 'doctor' && (
         <div className="card">

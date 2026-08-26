@@ -1,7 +1,7 @@
 // ===================================================================
 // The application process.
 // ===================================================================
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, extname } from 'node:path';
@@ -879,6 +879,17 @@ function registerHandlers(): void {
   handle<Record<string, never>>(CHANNELS.pinResetAcknowledge, () => {
     if (db === null) throw new Error('a notice was acknowledged before the database was unlocked');
     acknowledgePinReset(db, atTheLaptop());
+    return {} as Record<string, never>;
+  });
+
+  // Where the records actually are. The program has always known this
+  // and never said it, so the only way to find the folder was to be
+  // told the path by somebody -- and the folder is inside AppData,
+  // which Windows hides. It is needed for a backup, for moving to a
+  // replacement laptop, and for starting the practice data again.
+  handleAsync<Record<string, never>>(CHANNELS.openDataFolder, async () => {
+    const problem = await shell.openPath(installDir);
+    if (problem !== '') throw new Error(problem);
     return {} as Record<string, never>;
   });
 

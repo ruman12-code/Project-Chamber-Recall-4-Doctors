@@ -77,6 +77,7 @@ interface Api {
   spareKeyReset(spareKey: string, userId: string, newPin: string):
     Promise<Result<{ displayName: string; using: string }>>;
   pinResetAcknowledge(): Promise<Result<Record<string, never>>>;
+  openDataFolder(): Promise<Result<Record<string, never>>>;
   chamberCards(): Promise<Result<{ chambers: ChamberCardView[] }>>;
   staffRename(userId: string, displayName: string): Promise<Result<Record<string, never>>>;
   chamberRename(chamberId: string, name: string): Promise<Result<Record<string, never>>>;
@@ -173,6 +174,7 @@ export const api: Api = {
   spareKeyPeople: (spareKey) => call((a) => a.spareKeyPeople(spareKey)),
   spareKeyReset: (spareKey, userId, newPin) => call((a) => a.spareKeyReset(spareKey, userId, newPin)),
   pinResetAcknowledge: () => call((a) => a.pinResetAcknowledge()),
+  openDataFolder: () => call((a) => a.openDataFolder()),
   chamberCards: () => call((a) => a.chamberCards()),
   staffRename: (userId: string, displayName: string) => call((a) => a.staffRename(userId, displayName)),
   chamberRename: (chamberId: string, name: string) => call((a) => a.chamberRename(chamberId, name)),

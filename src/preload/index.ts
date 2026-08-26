@@ -175,6 +175,8 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('chambers:setLogo', chamberId),
   chamberClearLogo: (chamberId: string): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('chambers:clearLogo', chamberId),
+  openDataFolder: (): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('app:openDataFolder'),
   chamberCards: (): Promise<Result<{ chambers: ChamberCardView[] }>> =>
     ipcRenderer.invoke('chambers:cards'),
   homePanels: (): Promise<Result<{ panels: string[] }>> =>
