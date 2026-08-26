@@ -126,7 +126,12 @@ export function PatientSearch(
         ) : results.map((result, index) => (
           <div
             key={result.id}
-            className={`result ${index === active ? 'active' : ''} ${pickedForMerge.includes(result.id) ? 'picked' : ''}`}
+            // The row is a grid with a fixed set of columns. The pick
+            // button is a SEVENTH child, so without a column for it the
+            // browser wraps it onto a second implicit row -- into the
+            // 34px checkbox column, where "Give a serial" came out three
+            // letters wide. The class adds the column it needs.
+            className={`result ${onPick !== undefined ? 'pickable' : ''} ${index === active ? 'active' : ''} ${pickedForMerge.includes(result.id) ? 'picked' : ''}`}
             onClick={() => setActive(index)}
           >
             <input
@@ -159,7 +164,7 @@ export function PatientSearch(
                 : <>{result.lastVisitDate}<div className="dim">{result.lastChamberName}</div></>}
             </div>
             {onPick !== undefined && (
-              <button onClick={(e) => { e.stopPropagation(); onPick(result); }} style={{ margin: 0, padding: '9px 14px', fontSize: 14 }}>
+              <button className="pick" onClick={(e) => { e.stopPropagation(); onPick(result); }}>
                 {pickLabel ?? 'Choose'}
               </button>
             )}

@@ -232,36 +232,12 @@ export function Queue(
         </div>
       )}
 
-      {/* Who is actually walking in next.
-          Not the first person on the list -- that stops being true the
-          moment the desk calls a number and nobody stands up. The desk
-          moves on; without this the doctor sits waiting for serial 1
-          while serial 2 is coming through the door.
-          Read from the same rule the tablet uses (upNext.ts), so the
-          two screens cannot say different things. */}
-      {upNext !== undefined && (
-        <div className="up-next">
-          {/* While somebody is in the room this is who follows them, and
-              it must not read as though it were the patient in front of
-              him. Two words, and the ambiguity is gone. */}
-          <span className="lbl">{count('in_chamber') > 0 ? 'After this one' : 'Next in'}</span>
-          <span className="sn">{upNext.serialNo}</span>
-          <span className="nm">{upNext.nameBn ?? upNext.nameEn ?? ''}</span>
-          {upNext.calledNoAnswer > 0 && (
-            <span className="why">
-              the desk has called this number {upNext.calledNoAnswer}× already
-            </span>
-          )}
-          {passedOver.length > 0 && (
-            <span className="why">
-              {passedOver.map((e) => e.serialNo).join(', ')}{' '}
-              {passedOver.length === 1 ? 'was' : 'were'} called and did not come —{' '}
-              still waiting, still on this list
-            </span>
-          )}
-        </div>
-      )}
-
+      {/* There is no banner here any more.
+          It repeated the top row of the list word for word -- with one
+          patient waiting, the same serial and the same name twice on
+          one screen. Who is next is a fact ABOUT a row, so it is marked
+          ON that row instead, and the list stays the single place the
+          doctor reads. See the NEXT IN mark in QueueRow. */}
       {justAdded !== null && (
         <div className="banner" style={{ marginBottom: 0 }}>
           Serial {justAdded.serialNo} given. Tell the patient their number.
@@ -305,6 +281,7 @@ export function Queue(
             onSelect={() => setSelected(index)}
             onOpenCard={onOpenCard === undefined ? undefined : () => onOpenCard(entry.visitId)}
             onRecord={onRecord === undefined ? undefined : () => onRecord(entry.visitId)}
+            upNext={entry.visitId === view.upNextVisitId}
             onMove={(direction) => { void act(api.queueMove(entry.visitId, direction)); }}
             onStatus={(status) => {
           // A patient the questions flagged cannot be taken off the
@@ -334,8 +311,16 @@ export function Queue(
 }
 
 function Row(
-  { entry, selected, canMoveUp, canMoveDown, onSelect, onOpenCard, onRecord, onMove, onStatus }: {
+  { entry, selected, canMoveUp, canMoveDown, upNext, onSelect, onOpenCard, onRecord, onMove, onStatus }: {
     entry: QueueEntry; selected: boolean; canMoveUp: boolean; canMoveDown: boolean;
+    /**
+     * The person the front desk is calling for right now. Marked on the
+     * row rather than repeated in a banner above the list: it is a fact
+     * about this patient, and the list is where the doctor reads.
+     * Worked out by the same rule the tablet uses -- see upNext.ts -- so
+     * the two screens cannot name different people.
+     */
+    upNext: boolean;
     onSelect: () => void; onOpenCard?: () => void; onRecord?: () => void;
     onMove: (d: 'up' | 'down') => void; onStatus: (s: QueueEntry['status']) => void;
   },
@@ -346,10 +331,16 @@ function Row(
 
   return (
     <div
-      className={`qrow ${entry.status} ${flagged ? 'flagged' : ''} ${selected ? 'selected' : ''}`}
+      className={`qrow ${entry.status} ${flagged ? 'flagged' : ''} ${selected ? 'selected' : ''} ${upNext ? 'upnext' : ''}`}
       onClick={onSelect}
     >
-      <div className="serial"><small>serial</small>{entry.serialNo}</div>
+      <div className="serial">
+        <small>serial</small>{entry.serialNo}
+        {/* Who is walking in next. It moves down the list on its own
+            when the desk calls a number and nobody comes, so the doctor
+            reads one list and always knows who is at the door. */}
+        {upNext && <span className="nextin">NEXT IN</span>}
+      </div>
 
       <div className="who">
         <div className="n">{name}{altName !== null && <span className="alt">{altName}</span>}</div>

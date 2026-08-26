@@ -165,6 +165,12 @@ function registerHandlers(): void {
   handle<{ recoveryKey: string }>(CHANNELS.create, (passphrase: string, mode: 'demo' | 'live') => {
     const created = provision(installDir, passphrase, mode);
     db = created.db;
+    // The same thing unlocking does. Without this, the tablet server
+    // never starts for the whole of the FIRST session after a database
+    // is created -- the one session where somebody is most likely to be
+    // setting the tablet up. It came back after a restart, which is
+    // exactly the kind of bug that gets called "it just did not work".
+    void startTabletServing();
     return { recoveryKey: created.recoveryKey };
   });
 

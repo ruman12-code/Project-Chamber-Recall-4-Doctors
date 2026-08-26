@@ -2136,6 +2136,63 @@ selectable, and a button that opens the folder. The one thing this
 program stores lives in one folder, which was always the design; it
 just never said which one.
 
+### 135. The tablet server never started on the first evening
+
+Creating a database and unlocking one both leave the program with an
+open database, and only unlocking started the tablet server. So the
+tablet could not be reached for the whole of the FIRST session after a
+database was created -- which is the one session where somebody is
+setting the tablet up. It came back after restarting the program, which
+is exactly the shape of a bug that gets reported as "it just did not
+work".
+
+One line: the provision handler starts the server too. Found by doing
+what he did -- new database, fill the practice data, look at the tablet
+panel -- rather than by reading the code.
+
+### 136. A screen that renders the set-up screens cannot read its own
+### counts once
+
+"What is in the database" showed no patients, two fewer chambers than
+exist, three users and three audit entries, on a database holding 312
+patients and 4,757 audit rows. Those numbers were not wrong: they were
+the state immediately after the database was created.
+
+Status.tsx renders the set-up screens FROM INSIDE ITSELF. So it was
+already mounted, and had already read its summary, before the practice
+database was filled -- and the read was on mount, once. It never ran
+again for the rest of the session.
+
+The summary is now re-read whenever who is signed in changes, and
+explicitly when the set-up screens hand control back. A count with no
+way of being refreshed is worse than no count: it is confidently wrong.
+
+### 137. A grid row with more children than columns
+
+The patient search row is a six-column grid with six children. The
+"Give a serial" button is a SEVENTH child, added only when the search
+is being used to put somebody on today's list -- so the browser wrapped
+it onto a second implicit row, into the 34-pixel checkbox column, where
+it rendered three letters wide. It never showed up in the plain "find a
+patient" search, which has six children and looks perfect.
+
+The row gets a seventh column when the button is there. The lesson is
+narrower than "test the CSS": a fixed-column grid whose children are
+conditional is a layout with two shapes, and only one of them had ever
+been looked at.
+
+### 138. NEXT IN belongs on the row, not above the list
+
+The banner naming the next patient sat above today's list and repeated
+what the first row already said. With one patient waiting it printed
+the same serial and the same name twice on one screen.
+
+Who is next is a fact ABOUT a patient, so it is marked ON that
+patient's row. The list stays the one place the doctor reads, and the
+mark moves down it by itself when the desk calls a number and nobody
+comes. Same rule underneath, same answer as the tablet -- what went
+away was the duplication, not the information.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

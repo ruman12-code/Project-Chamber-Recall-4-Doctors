@@ -111,13 +111,22 @@ export function Status() {
     panels !== null && panels.includes(id) && role !== null
     && panelsForRole(role).some((p) => p.id === id);
 
-  useEffect(() => {
-    void (async () => {
-      const { value, failure } = unwrap(await api.summary());
-      if (failure) { setFailure(failure); return; }
-      setSummary(value!.summary);
-    })();
+  /**
+   * What is in the database.
+   *
+   * Re-read whenever who is signed in changes, NOT once on mount. This
+   * screen renders the set-up screens from inside itself, so it is
+   * already mounted while the practice database is being filled -- and
+   * a summary read once showed the counts from before the fill for the
+   * rest of the session. Three users, no patients, on a database with
+   * three hundred of them.
+   */
+  const readSummary = useCallback(async () => {
+    const { value, failure } = unwrap(await api.summary());
+    if (failure) { setFailure(failure); return; }
+    setSummary(value!.summary);
   }, []);
+  useEffect(() => { void readSummary(); }, [readSummary, auth]);
 
   useEffect(() => {
     // The pairing code changes when a tablet is paired, so this is
@@ -234,7 +243,9 @@ export function Status() {
   // writes a record with nobody's name on it.
   if (auth === null) return <div className="page"><p className="muted">Reading…</p></div>;
   if (auth.needsSetup || showingPeople) {
-    return <SetUpPeople demo={summary.dataMode === 'demo'} onDone={async () => { setShowingPeople(false); await readAuth(); }} />;
+    return <SetUpPeople demo={summary.dataMode === 'demo'} onDone={async () => {
+      setShowingPeople(false); await readSummary(); await readAuth();
+    }} />;
   }
   if (auth.signedIn === null) {
     return <SignIn demo={summary.dataMode === 'demo'} onSignedIn={readAuth} />;

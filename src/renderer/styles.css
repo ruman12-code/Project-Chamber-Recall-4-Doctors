@@ -389,7 +389,15 @@ table.vitals th, table.vitals td { padding: 1px 5px; }
    paper book, and it happens with a patient standing in front of
    them, so it is large, always focused, and answers as they type.
    =============================================================== */
-.patients { position: fixed; inset: 0; display: flex; flex-direction: column; padding: 14px 18px; gap: 10px; overflow: hidden; }
+/* Covers the viewport, so it needs a ground of its own and a place in
+   the stack. Without them the home screen showed straight through it --
+   the practice banner and the header strip printed across the search
+   results, which reads as two screens at once. */
+.patients {
+  position: fixed; inset: 0; z-index: 50;
+  background: var(--page, #f3f5f8);
+  display: flex; flex-direction: column; padding: 14px 18px; gap: 10px; overflow: hidden;
+}
 .patients-head { display: flex; align-items: center; gap: 14px; }
 .patients-head h1 { font-size: 22px; margin: 0; }
 .patients-head .spacer { flex: 1; }
@@ -407,6 +415,14 @@ table.vitals th, table.vitals td { padding: 1px 5px; }
   display: grid; grid-template-columns: 34px 1fr 130px 140px 90px 190px;
   gap: 10px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--line);
   cursor: pointer;
+}
+/* With a pick button there is one more child than there are columns
+   above, and a grid puts the extra one on a new row -- in the 34px
+   checkbox column. So the button gets a column of its own, and the
+   data columns give up the width for it. */
+.result.pickable { grid-template-columns: 34px 1fr 118px 128px 78px 150px 132px; }
+.result .pick {
+  margin: 0; padding: 9px 12px; font-size: 14px; white-space: nowrap;
 }
 .result:last-child { border-bottom: none; }
 .result:hover { background: #f7f8fa; }
@@ -982,23 +998,15 @@ button.linkish:hover { color: var(--ink); }
   overflow-wrap: anywhere; user-select: all;
 }
 
-/* Who is actually walking in next. Sits above the list because the
-   doctor looks up when the door opens, not down. Quiet on purpose --
-   it is the ordinary state of an evening, not an alarm. */
-.up-next {
-  display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px;
-  border: 1px solid var(--line); border-left: 5px solid var(--ink);
-  border-radius: 8px; background: var(--paper);
-  padding: 10px 16px; margin-bottom: 10px;
-}
-.up-next .lbl {
-  font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--muted);
-}
-.up-next .sn { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.up-next .nm { font-size: 18px; font-weight: 700; }
-.up-next .why {
-  flex-basis: 100%; font-size: 13px; color: var(--muted);
+/* Who is actually walking in next, marked ON the row rather than
+   repeated in a banner above the list. With one patient waiting the
+   banner printed the same serial and the same name twice on one
+   screen; the list is the single place the doctor reads. */
+.qrow.upnext { border-left-color: var(--ink); }
+.qrow .nextin {
+  display: block; margin-top: 3px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em;
+  color: #fff; background: var(--ink); border-radius: 3px; padding: 2px 0;
 }
 
 /* ---- Which chamber am I in? ------------------------------------------
