@@ -3,7 +3,8 @@
 // ===================================================================
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join, extname } from 'node:path';
 import { CHANNELS, type InstallationStatus, type DatabaseSummary, type RedFlagStatus,
   type RedFlagAlertView, type Result } from '../shared/ipc';
 import { ChamberRecallError } from '../shared/errors';
@@ -15,7 +16,7 @@ import { loadRulebookFromDisk, acknowledgeRedFlag } from './redflags/store';
 import { blocksLiveUse } from './redflags/guard';
 import { rulebookPath } from './paths';
 import { buildRecallCard, currentVisitId } from './recall/card';
-import { localDate } from './db/clock';
+import { sessionDate } from './db/clock';
 import type { RecallCard } from '../shared/recall';
 import { searchPatients } from './patients/search';
 import { registerPatient } from './patients/register';
@@ -58,6 +59,7 @@ import {
 } from './auth/spareKey';
 import { homePanels, setHomePanels } from './home/panels';
 import { chamberCards, type ChamberCard } from './queue/chambers';
+import { setChamberLogo, clearChamberLogo, renameChamber, ChamberLogoError, LOGO_MAX_BYTES } from './queue/chamberLogo';
 import { unresolvedSerialClashes, acknowledgeSerialClash, type SerialClash } from './queue/deskArrival';
 import { buildResearchExport, toCsv, researchReadme, recordResearchExport } from './report/research';
 import type { PilotReport } from '../shared/pilot';
@@ -298,7 +300,7 @@ function registerHandlers(): void {
     if (db === null) throw new Error('the list was asked about before the database was unlocked');
     const chamberId = activeChamberId(db);
     if (chamberId === null) return { clashes: [] };
-    return { clashes: unresolvedSerialClashes(db, chamberId, localDate()) };
+    return { clashes: unresolvedSerialClashes(db, chamberId, sessionDate()) };
   });
 
   handle<Record<string, never>>(CHANNELS.serialClashSeen, (visitId: string) => {
@@ -321,14 +323,14 @@ function registerHandlers(): void {
       view: {
         chamberId,
         chamberName: all.find((c) => c.id === chamberId)?.name ?? null,
-        visitDate: localDate(),
+        visitDate: sessionDate(),
         chambers: all,
-        entries: chamberId === null ? [] : todaysQueue(db, chamberId, localDate()),
+        entries: chamberId === null ? [] : todaysQueue(db, chamberId, sessionDate()),
         // Who the front desk is calling for right now. The same rule
         // the tablet uses, read from the same place, so the two screens
         // cannot tell the doctor and the assistant different things.
         upNextVisitId: chamberId === null ? null
-          : upNextInChamber(db, chamberId, localDate())?.visitId ?? null,
+          : upNextInChamber(db, chamberId, sessionDate())?.visitId ?? null,
       },
     };
   });
@@ -420,7 +422,7 @@ function registerHandlers(): void {
     // treating them. The front desk runs the register and the queue,
     // and does not open this.
     requireClinicalRole(atTheLaptop(), 'open a patient\u2019s history');
-    const today = localDate();
+    const today = sessionDate();
     let visitId = typeof requestedVisitId === 'string' && requestedVisitId !== ''
       ? requestedVisitId
       : currentVisitId(db, today);
@@ -815,12 +817,10 @@ function registerHandlers(): void {
       // Printed by the seed so that whoever is shown the program can
       // actually sign in to it. These are practice people; the PINs
       // are fixed and are not secrets.
-      signIns: [
-        { name: 'Dr. Ashraful Haque', pin: '4021' },
-        { name: 'Nusrat (clinical assistant)', pin: '5390' },
-        { name: 'Jahid (front desk)', pin: '6172' },
-        { name: 'Shopna (front desk)', pin: '7483' },
-      ],
+      // From PRACTICE_STAFF itself, not typed out again here. This was
+      // a second copy of the same four names and it silently went on
+      // offering PINs for people the seed no longer creates.
+      signIns: PRACTICE_STAFF.map((p) => ({ name: p.display_name, pin: p.pin })),
     };
   });
 
@@ -876,6 +876,55 @@ function registerHandlers(): void {
   handle<{ chambers: ChamberCard[] }>(CHANNELS.chamberCards, () => {
     if (db === null) throw new Error('the chambers were asked for before the database was unlocked');
     return { chambers: chamberCards(db) };
+  });
+
+  // Naming a chamber and giving it its logo. The doctor's own, because
+  // it is his cards and his rooms; the front desk never opens this.
+  handle<Record<string, never>>(CHANNELS.chamberRename, (chamberId: string, name: string) => {
+    if (db === null) throw new Error('a chamber was renamed before the database was unlocked');
+    const actor = atTheLaptop();
+    requireClinicalRole(actor, 'rename a chamber');
+    renameChamber(db, chamberId, name, actor);
+    return {} as Record<string, never>;
+  });
+
+  // The picture is chosen with the operating system's own file dialog
+  // and read HERE, in the main process, the same way a photograph of a
+  // patient's paper is. Nothing large crosses the bridge to the window.
+  handleAsync<{ chosen: boolean }>(CHANNELS.chamberSetLogo, async (chamberId: string) => {
+    if (db === null) throw new Error('a logo was set before the database was unlocked');
+    const actor = atTheLaptop();
+    requireClinicalRole(actor, 'set a chamber logo');
+
+    const picked = await dialog.showOpenDialog({
+      title: 'Choose the chamber\u2019s logo',
+      properties: ['openFile'],
+      filters: [{ name: 'Logo', extensions: ['png', 'jpg', 'jpeg', 'svg'] }],
+    });
+    if (picked.canceled || picked.filePaths.length === 0) return { chosen: false };
+
+    const file = picked.filePaths[0]!;
+    const ext = extname(file).toLowerCase();
+    const contentType = ext === '.png' ? 'image/png'
+      : ext === '.svg' ? 'image/svg+xml'
+      : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg'
+      : null;
+    if (contentType === null) {
+      throw new ChamberLogoError(
+        'That kind of file cannot be used as a logo.',
+        `Choose a PNG, a JPEG, or an SVG — under ${Math.round(LOGO_MAX_BYTES / 1024)} KB.`,
+      );
+    }
+    setChamberLogo(db, chamberId, await readFile(file), contentType, actor);
+    return { chosen: true };
+  });
+
+  handle<Record<string, never>>(CHANNELS.chamberClearLogo, (chamberId: string) => {
+    if (db === null) throw new Error('a logo was removed before the database was unlocked');
+    const actor = atTheLaptop();
+    requireClinicalRole(actor, 'remove a chamber logo');
+    clearChamberLogo(db, chamberId, actor);
+    return {} as Record<string, never>;
   });
 
   handle<{ panels: string[] }>(CHANNELS.homePanels, () => {

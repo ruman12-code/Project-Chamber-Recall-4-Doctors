@@ -34,7 +34,7 @@
 // that from a person, not discover it when somebody else is called.
 import { ChamberRecallError } from '../../shared/errors';
 import { recordAudit, type Actor } from '../db/audit';
-import { nowIso, localDate } from '../db/clock';
+import { nowIso, sessionDate } from '../db/clock';
 import { newId } from '../db/ids';
 import { recordUsage } from '../db/usage';
 import type { Db } from '../db/open';
@@ -149,7 +149,7 @@ export function receiveDeskArrival(db: Db, arrival: DeskArrival, receivedBy: Act
     );
   }
 
-  const visitDate = arrival.visitDate || localDate();
+  const visitDate = arrival.visitDate || sessionDate();
   const arrivedAt = arrival.arrivedAt || nowIso();
 
   const write = db.transaction((): DeskArrivalResult => {

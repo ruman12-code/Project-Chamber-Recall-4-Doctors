@@ -78,6 +78,9 @@ interface Api {
     Promise<Result<{ displayName: string; using: string }>>;
   pinResetAcknowledge(): Promise<Result<Record<string, never>>>;
   chamberCards(): Promise<Result<{ chambers: ChamberCardView[] }>>;
+  chamberRename(chamberId: string, name: string): Promise<Result<Record<string, never>>>;
+  chamberSetLogo(chamberId: string): Promise<Result<{ chosen: boolean }>>;
+  chamberClearLogo(chamberId: string): Promise<Result<Record<string, never>>>;
   homePanels(): Promise<Result<{ panels: string[] }>>;
   homePanelsSet(panels: string[]): Promise<Result<{ panels: string[] }>>;
   tabletSetChamber(deviceId: string, chamberId: string): Promise<Result<Record<string, never>>>;
@@ -170,6 +173,9 @@ export const api: Api = {
   spareKeyReset: (spareKey, userId, newPin) => call((a) => a.spareKeyReset(spareKey, userId, newPin)),
   pinResetAcknowledge: () => call((a) => a.pinResetAcknowledge()),
   chamberCards: () => call((a) => a.chamberCards()),
+  chamberRename: (chamberId: string, name: string) => call((a) => a.chamberRename(chamberId, name)),
+  chamberSetLogo: (chamberId: string) => call((a) => a.chamberSetLogo(chamberId)),
+  chamberClearLogo: (chamberId: string) => call((a) => a.chamberClearLogo(chamberId)),
   homePanels: () => call((a) => a.homePanels()),
   homePanelsSet: (panels) => call((a) => a.homePanelsSet(panels)),
   tabletSetChamber: (deviceId, chamberId) => call((a) => a.tabletSetChamber(deviceId, chamberId)),

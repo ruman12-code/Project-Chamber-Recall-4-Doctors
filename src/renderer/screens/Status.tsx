@@ -304,6 +304,7 @@ export function Status() {
   if (inChamber === null) {
     return <WhichChamber
       signedInName={auth.signedIn.displayName}
+      canEdit={role === 'doctor' || role === 'clinical_assistant'}
       onPick={(id, name) => setInChamber({ id, name })} />;
   }
 

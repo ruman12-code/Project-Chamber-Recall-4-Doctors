@@ -167,6 +167,12 @@ contextBridge.exposeInMainWorld('chamberRecall', {
   pinResetAcknowledge: (): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('spare:acknowledge'),
 
+  chamberRename: (chamberId: string, name: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('chambers:rename', chamberId, name),
+  chamberSetLogo: (chamberId: string): Promise<Result<{ chosen: boolean }>> =>
+    ipcRenderer.invoke('chambers:setLogo', chamberId),
+  chamberClearLogo: (chamberId: string): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('chambers:clearLogo', chamberId),
   chamberCards: (): Promise<Result<{ chambers: ChamberCardView[] }>> =>
     ipcRenderer.invoke('chambers:cards'),
   homePanels: (): Promise<Result<{ panels: string[] }>> =>

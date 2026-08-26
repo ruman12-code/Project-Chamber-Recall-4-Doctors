@@ -15,7 +15,7 @@ import { existsSync } from 'node:fs';
 import { join, normalize, extname } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import type { Db } from '../db/open';
-import { localDate, nowIso } from '../db/clock';
+import { nowIso, sessionDate } from '../db/clock';
 import { todaysQueue, activeChamberId, chambers } from '../queue/queue';
 import { loadChamberConfig } from '../intake/store';
 import { startIntake, saveAnswers, finishIntake, intakeState, factsFor, IntakeRefusedError } from '../intake/session';
@@ -307,7 +307,7 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
       const consent = loadConsentConfig(dataDir);
       const chamberId = activeChamberId(db);
       const all = chambers(db);
-      const queue = chamberId === null ? [] : todaysQueue(db, chamberId, localDate());
+      const queue = chamberId === null ? [] : todaysQueue(db, chamberId, sessionDate());
 
       // Whether each patient has already answered, so a returning
       // patient is not asked the same thing every single visit.
@@ -335,7 +335,7 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
           : { id: atTheDesk.id, displayName: atTheDesk.displayName, role: atTheDesk.role },
         signInRequired: !beforeSetup,
         chamber: { id: chamberId, name: all.find((c) => c.id === chamberId)?.name ?? null },
-        visitDate: localDate(),
+        visitDate: sessionDate(),
         dataMode: dataMode(db),
         questionnaire: config.questions.questionnaire,
         questionProblems: config.questions.problems,
@@ -432,7 +432,7 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
           chamberId,
           takenBy: String(body.takenBy ?? ''),
           arrivedAt: String(body.arrivedAt ?? nowIso()),
-          visitDate: String(body.visitDate ?? localDate()),
+          visitDate: String(body.visitDate ?? sessionDate()),
           serialAnnounced: Number(body.serialAnnounced ?? 0),
           patientId: (body.patientId as string | null | undefined) ?? null,
           newPatient: body.newPatient as never,
@@ -520,7 +520,7 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
     if (path === '/api/desk-signal') {
       const chamberId = device.chamberId ?? activeChamberId(db);
       if (chamberId === null) { sendJson(response, 200, null); return; }
-      sendJson(response, 200, deskSignal(db, chamberId, localDate()));
+      sendJson(response, 200, deskSignal(db, chamberId, sessionDate()));
       return;
     }
 
@@ -759,6 +759,6 @@ export function deskChamberFor(db: Db, device: { chamberId: string | null }):
   if (row === undefined) return null;
   const next = (db.prepare(
     'SELECT COALESCE(max(serial_no), 0) + 1 AS n FROM visit WHERE chamber_id = ? AND visit_date = ?',
-  ).get(chamberId, localDate()) as { n: number }).n;
+  ).get(chamberId, sessionDate()) as { n: number }).n;
   return { id: row.id, name: row.name, nextSerial: next };
 }

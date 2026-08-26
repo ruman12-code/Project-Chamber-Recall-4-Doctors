@@ -209,6 +209,9 @@ export const CHANNELS = {
   homePanelsSet: 'home:panelsSet',
   /** The chambers, as the doctor sees them when he sits down. */
   chamberCards: 'chambers:cards',
+  chamberRename: 'chambers:rename',
+  chamberSetLogo: 'chambers:setLogo',
+  chamberClearLogo: 'chambers:clearLogo',
 } as const;
 
 /** Whether a spare code exists, for the doctor's own screen. */
@@ -250,6 +253,8 @@ export interface ChamberCardView {
   reportsOnly: number;
   longestWaitMinutes: number | null;
   tabletPaired: boolean;
+  /** The chamber's logo as a data URI, or null. */
+  logo: string | null;
 }
 
 export interface PinResetNoticeView {

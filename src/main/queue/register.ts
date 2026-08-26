@@ -8,7 +8,7 @@
 // second by the database itself, not by this code being careful.
 import type { Db } from '../db/open';
 import { newId } from '../db/ids';
-import { nowIso, localDate } from '../db/clock';
+import { nowIso, sessionDate } from '../db/clock';
 import type { VisitKind } from '../../shared/queue';
 import { recordAudit, type Actor } from '../db/audit';
 import { recordUsage } from '../db/usage';
@@ -44,7 +44,7 @@ export function registerArrival(
     visitKind?: VisitKind;
   } = {},
 ): ArrivalResult {
-  const visitDate = options.visitDate ?? localDate();
+  const visitDate = options.visitDate ?? sessionDate();
   const arrivedAt = options.arrivedAt ?? nowIso();
   const realPatientId = resolveToSurvivingPatient(db, patientId);
 

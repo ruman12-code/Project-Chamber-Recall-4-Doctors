@@ -182,10 +182,11 @@ function makePhysiology(rng: Rng, ageYears: number): Physiology {
  * docs/INSTALL-WINDOWS.md as well.
  */
 export const PRACTICE_STAFF = [
-  { display_name: 'Dr. Ashraful Haque', role: 'doctor' as const, pin: '4021', speed: 1, skip: 0 },
-  { display_name: 'Nusrat (clinical assistant)', role: 'clinical_assistant' as const, pin: '5390', speed: 1, skip: 0 },
-  { display_name: 'Jahid (front desk)', role: 'front_desk' as const, pin: '6172', speed: 1.0, skip: 0.12 },
-  { display_name: 'Shopna (front desk)', role: 'front_desk' as const, pin: '7483', speed: 0.45, skip: 0.55 },
+  { display_name: 'Dr. Prof. Maruf Bin Habib', role: 'doctor' as const, pin: '4021', speed: 1, skip: 0 },
+  { display_name: 'Assistant Doctor Lubana', role: 'clinical_assistant' as const, pin: '5390', speed: 1, skip: 0 },
+  { display_name: 'Assistant Doctor Popular', role: 'clinical_assistant' as const, pin: '2648', speed: 1, skip: 0 },
+  { display_name: 'Ruhul (Lubana)', role: 'front_desk' as const, pin: '6172', speed: 1.0, skip: 0.12 },
+  { display_name: 'Biplob (Popular)', role: 'front_desk' as const, pin: '7483', speed: 0.45, skip: 0.55 },
 ];
 
 export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
@@ -222,8 +223,10 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
   const insertAll = db.transaction(() => {
     // ---------------- chambers ----------------
     const chambers = [
-      { id: newId(), name: 'Green Life Chamber, Dhanmondi' },
-      { id: newId(), name: 'Al-Shifa Chamber, Savar' },
+      // The two real chambers, in the order the evening runs: Lubana
+      // from about half three, Popular from about eight.
+      { id: newId(), name: 'Lubana' },
+      { id: newId(), name: 'Popular' },
     ];
     for (const c of chambers) {
       db.prepare('INSERT INTO chamber (id, name, letterhead_config_json, created_at) VALUES (?, ?, NULL, ?)')
@@ -252,9 +255,15 @@ export function seedDatabase(db: Db, options: SeedOptions = {}): SeedResult {
       recordAudit(db, { actor: system, action: 'user_created', entity: 'app_user', entityId: u.id, details: { role: u.role, source: 'seed' } });
     }
     result.users = users.length;
-    const doctor = users[0]!;
-    const assistant = users[1]!;
-    const frontDesk = [users[2]!, users[3]!];
+    // By ROLE, not by position in the array. Adding a second assistant
+    // silently turned users[2] from the front desk into a clinical one
+    // and would have attributed a pile of practice records to the wrong
+    // sort of person.
+    const byRole = (r: string) => users.filter((u) => u.role === r);
+    const doctor = byRole('doctor')[0]!;
+    const assistant = byRole('clinical_assistant')[0]!;
+    const frontDesk = byRole('front_desk');
+    if (frontDesk.length === 0) throw new Error('the practice staff list has no front desk');
 
     // ---------------- patients ----------------
     interface P { id: string; sex: 'male' | 'female'; ageAtStart: number; phys: Physiology; phone: string | null }

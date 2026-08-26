@@ -8,8 +8,9 @@
 //
 // So that question is the first screen, and each chamber carries enough
 // on it to tell him what he is walking into before he taps.
-import { localDate } from '../db/clock';
+import { sessionDate } from '../db/clock';
 import type { Db } from '../db/open';
+import { chamberLogoDataUri } from './chamberLogo';
 
 export interface ChamberCard {
   id: string;
@@ -26,9 +27,11 @@ export interface ChamberCard {
   longestWaitMinutes: number | null;
   /** A tablet is paired to this chamber and has been heard from. */
   tabletPaired: boolean;
+  /** The chamber's own logo, ready for an <img src>. Null if none. */
+  logo: string | null;
 }
 
-export function chamberCards(db: Db, visitDate: string = localDate()): ChamberCard[] {
+export function chamberCards(db: Db, visitDate: string = sessionDate()): ChamberCard[] {
   const chambers = db.prepare(
     'SELECT id, name FROM chamber WHERE deleted_at IS NULL ORDER BY created_at',
   ).all() as Array<{ id: string; name: string }>;
@@ -75,6 +78,7 @@ export function chamberCards(db: Db, visitDate: string = localDate()): ChamberCa
       longestWaitMinutes: counts.earliestWaiting === null ? null
         : Math.max(0, Math.round((Date.now() - Date.parse(counts.earliestWaiting)) / 60000)),
       tabletPaired: tablet.n > 0,
+      logo: chamberLogoDataUri(db, chamber.id),
     };
   });
 }

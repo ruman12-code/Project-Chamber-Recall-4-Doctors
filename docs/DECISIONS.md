@@ -2000,6 +2000,88 @@ open the page while the laptop is on, and leave it open.
 
 Next milestone after the feedback.
 
+### 129. A working day ends at five in the morning, not at midnight
+
+You mentioned the hours in passing: Lubana from about half three until
+seven, Popular from about eight until half eleven, and some nights
+later. That last part is a bug report and it is the worst one this
+project has had.
+
+Everything meaning "today" meant the calendar day. So at the stroke of
+midnight, mid-session at Popular, with eight people still waiting:
+
+  * the serial register would start again at 1, and the next patient
+    would be handed a number somebody sitting in the same room already
+    had;
+  * today's list on the doctor's screen would empty, because it asks
+    for the visits of the current calendar day and there were none yet;
+  * the tablet's own buffer of serials, keyed on the date, would decide
+    it belonged to a different day and reset itself too.
+
+None of it recoverable at a desk with a room full of people watching.
+
+A working day now runs five in the morning to five the next morning.
+A patient registered at ten past midnight belongs to the evening that
+started at eight, takes the next serial in it, and stays on the same
+list as the person before them. Five is after the latest a session
+could conceivably run and long before the earliest one could start.
+
+**What did NOT change.** Every timestamp on every record is still the
+real moment to the millisecond. Three dates stayed calendar dates on
+purpose: the day an age was recorded, the date printed on a
+prescription (a document with legal force says the date it was
+written), and how long ago a backup was taken.
+
+It is tested at the minute that matters -- 23:50 and 00:10 are one
+list with consecutive serials -- and at the month, year and leap-year
+boundaries.
+
+### 130. Two more copies of the practice names, drifting silently
+
+The seed carries a comment saying the practice PINs and the sign-in
+screen "must not be able to drift apart". They had drifted apart
+anyway, because the same four names and PINs were typed out in three
+places: the staff list, the seed's console output, and the window that
+shows them.
+
+Renaming the staff changed one. The other two went on printing PINs for
+people the seed no longer creates -- which is worse than a wrong name,
+because somebody would have typed them in and been refused.
+
+Both now derive from PRACTICE_STAFF. A comment saying two things must
+not drift is not a mechanism; one list that everything reads is.
+
+### 131. The seed picked its people by position in an array
+
+`users[2]` was the front desk. Adding a second clinical assistant made
+`users[2]` a clinical assistant, and a few hundred practice records
+would have been attributed to the wrong sort of person with nothing
+saying so. It picks by role now, and says so loudly if there is no
+front desk to pick.
+
+### 132. A chamber has a face
+
+Two large cards, and tapping the wrong one means working the wrong
+list. The fastest thing a person tells apart is not a line of text but
+a mark they have seen on the door of the building every week for four
+years. So a chamber can carry its own logo and the card shows it, and
+the doctor can rename his own rooms.
+
+The bytes go IN the database, like the photographs of a patient's
+paper. A path to a file on the disk was the obvious alternative and the
+wrong one: it breaks the moment somebody tidies their Pictures folder,
+and it would sit outside the encryption and outside the backup the
+whole pilot depends on.
+
+Half a megabyte is the limit, and the refusal says the size and why. A
+logo is shown at about 120 points on one screen; anything larger is a
+photograph picked by mistake, and quietly accepting it would put
+megabytes into every backup from that day on.
+
+The edit control sits BESIDE the card, not on it. The card is one large
+button, and a button inside a button is a tap that does two things and
+the doctor finds out which afterwards.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

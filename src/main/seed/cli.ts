@@ -9,7 +9,7 @@ import { rmSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { provision, isProvisioned } from '../db/provision';
 import { loadRulebookFromDisk } from '../redflags/store';
-import { seedDatabase } from './seed';
+import { seedDatabase, PRACTICE_STAFF } from './seed';
 import { loadConsentConfig } from '../consent/config';
 
 function arg(name: string, fallback: string): string {
@@ -68,10 +68,13 @@ function main(): void {
   console.log(`  rules loaded               ${rulebook.rules.length} (all placeholders)`);
   console.log(`\n  passphrase                 ${passphrase}`);
   console.log(`  recovery key               ${recoveryKey}`);
-  console.log(`\n  sign in as                 Dr. Ashraful Haque         PIN 4021`);
-  console.log(`                             Nusrat (clinical assistant) PIN 5390`);
-  console.log(`                             Jahid (front desk)          PIN 6172`);
-  console.log(`                             Shopna (front desk)         PIN 7483`);
+  // Straight from PRACTICE_STAFF. It used to be four typed-out lines
+  // here and four more in the window, and when the names changed both
+  // copies went on printing PINs for people who no longer existed.
+  PRACTICE_STAFF.forEach((person, i) => {
+    const label = i === 0 ? '  sign in as                ' : '                            ';
+    console.log(`${i === 0 ? '\n' : ''}${label} ${person.display_name.padEnd(28)}PIN ${person.pin}`);
+  });
   console.log(`\nThis database is marked demo. It can never be used for real patients.\n`);
 }
 

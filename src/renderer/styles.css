@@ -1009,7 +1009,29 @@ button.linkish:hover { color: var(--ink); }
   border: 2px solid var(--line); border-radius: 14px; cursor: pointer;
 }
 .chamber-card:hover { border-color: var(--ink); }
+/* The card is one big button, so the edit control sits beside it rather
+   than inside it -- a button within a button is a tap that does two
+   things and the doctor finds out which one afterwards. */
+.chamber-slot { display: flex; flex-direction: column; gap: 8px; }
+.chamber-slot .chamber-card { flex: 1; }
+.chamber-slot .cedit {
+  align-self: flex-start; margin: 0; padding: 6px 12px; font-size: 13px;
+  background: transparent; color: var(--muted); border: 1px solid var(--line);
+}
+.chamber-slot .cedit:hover { color: var(--ink); border-color: var(--ink); }
+.chamber-edit { margin-top: 22px; }
+.chamber-edit h2 { margin-top: 0; }
+.chamber-edit input { width: 100%; font-size: 20px; padding: 10px 12px; }
+.chamber-edit .acts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.chamber-edit .acts button { margin: 0; }
+.chamber-edit .small { font-size: 13px; margin-bottom: 0; }
 .chamber-card.flagged { border-color: var(--alarm); background: var(--alarm-wash, #fceceb); }
+/* Kept to a band so a tall logo and a wide one both sit the same, and
+   the numbers under them stay on the same line across the cards. */
+.chamber-card .clogo {
+  max-height: 72px; max-width: 100%; width: auto; object-fit: contain;
+  margin-bottom: 2px;
+}
 .chamber-card .cname { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
 .chamber-card .cflag {
   font-size: 14px; font-weight: 700; color: #fff; background: var(--alarm);

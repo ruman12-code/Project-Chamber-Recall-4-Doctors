@@ -11,6 +11,7 @@ import { DeskSignIn, type DeskPerson } from './screens/DeskSignIn';
 import {
   storeDeskKeys, loadDeskKeys, forgetDeskKeys, clearOfflineFailures, type DeskKeys,
 } from './deskKeys';
+import { sessionDate } from '../shared/sessionDay';
 import { PickPatient, type QueueEntryWithConsent } from './screens/PickPatient';
 import { Arrive } from './screens/Arrive';
 import { Papers } from './screens/Papers';
@@ -659,7 +660,11 @@ export function App() {
         <Arrive
           bn={bn}
           deskChamber={deskChamber}
-          visitDate={session?.visitDate ?? new Date().toISOString().slice(0, 10)}
+          // The laptop's answer first. The fallback is the session day
+          // worked out locally, NOT the calendar day: at half past
+          // midnight the calendar day is tomorrow and a serial taken
+          // against it would restart the register mid-evening.
+          visitDate={session?.visitDate ?? sessionDate()}
           takenBy={session?.signedIn?.id ?? offlineDesk?.who.id ?? null}
           onCancel={() => setArriving(false)}
           onDone={(serialNo, name) => {
