@@ -41,8 +41,18 @@ function numberOrNull(raw: string): number | null {
 }
 
 export function ChamberScreen(
-  { view, role, onClose, onOpenCard, onReload, onPrint, onPapers }: {
+  { view, role, onClose, onOpenCard, onReload, onPrint, onPapers, onFinished }: {
     view: ChamberView; role: Role; onClose: () => void;
+    /**
+     * The doctor is done with this patient.
+     *
+     * The same thing as pressing Seen on today's list, offered where he
+     * actually is when he finishes: at the bottom of the consultation,
+     * not back on a list he has to return to first. It ends the visit,
+     * which empties the room, which is what makes the tablet put the
+     * next serial on its screen.
+     */
+    onFinished: () => void;
     onOpenCard: () => void; onReload: () => Promise<void>;
     /** The printed prescription. Only once the consultation is signed. */
     onPrint: () => void;
@@ -309,6 +319,11 @@ export function ChamberScreen(
         {confirmed
           ? <>
               <button onClick={onPrint}>Print prescription</button>
+              {/* Ends the visit and closes this screen. The room is then
+                  empty, and the front desk tablet says so by itself. */}
+              <button disabled={role !== 'doctor'} onClick={onFinished}>
+                Finished — call the next patient
+              </button>
               <button className="secondary" disabled={role !== 'doctor'} onClick={() => { void undoConfirm(); }}>
                 Undo confirmation
               </button>

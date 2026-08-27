@@ -1002,11 +1002,19 @@ button.linkish:hover { color: var(--ink); }
    repeated in a banner above the list. With one patient waiting the
    banner printed the same serial and the same name twice on one
    screen; the list is the single place the doctor reads. */
-.qrow.upnext { border-left-color: var(--ink); }
+/* The patient walking in next, hoisted to the top of the list and made
+   loud enough to find without reading. Prominence here is not
+   decoration: the doctor looks up when the door opens. */
+.qrow.upnext {
+  border-left-color: var(--ink); border-left-width: 9px;
+  background: #eef3fd; box-shadow: 0 0 0 2px var(--ink) inset;
+}
+.qrow.upnext .n { font-size: 19px; }
+.qrow.upnext .serial { color: var(--ink); }
 .qrow .nextin {
-  display: block; margin-top: 3px;
-  font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em;
-  color: #fff; background: var(--ink); border-radius: 3px; padding: 2px 0;
+  display: block; margin-top: 4px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  color: #fff; background: var(--ink); border-radius: 3px; padding: 3px 0;
 }
 
 /* ---- Which chamber am I in? ------------------------------------------

@@ -348,9 +348,16 @@ export function App() {
           }
         } catch { /* the laptop is away; the desk carries on */ }
       })();
-    }, 3000);
+      // Two seconds. Between the doctor finishing and a patient
+      // walking through the door there is somebody sitting in an empty
+      // room, so this is the one poll that is worth being eager.
+    }, 2000);
 
-    const timer = setInterval(() => { void refresh(); }, 20000);
+    // Six seconds, not twenty. This carries the questions, the rules
+    // and today's list, so it is the heavier of the two and does not
+    // need to be as quick as the desk signal below -- but twenty
+    // seconds is long enough for the desk to think a serial was lost.
+    const timer = setInterval(() => { void refresh(); }, 6000);
     return () => { clearInterval(timer); clearInterval(signalTimer); };
   }, [paired, refresh]);
 
@@ -684,7 +691,16 @@ export function App() {
         </div>
       ) : draft === null ? (
         <>
-          <PickPatient queue={session?.queue ?? []} bn={bn} onPick={startWith} />
+          <PickPatient
+            queue={session?.queue ?? []}
+            bn={bn}
+            onPick={startWith}
+            // Straight to the camera and the papers already taken, with
+            // no screening questions in between. Adding a photograph an
+            // hour later must not mean walking back through an intake
+            // that was finished at the desk.
+            onPapers={(entry) => { startWith(entry); setShowingPapers(true); }}
+          />
           <div className="arrive-actions">
             <button onClick={() => setArriving(true)}>{bn ? 'রোগী এসেছেন' : 'A patient has arrived'}</button>
           </div>

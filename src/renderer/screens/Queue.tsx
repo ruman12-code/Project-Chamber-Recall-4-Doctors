@@ -79,7 +79,12 @@ export function Queue(
   // Waiting times are the point of a live queue, so they keep counting
   // without anybody touching the screen.
   useEffect(() => {
-    const timer = setInterval(() => { void refresh(); }, 15000);
+    // Three seconds. This is the direction that used to feel slow: the
+    // desk gives a serial or calls a number, and the doctor's list sat
+    // for up to fifteen seconds before it said so. Two devices on a
+    // chamber's own wifi -- the cost of asking is nothing next to a
+    // doctor wondering whether the thing is working.
+    const timer = setInterval(() => { void refresh(); }, 3000);
     return () => clearInterval(timer);
   }, [refresh]);
 
@@ -126,7 +131,29 @@ export function Queue(
   }
   if (view === null) return <div className="page"><p className="muted">Reading today's list…</p></div>;
 
-  const entries = view.entries;
+  /**
+   * Today's list in the order it is SHOWN. Not the queue: no serial and
+   * no queue position moves, and the data layer's own order is
+   * untouched underneath.
+   *
+   * Whoever is with the doctor sits at the top, then the patient the
+   * front desk is calling for, then everybody else exactly as the data
+   * layer ordered them. Without this the doctor had to hunt for NEXT IN
+   * down a list with gaps in the serials, which is the opposite of what
+   * the mark is for.
+   *
+   * It cannot demote a flagged patient. NEXT IN is worked out with the
+   * flag as the outer key (see upNext.ts), so when anybody flagged is
+   * waiting, the patient hoisted here IS one of them.
+   *
+   * The keyboard reads this same array, so Enter always calls in the
+   * row the doctor can see is highlighted.
+   */
+  const entries = [...view.entries].sort((a, b) => {
+    const rank = (e: QueueEntry) =>
+      e.status === 'in_chamber' ? 0 : e.visitId === view.upNextVisitId ? 1 : 2;
+    return rank(a) - rank(b);
+  });
   const count = (status: QueueEntry['status']) => entries.filter((e) => e.status === status).length;
   const reportsOnly = entries.filter(
     (e) => e.visitKind === 'reports_only' && (e.status === 'waiting' || e.status === 'in_chamber'),

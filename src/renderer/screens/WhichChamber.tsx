@@ -36,7 +36,7 @@ export function WhichChamber(
   useEffect(() => { void read(); }, [read]);
   // People keep arriving at both chambers while he is deciding.
   useEffect(() => {
-    const timer = setInterval(() => { void read(); }, 10000);
+    const timer = setInterval(() => { void read(); }, 5000);
     return () => clearInterval(timer);
   }, [read]);
 

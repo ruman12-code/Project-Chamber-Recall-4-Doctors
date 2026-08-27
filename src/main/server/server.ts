@@ -94,18 +94,55 @@ export function lanAddresses(): string[] {
   return found;
 }
 
-function readBody(request: IncomingMessage): Promise<unknown> {
+/**
+ * An answer, an arrival, a sign-in: a few hundred bytes. This is the
+ * cap for all of those, and anything near it is a mistake or an attack.
+ */
+const SMALL_BODY = 256 * 1024;
+
+/**
+ * A photograph of a patient's paper, base64 in JSON.
+ *
+ * The tablet shrinks its long edge to 1600 pixels first, which puts a
+ * lab report at roughly 300 KB and a camera photograph at one to one
+ * and a half megabytes once base64 has added its third. Both were over
+ * the small cap, so photographing the paper a patient brought failed
+ * for every real photograph -- and the way it failed is the worst part:
+ * the socket was destroyed mid-request, so the browser reported
+ * "Failed to fetch" and the tablet blamed the wifi. The one chance the
+ * record ever gets at that paper, lost, with the wrong explanation.
+ */
+const PHOTOGRAPH_BODY = 12 * 1024 * 1024;
+
+/** Too big -- and answered properly, rather than by hanging up. */
+class BodyTooLargeError extends ChamberRecallError {}
+
+function readBody(request: IncomingMessage, maxBytes: number = SMALL_BODY): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
+    let tooLarge = false;
     request.on('data', (chunk: Buffer) => {
       size += chunk.length;
-      // A front desk sends a few hundred bytes at a time. Anything this
-      // large is a mistake or an attack, and either way is refused.
-      if (size > 256 * 1024) { reject(new Error('That was too much data to accept in one go.')); request.destroy(); return; }
+      if (size > maxBytes) {
+        // Keep listening to the end rather than destroying the socket.
+        // A destroyed socket reaches the browser as "Failed to fetch",
+        // which names the network for something the network did not do.
+        // Draining costs a moment and buys a sentence that is true.
+        tooLarge = true;
+        chunks.length = 0;
+        return;
+      }
       chunks.push(chunk);
     });
     request.on('end', () => {
+      if (tooLarge) {
+        reject(new BodyTooLargeError(
+          `That was too large to send in one go (over ${Math.round(maxBytes / (1024 * 1024))} MB).`,
+          'If it is a photograph, take it again a little further back. Nothing was saved, so the paper is still in your hand.',
+        ));
+        return;
+      }
       const text = Buffer.concat(chunks).toString('utf8');
       if (text.trim() === '') { resolve({}); return; }
       try { resolve(JSON.parse(text)); } catch { reject(new Error('That message was not readable.')); }
@@ -604,7 +641,8 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
      * still in their hand and can simply be photographed again.
      */
     if (path === '/api/attachments') {
-      const body = (await readBody(request)) as {
+      // The one route that carries a picture. See PHOTOGRAPH_BODY.
+      const body = (await readBody(request, PHOTOGRAPH_BODY)) as {
         visitId?: string; kind?: string; caption?: string | null;
         contentBase64?: string; contentType?: string; width?: number; height?: number;
       };

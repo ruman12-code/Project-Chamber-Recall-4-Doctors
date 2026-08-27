@@ -108,6 +108,22 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 .patient .state { font-size: 14px; font-weight: 700; padding: 5px 11px; border-radius: 999px; border: 2px solid var(--line); }
 .patient .state.done { background: #eef7f0; border-color: #b6d6bd; color: #1d6b2f; }
 .patient .state.papers { background: #f2f4f8; border-color: #bcc6d6; color: #33445c; }
+/* Who is in the room, and who was called and did not come. The desk is
+   asked both of these twice a minute across a counter. */
+.patient.inchamber { border-color: var(--ink); background: #eef3fd; }
+.patient .state.indoc { background: var(--ink); border-color: var(--ink); color: #fff; }
+.patient .state.skipped { background: #fdf3e0; border-color: #d9a441; color: #6b4708; }
+
+/* The two things an assistant can actually do. Nothing happens by
+   touching the card itself any more, so these have to be unmissable
+   and have to say what they do before they are pressed. */
+.patient .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.patient .row-act {
+  margin: 0; padding: 10px 14px; font-size: 15px; font-weight: 700;
+  background: var(--paper, #fff); color: var(--ink);
+  border: 3px solid var(--line); border-radius: 10px; text-align: left;
+}
+.patient .row-act:active { transform: scale(0.99); }
 
 .empty { padding: 60px 20px; text-align: center; color: var(--muted); font-size: 20px; }
 

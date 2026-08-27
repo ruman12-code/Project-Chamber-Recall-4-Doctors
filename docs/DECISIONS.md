@@ -2193,6 +2193,100 @@ mark moves down it by itself when the desk calls a number and nobody
 comes. Same rule underneath, same answer as the tablet -- what went
 away was the duplication, not the information.
 
+### 139. Photographing a patient's paper has never worked for real paper
+
+Reported as "Bangla works, English says failed to fetch". The language
+had nothing to do with it, and the truth is worse.
+
+The tablet's request body was capped at 256 KB -- a cap written for
+"a front desk sends a few hundred bytes at a time", which is right for
+an answer or an arrival and wrong for the one route that carries a
+photograph. Measured in the browser engine the tablet actually uses, at
+the size the tablet actually sends (long edge 1600, JPEG 0.82, base64):
+
+  a photograph of a lab report   298 KB   over the cap
+  a camera photograph           1456 KB   far over the cap
+  a flat, simple image            16 KB   under -- saves fine
+
+So it failed for every real photograph and succeeded for simple ones,
+which is exactly the pattern that looks like the language toggle.
+
+And it failed in the worst possible way. Going over the cap called
+`request.destroy()`, which reaches the browser as "Failed to fetch" --
+so the tablet blamed the wifi for something the wifi did not do, on the
+one screen whose whole justification is that the paper walks out of the
+door in five minutes and this is the only chance the record gets at it.
+
+Two changes. The route that carries a picture has its own limit, 12 MB.
+And going over a limit is now answered rather than hung up on: the
+socket is drained and a plain sentence comes back saying it was too
+large and that nothing was saved, so the paper is still in your hand.
+
+A cap written for one kind of message was applied to every kind. The
+comment above it described small messages and was correct about them;
+nobody checked it against the route that was different.
+
+### 140. Ending the consultation where the doctor actually is
+
+Seen lives on today's list. The doctor finishes a consultation on the
+consultation screen, so he had to close it, find the row, and press
+Seen there -- and until he did, the room was still "occupied" and the
+tablet never called the next patient.
+
+"Finished -- call the next patient" now sits next to Print prescription.
+Same effect as Seen, in the place where finishing actually happens.
+
+### 141. NEXT IN goes to the top, because a list with gaps has to be hunted
+
+Marking the row was right and not enough. Serial numbers develop gaps
+as the evening goes -- somebody called and not answering, somebody
+escalated -- so NEXT IN could be the fourth row down and the doctor had
+to look for it.
+
+Whoever is with the doctor now sits at the top of the list, then whoever
+the desk is calling for, then everybody else in the order they were
+already in. The row itself is boxed, tinted and thickened.
+
+This is a display order only: no serial, no queue position and nothing
+in the data layer moves. It cannot demote a flagged patient either,
+because NEXT IN is worked out with the flag as the outer key -- if
+anybody flagged is waiting, the patient hoisted to the top IS one.
+
+### 142. The desk could not see who was in the room
+
+The tablet's list showed who was waiting and gave no sign of who was
+with the doctor or who had been called and not come. Those are the two
+questions an assistant is asked across the counter twice a minute.
+
+The patient in the room is now first on the tablet's list, marked "with
+the doctor now", and anybody called without an answer is marked as
+that. Same facts as the doctor's screen, from the same data.
+
+### 143. Tapping a patient's card did the most destructive thing available
+
+The whole card was a button, and pressing it started the screening
+questions from the beginning -- for a patient whose history had already
+been taken at the desk. The most likely accidental tap ran the least
+recoverable action.
+
+The card is a div now. Nothing happens by touching it. The two things
+an assistant can do are two buttons that say which is which before they
+are pressed: "Add or correct information", and a papers button that
+reads either "No papers yet -- photograph" or "Papers (3) -- add more".
+The second goes straight to the camera without walking back through an
+intake that was finished an hour ago.
+
+### 144. The lag was not deliberate
+
+The doctor's list re-read every 15 seconds and the tablet's list every
+20. Both are now 3 and 6, and the desk signal -- the one that puts the
+next serial on the tablet when the room empties -- is 2 seconds.
+
+These are two devices on a chamber's own wifi. The cost of asking more
+often is nothing next to a doctor wondering whether the thing is
+working. The original numbers were caution about a load that does not
+exist.
+
 ### 90. There is still no way to start a real database, and that is the point
 
 The program can only create a database marked demo. No screen anywhere

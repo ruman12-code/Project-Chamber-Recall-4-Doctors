@@ -308,6 +308,13 @@ export function Status() {
       onOpenCard={() => { void openCardForVisit(chamber.visitId); }}
       onPrint={() => setPrintingVisitId(chamber.visitId)}
       onPapers={() => { void openPapersForVisit(chamber.visitId, chamber.patientName); }}
+      onFinished={() => {
+        void (async () => {
+          const { failure } = unwrap(await api.queueSetStatus(chamber.visitId, 'done'));
+          if (failure) { setFailure(failure); return; }
+          setChamber(null);
+        })();
+      }}
       onReload={async () => {
         const { value, failure } = unwrap(await api.chamberView(chamber.visitId));
         if (failure) { setFailure(failure); return; }
