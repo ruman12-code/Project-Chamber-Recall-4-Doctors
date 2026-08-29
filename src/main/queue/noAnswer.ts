@@ -116,6 +116,66 @@ export function timesCalled(db: Db, visitId: string): number {
   ).get(visitId) as { n: number }).n;
 }
 
+/**
+ * "This flagged patient is not here; call somebody else."
+ *
+ * A person's decision, recorded with their name. It changes NOTHING
+ * about the visit -- not status, not position, not serial, not the
+ * flag -- and the patient stays on the doctor's list wearing SEE
+ * SOONER. It changes which number the front desk calls next, and that
+ * is all it changes. See migration 018.
+ */
+export function recordPriorityBypass(db: Db, report: NoAnswerReport): { alreadyHad: boolean } {
+  const already = db.prepare(
+    'SELECT id FROM priority_bypass WHERE desk_ref = ?',
+  ).get(report.deskRef);
+  if (already !== undefined) return { alreadyHad: true };
+
+  const visit = db.prepare(
+    'SELECT id FROM visit WHERE id = ? AND deleted_at IS NULL',
+  ).get(report.visitId) as { id: string } | undefined;
+  if (visit === undefined) {
+    throw new NoAnswerError(
+      'That patient is not on today\u2019s list.',
+      'Look at the list again and call the next number from there.',
+    );
+  }
+  const caller = db.prepare(
+    'SELECT id, role FROM app_user WHERE id = ? AND deleted_at IS NULL',
+  ).get(report.calledBy) as { id: string; role: string } | undefined;
+  if (caller === undefined) {
+    throw new NoAnswerError(
+      'That name is not in this installation.',
+      'Sign in on the tablet again so this is recorded against somebody.',
+    );
+  }
+
+  const write = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO priority_bypass (id, visit_id, desk_ref, decided_at, decided_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(newId(), report.visitId, report.deskRef, report.calledAt, report.calledBy, nowIso());
+    recordAudit(db, {
+      actor: { id: caller.id, role: caller.role } as Actor,
+      action: 'priority_bypassed', entity: 'visit', entityId: report.visitId,
+      // Written down so what did NOT happen is as legible as what did.
+      details: { decided_at: report.calledAt, flag_kept: true, position_unchanged: true },
+    });
+  });
+  write();
+  return { alreadyHad: false };
+}
+
+/** Visits the desk has been allowed to call past, for one chamber's day. */
+export function bypassedVisits(db: Db, chamberId: string, visitDate: string): Set<string> {
+  return new Set((db.prepare(
+    `SELECT DISTINCT b.visit_id AS visitId
+       FROM priority_bypass b
+       JOIN visit v ON v.id = b.visit_id
+      WHERE v.chamber_id = ? AND v.visit_date = ? AND v.deleted_at IS NULL`,
+  ).all(chamberId, visitDate) as Array<{ visitId: string }>).map((r) => r.visitId));
+}
+
 /** For one chamber's list today, so the doctor's screen can say so. */
 export function noAnswerCounts(db: Db, chamberId: string, visitDate: string): Map<string, number> {
   const rows = db.prepare(

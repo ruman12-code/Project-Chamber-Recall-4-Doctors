@@ -37,7 +37,7 @@
 // unchanged underneath. This only answers "who next", and it answers it
 // the same way for everybody looking.
 import type { Db } from '../db/open';
-import { noAnswerCounts } from './noAnswer';
+import { noAnswerCounts, bypassedVisits } from './noAnswer';
 
 export interface UpNext {
   visitId: string;
@@ -51,13 +51,21 @@ export interface UpNext {
   /** A rule flagged this patient. The desk is calling them first. */
   flagged: boolean;
   /**
-   * Every waiting patient a rule flagged has been called without an
-   * answer. The desk cannot move past them -- a flagged patient is
-   * never called after an unflagged one -- so this is a person's
-   * problem, not the tablet's, and the tablet says so instead of
-   * quietly dropping the flag.
+   * Every flagged patient still in the calling order has been called
+   * with no answer. The software cannot move the desk past them -- a
+   * flagged patient is never called after an unflagged one -- so the
+   * tablet says so, and offers the one way out: a PERSON deciding, for
+   * one named patient, that they are not here. See recordPriorityBypass
+   * and migration 018.
    */
   allFlaggedUnanswered: boolean;
+  /**
+   * How many flagged patients are still ahead of everybody in the
+   * calling order, this one included. The desk is told the number so
+   * that pressing the way-out button feels like working through a
+   * known list rather than tapping at a screen that will not move.
+   */
+  flaggedWaiting: number;
 }
 
 export interface WaitingRow {
@@ -70,13 +78,25 @@ export interface WaitingRow {
    *  that forgot to say would be treated as unflagged, which is the
    *  failure this rule exists to prevent. */
   flagged: boolean;
+  /**
+   * A person at the desk said this flagged patient is not here and the
+   * desk should call somebody else. Affects the CALLING order only --
+   * the flag, the queue position and the serial are untouched, and the
+   * doctor's list still shows SEE SOONER. See migration 018.
+   */
+  bypassed: boolean;
 }
 
 /** The rule itself, over rows somebody has already read. */
 export function pickUpNext(
   waiting: WaitingRow[], calls: Map<string, number>,
 ): UpNext | null {
-  const rank = (r: WaitingRow) => (r.flagged ? 0 : 1);
+  // A flagged patient a PERSON has said is not here drops to the
+  // ordinary tier for calling purposes only. Nothing else about them
+  // changes anywhere. Without this the desk could not get past a small
+  // group of flagged patients who were not in the room, and a full
+  // waiting room went uncalled.
+  const rank = (r: WaitingRow) => (r.flagged && !r.bypassed ? 0 : 1);
   const chosen = [...waiting].sort((a, b) => {
     // The escalation, first and above everything else.
     if (rank(a) !== rank(b)) return rank(a) - rank(b);
@@ -84,7 +104,7 @@ export function pickUpNext(
     return byCalls !== 0 ? byCalls : a.pos - b.pos;
   })[0];
   if (chosen === undefined) return null;
-  const flaggedWaiting = waiting.filter((r) => r.flagged);
+  const flaggedWaiting = waiting.filter((r) => r.flagged && !r.bypassed);
   return {
     visitId: chosen.visitId,
     serialNo: chosen.serialNo,
@@ -95,11 +115,13 @@ export function pickUpNext(
     flagged: chosen.flagged,
     allFlaggedUnanswered: flaggedWaiting.length > 0
       && flaggedWaiting.every((r) => (calls.get(r.visitId) ?? 0) > 0),
+    flaggedWaiting: flaggedWaiting.length,
   };
 }
 
 /** The same rule, reading the chamber's day for itself. */
 export function upNextInChamber(db: Db, chamberId: string, visitDate: string): UpNext | null {
+  const bypassed = bypassedVisits(db, chamberId, visitDate);
   const waiting = (db.prepare(
     `SELECT v.id AS visitId, v.serial_no AS serialNo,
             COALESCE(v.queue_position, v.serial_no) AS pos,
@@ -111,6 +133,6 @@ export function upNextInChamber(db: Db, chamberId: string, visitDate: string): U
       WHERE v.chamber_id = ? AND v.visit_date = ? AND v.deleted_at IS NULL
         AND v.status = 'waiting'`,
   ).all(chamberId, visitDate) as Array<Omit<WaitingRow, 'flagged'> & { flaggedInt: number }>)
-    .map((r) => ({ ...r, flagged: r.flaggedInt === 1 }));
+    .map((r) => ({ ...r, flagged: r.flaggedInt === 1, bypassed: bypassed.has(r.visitId) }));
   return pickUpNext(waiting, noAnswerCounts(db, chamberId, visitDate));
 }

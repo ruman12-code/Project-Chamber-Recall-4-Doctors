@@ -988,6 +988,9 @@ button.linkish:hover { color: var(--ink); }
 /* Called and nobody came. Amber rather than red: people step outside,
    and this is information for the doctor, not an alarm. */
 .qtag.noanswer { background: #fdf3e0; border-color: #d9a441; color: #6b4708; }
+/* The desk was let past a flagged patient by a person's decision. Not
+   an alarm -- it is information the doctor acts on. */
+.qtag.passedover { background: #f4ecfb; border-color: #b89ad4; color: #5b3a7a; }
 
 /* A path is read character by character and often typed somewhere else,
    so it gets a box, a monospace face, and permission to wrap anywhere
@@ -1009,6 +1012,10 @@ button.linkish:hover { color: var(--ink); }
   border-left-color: var(--ink); border-left-width: 9px;
   background: #eef3fd; box-shadow: 0 0 0 2px var(--ink) inset;
 }
+/* Ending the consultation. Always present, so it has to be findable
+   without being the loudest thing on a screen full of clinical fields. */
+.ch-foot .finish { background: var(--ink); color: #fff; }
+.ch-foot .finish.unsigned { background: var(--paper, #fff); color: var(--ink); border: 2px solid var(--ink); }
 .qrow.upnext .n { font-size: 19px; }
 .qrow.upnext .serial { color: var(--ink); }
 .qrow .nextin {

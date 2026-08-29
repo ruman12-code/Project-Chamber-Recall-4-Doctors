@@ -31,7 +31,7 @@
  */
 export function CalledIn(
   { serialNo, nameBn, nameEn, outOfTurn, nextUp, noAnswer, onlyOneWaiting,
-    stuckOnFlagged, silent, bn, onSent, onNoAnswer }: {
+    stuckOnFlagged, flaggedWaiting, silent, bn, onSent, onNoAnswer, onSkipPriority }: {
     serialNo: number;
     nameBn: string | null;
     nameEn: string | null;
@@ -55,17 +55,36 @@ export function CalledIn(
      * rather than looking as though it ignored the tap.
      */
     stuckOnFlagged: boolean;
+    /** How many of them there are, this one included. Said out loud so
+     *  the desk can see the list getting shorter with each tap. */
+    flaggedWaiting: number;
     /** The tablet cannot make a noise yet, so the screen has to say so. */
     silent: boolean;
     bn: boolean;
     onSent: () => void;
     /** Absent when this is a patient the doctor asked for by number. */
     onNoAnswer?: () => void;
+    /**
+     * The way out of the priority loop.
+     *
+     * A flagged patient is never called after an unflagged one, so when
+     * the flagged ones are not in the room the calling order cannot get
+     * past them and the same numbers come round for ever. This is a
+     * person saying, for THIS named patient, that they are not here.
+     * The flag, the place in the queue and the serial all stay; only
+     * the calling order moves on, and the doctor is told.
+     */
+    onSkipPriority?: () => void;
   },
 ) {
   const name = nameBn ?? nameEn ?? '';
+  // The amber panel is a lot of extra reading on a screen whose whole
+  // point is one enormous number. When it is up, the number gives way
+  // a little so the way out of the loop is on the screen and not
+  // somewhere below it.
+  const crowded = onNoAnswer !== undefined && stuckOnFlagged;
   return (
-    <div className="called-in">
+    <div className={crowded ? 'called-in crowded' : 'called-in'}>
       <div className="lead">
         {nextUp
           ? (bn ? 'এই নম্বর ডেকে বলুন' : 'Call this number out')
@@ -117,9 +136,36 @@ export function CalledIn(
           they are about to send somebody home. */}
       {onNoAnswer !== undefined && stuckOnFlagged && (
         <div className="stuck">
-          {bn
-            ? 'যাঁদের স্ক্রিনিংয়ে সতর্কতা এসেছে তাঁদের সবাইকে ডাকা হয়েছে, কেউ সাড়া দেননি। এঁদের আগে অন্য কাউকে ডাকা হবে না। ডাক্তারকে জানান।'
-            : 'Everybody whose screening raised a warning has been called and none of them came. Nobody else will be called before them. Tell the doctor.'}
+          <div className="t">
+            {bn
+              ? `স্ক্রিনিংয়ে সতর্কতা আসা ${flaggedWaiting} জনকেই ডাকা হয়েছে, কেউ সাড়া দেননি।`
+              : `${flaggedWaiting} ${flaggedWaiting === 1 ? 'person whose' : 'people whose'} screening raised a warning `
+                + `${flaggedWaiting === 1 ? 'has' : 'have'} all been called, and none of them came.`}
+          </div>
+          {/* Exactly what one press does, and what it does NOT do. One
+              name at a time is the whole safety of it: the assistant is
+              saying this named person is not in the room, not turning
+              the warnings off. */}
+          <div className="d">
+            {bn
+              ? 'এই রোগী তালিকাতেই থাকবেন এবং ডাক্তারের পর্দায় সতর্কতা চিহ্ন থাকবেই। শুধু ডাকার ক্রম এগোবে, আর ডাক্তার দেখতে পাবেন যে এগোনো হয়েছে।'
+              : 'This patient stays on the list and keeps their warning on the doctor’s screen. Only the calling order moves on, and the doctor is shown that it did.'}
+          </div>
+          {flaggedWaiting > 1 && (
+            <div className="d">
+              {bn
+                ? `একবারে একজন। বাকি ${flaggedWaiting - 1} জনের নম্বরও একইভাবে একটি একটি করে এগোবে, তারপর সিরিয়াল অনুযায়ী পরের রোগী আসবেন।`
+                : `One name at a time. ${flaggedWaiting === 2 ? 'The other one' : `The other ${flaggedWaiting - 1}`} `
+                  + 'will come up the same way, and after them the list goes back to plain serial order.'}
+            </div>
+          )}
+          {onSkipPriority !== undefined && (
+            <button className="btn breaker" onClick={onSkipPriority}>
+              {bn
+                ? 'ইনি এখন নেই — পরের জনকে ডাকুন'
+                : 'This one is not here — call somebody else'}
+            </button>
+          )}
         </div>
       )}
 

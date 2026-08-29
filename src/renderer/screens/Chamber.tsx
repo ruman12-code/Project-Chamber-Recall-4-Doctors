@@ -319,11 +319,6 @@ export function ChamberScreen(
         {confirmed
           ? <>
               <button onClick={onPrint}>Print prescription</button>
-              {/* Ends the visit and closes this screen. The room is then
-                  empty, and the front desk tablet says so by itself. */}
-              <button disabled={role !== 'doctor'} onClick={onFinished}>
-                Finished — call the next patient
-              </button>
               <button className="secondary" disabled={role !== 'doctor'} onClick={() => { void undoConfirm(); }}>
                 Undo confirmation
               </button>
@@ -335,12 +330,32 @@ export function ChamberScreen(
                   one the moment it left the desk. */}
               <button className="secondary" disabled title="Confirm the consultation first">Print prescription</button>
             </>}
+
+        {/* ALWAYS here, signed or not.
+            It lived inside the confirmed branch, so a doctor looking at
+            an unconfirmed consultation -- which is what he is looking at
+            for the whole of every consultation -- could not see it, and
+            reported it missing. He was right.
+
+            It does not require the signature because the button it
+            replaces does not either: Seen on today's list ends a visit
+            whether or not the record was confirmed. Putting it behind
+            the signature would make finishing HARDER than it is today,
+            which is the opposite of the point. The note beside it says
+            plainly when nothing has been signed. */}
+        <button
+          className={confirmed ? 'finish' : 'finish unsigned'}
+          disabled={role !== 'doctor'}
+          onClick={onFinished}
+        >
+          Finished — call the next patient
+        </button>
         <span className="note">
           {role !== 'doctor'
             ? 'You can write all of this, but only the doctor can confirm it. Until he does it stays a draft.'
             : confirmed
-              ? 'Signed. Any change from here is an amendment and is recorded as one.'
-              : 'Everything is saved as you type. Confirming is your signature on it.'}
+              ? 'Signed. Any change from here is an amendment and is recorded as one. Finishing empties the room and the front desk is told at once.'
+              : 'Everything is saved as you type. Confirming is your signature on it — finishing without it leaves this consultation unsigned.'}
         </span>
       </div>
     </div>

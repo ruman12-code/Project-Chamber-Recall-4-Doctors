@@ -124,6 +124,16 @@ export function App() {
   const [bn, setBn] = useState(() => (localStorage.getItem(LANG_KEY) ?? 'bn') === 'bn');
   const [status, setStatus] = useState<OutboxStatus>(outbox.status());
   const [loadError, setLoadError] = useState<string | null>(null);
+  /**
+   * The laptop did not answer the last time this tablet asked.
+   *
+   * Kept apart from the outbox's own idea of being offline, which only
+   * learns anything when there is something waiting to send. A tablet
+   * with an empty outbox used to go on saying "connected" all evening
+   * with the laptop switched off, and the desk had no way of knowing
+   * the doctor was not seeing their arrivals.
+   */
+  const [laptopSilent, setLaptopSilent] = useState(false);
   const [finished, setFinished] = useState(false);
   const [acknowledging, setAcknowledging] = useState(false);
   /** The serial register: registering an arrival, and the number given. */
@@ -139,7 +149,8 @@ export function App() {
   const [called, setCalled] = useState<
     (NonNullable<DeskSignal['inChamber']>
       & { nextUp?: boolean; noAnswer?: number; onlyOneWaiting?: boolean;
-          flagged?: boolean; allFlaggedUnanswered?: boolean }) | null>(null);
+          flagged?: boolean; allFlaggedUnanswered?: boolean;
+          flaggedWaiting?: number }) | null>(null);
   /** The last state of the room this tablet has already announced, so
    *  it announces a change rather than announcing every few seconds. */
   const announced = useRef<string | null>(null);
@@ -248,6 +259,7 @@ export function App() {
       setSession(next);
       writeJson(SESSION_KEY, next);
       setLoadError(null);
+      setLaptopSilent(false);
 
       // Everything the desk needs to keep working once this laptop is
       // out of reach. Taken while it IS in reach, every single time.
@@ -307,6 +319,10 @@ export function App() {
       // Not being able to reach the laptop is not an error worth
       // stopping for when there is a copy already on the tablet.
       setLoadError(caught instanceof Error ? caught.message : String(caught));
+      // Could not be reached at all, as opposed to reached and refused.
+      // Only the first is worth telling the desk about: a refusal has
+      // its own screen, and a laptop that answers is not away.
+      if (caught instanceof LaptopUnreachableError) setLaptopSilent(true);
     }
   }, []);
 
@@ -574,7 +590,40 @@ export function App() {
     } catch { /* the poll a few seconds from now will do it */ }
   }
 
-  const offline = status.offlineSince !== null || offlineDesk !== null;
+  /**
+   * "This flagged patient is not here — call the next by serial."
+   *
+   * The way out of the priority loop, and the only one. It is recorded
+   * with the assistant's name, it changes the calling order and nothing
+   * else, and the doctor's list shows that it happened. Through the
+   * outbox like every other thing the desk does.
+   */
+  async function notHereMoveOn(who: { visitId: string; serialNo: number }): Promise<void> {
+    const by = session?.signedIn?.id ?? offlineDesk?.who.id ?? null;
+    if (by !== null) {
+      const at = new Date().toISOString();
+      const ref = `${who.visitId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      // Both: they were called and did not come, AND a person decided
+      // to move past their priority. Two facts, written down as two.
+      outbox.add('/api/queue/no-answer', {
+        deskRef: `na-${ref}`, visitId: who.visitId, calledBy: by, calledAt: at,
+      });
+      outbox.add('/api/queue/priority-bypass', {
+        deskRef: `pb-${ref}`, visitId: who.visitId, calledBy: by, calledAt: at,
+      });
+    }
+    setCalled(null);
+    try {
+      await outbox.flush();
+      const signal = await api.deskSignal();
+      if (signal !== null && signal.inChamber === null && signal.nextWaiting !== null) {
+        announced.current = signal.at;
+        setCalled({ ...signal.nextWaiting, outOfTurn: false, nextUp: true });
+      }
+    } catch { /* the poll a couple of seconds from now will do it */ }
+  }
+
+  const offline = status.offlineSince !== null || offlineDesk !== null || laptopSilent;
 
   return (
     <div className="screen">
@@ -592,6 +641,7 @@ export function App() {
           noAnswer={called.noAnswer ?? 0}
           onlyOneWaiting={called.onlyOneWaiting === true}
           stuckOnFlagged={called.allFlaggedUnanswered === true}
+          flaggedWaiting={called.flaggedWaiting ?? 0}
           silent={!chimeIsArmed()}
           bn={bn}
           onSent={() => setCalled(null)}
@@ -600,6 +650,11 @@ export function App() {
           // appear is news for him, not something for the desk to move
           // past on its own.
           onNoAnswer={called.nextUp === true ? () => { void nobodyCame(called); } : undefined}
+          // Only offered when the calling order is genuinely stuck on
+          // flagged patients who are not answering. It is a decision
+          // about ONE named patient, not a mode the desk turns on.
+          onSkipPriority={called.nextUp === true && called.allFlaggedUnanswered === true
+            ? () => { void notHereMoveOn(called); } : undefined}
         />
       )}
 
@@ -673,6 +728,12 @@ export function App() {
           // against it would restart the register mid-evening.
           visitDate={session?.visitDate ?? sessionDate()}
           takenBy={session?.signedIn?.id ?? offlineDesk?.who.id ?? null}
+          // Who already has a number today. Read from the cached list,
+          // so it still warns with the laptop out of reach -- which is
+          // exactly when a duplicate is easiest to make.
+          alreadyToday={new Map((session?.queue ?? [])
+            .filter((e) => e.status !== 'left')
+            .map((e) => [e.patientId, e.serialNo] as const))}
           onCancel={() => setArriving(false)}
           onDone={(serialNo, name) => {
             setArriving(false);

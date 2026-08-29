@@ -35,7 +35,7 @@
 // worse than the desk calling the wrong number is the desk and the
 // doctor each being told a different number.
 import type { Db } from '../db/open';
-import { noAnswerCounts } from './noAnswer';
+import { noAnswerCounts, bypassedVisits } from './noAnswer';
 import { pickUpNext } from './upNext';
 
 export interface DeskSignal {
@@ -81,8 +81,9 @@ export function deskSignal(db: Db, chamberId: string, visitDate: string): DeskSi
     nameBn: string | null; nameEn: string | null; flaggedInt: number;
   }>;
 
+  const bypassed = bypassedVisits(db, chamberId, visitDate);
   const waiting = rows.filter((r) => r.status === 'waiting')
-    .map((r) => ({ ...r, flagged: r.flaggedInt === 1 }));
+    .map((r) => ({ ...r, flagged: r.flaggedInt === 1, bypassed: bypassed.has(r.visitId) }));
   const called = rows.find((r) => r.status === 'in_chamber') ?? null;
 
   // The shared rule -- see upNext.ts. Nobody is moved and nothing is

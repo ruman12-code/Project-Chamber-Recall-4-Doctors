@@ -48,7 +48,7 @@ function ageOf(p: PatientSearchResult, bn: boolean): string {
 }
 
 export function Arrive(
-  { bn, onDone, onCancel, deskChamber, visitDate, takenBy }: {
+  { bn, onDone, onCancel, deskChamber, visitDate, takenBy, alreadyToday }: {
     bn: boolean;
     onDone: (serialNo: number, name: string) => void;
     onCancel: () => void;
@@ -61,6 +61,18 @@ export function Arrive(
      *  record, not the name of whoever the laptop has signed in when
      *  this finally reaches it two hours later. */
     takenBy: string | null;
+    /**
+     * Who is already on today's list, by patient, with the number they
+     * were given.
+     *
+     * The desk says a number out loud before the laptop has seen
+     * anything, so a duplicate cannot be caught after the fact -- by
+     * then the patient has been told. It has to be caught here, in
+     * front of the person about to say it. The screen does not refuse:
+     * a patient really can come back a second time in one evening. It
+     * makes the assistant see the first number and mean the second.
+     */
+    alreadyToday: Map<string, number>;
   },
 ) {
   const [query, setQuery] = useState('');
@@ -81,6 +93,10 @@ export function Arrive(
    * screening nobody took.
    */
   const [kind, setKind] = useState<'consultation' | 'reports_only'>('consultation');
+  /** A patient the tap found already on today's list, waiting for the
+   *  assistant to say they mean it. */
+  const [secondToday, setSecondToday] = useState<
+    { patient: PatientSearchResult; serialNo: number } | null>(null);
 
   // The new-patient form.
   const [nameBn, setNameBn] = useState('');
@@ -281,6 +297,44 @@ export function Arrive(
     );
   }
 
+  // Already has a number today. Shown before anything is given out,
+  // because a serial said out loud cannot be taken back.
+  if (secondToday !== null) {
+    const who = secondToday.patient.nameBn ?? secondToday.patient.nameEn ?? '';
+    return (
+      <>
+        <div className="prompt">
+          <div className="bn">{who}</div>
+          <div className="en">{bn ? 'ইনি আজ তালিকায় আছেন' : 'Already on today\u2019s list'}</div>
+        </div>
+
+        <div className="already-today">
+          <div className="serial">{secondToday.serialNo}</div>
+          <div className="t">
+            {bn
+              ? `আজ ইনাকে ${secondToday.serialNo} নম্বর দেওয়া হয়েছে এবং ইনি ডাক্তারের তালিকায় আছেন।`
+              : `They were given serial ${secondToday.serialNo} today and are on the doctor\u2019s list already.`}
+          </div>
+          <div className="d">
+            {bn
+              ? 'সাধারণত আর কিছু করার নেই — নম্বরটি বলে দিন। দ্বিতীয় নম্বর কেবল তখনই, যখন ইনি আজ সন্ধ্যায় সত্যিই দ্বিতীয়বার এসেছেন।'
+              : 'Usually there is nothing to do — tell them that number. A second number is only for a patient who really has come back a second time this evening.'}
+          </div>
+        </div>
+
+        <div className="arrive-actions">
+          <button onClick={() => { setSecondToday(null); onCancel(); }}>
+            {bn ? `${secondToday.serialNo} নম্বরই বলে দিন` : `Tell them serial ${secondToday.serialNo}`}
+          </button>
+          <button className="quiet" disabled={busy}
+            onClick={() => { const p = secondToday.patient; setSecondToday(null); void giveSerial(p); }}>
+            {bn ? 'ইনি দ্বিতীয়বার এসেছেন — নতুন নম্বর দিন' : 'They have come back — give a second number'}
+          </button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="prompt">
@@ -342,7 +396,11 @@ export function Arrive(
         )}
         {!searching && results !== null && results.map((patient) => (
           <button key={patient.id} className="patient" disabled={busy}
-            onClick={() => { void giveSerial(patient); }}>
+            onClick={() => {
+              const had = alreadyToday.get(patient.id);
+              if (had !== undefined) { setSecondToday({ patient, serialNo: had }); return; }
+              void giveSerial(patient);
+            }}>
             <span className="who">
               <span className="nm">{patient.nameBn ?? patient.nameEn}</span>
               {/* Off this tablet's own list, all that is known is a name
@@ -379,6 +437,11 @@ export function Arrive(
                 </>
               )}
             </span>
+            {alreadyToday.get(patient.id) !== undefined && (
+              <span className="state onlist">
+                {bn ? `আজ সিরিয়াল ${alreadyToday.get(patient.id)}` : `on today's list · ${alreadyToday.get(patient.id)}`}
+              </span>
+            )}
             {patient.mergedIntoPatientId !== null && (
               <span className="state">{bn ? 'অন্য রেকর্ডে যুক্ত' : 'merged'}</span>
             )}

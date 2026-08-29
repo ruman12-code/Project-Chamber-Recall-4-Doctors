@@ -7,8 +7,9 @@ import { registerArrival, setVisitStatus } from '../src/main/queue/register';
 import { todaysQueue, moveInQueue } from '../src/main/queue/queue';
 import { deskSignal } from '../src/main/queue/deskSignal';
 import { upNextInChamber } from '../src/main/queue/upNext';
-import { recordNoAnswer } from '../src/main/queue/noAnswer';
+import { recordNoAnswer, recordPriorityBypass } from '../src/main/queue/noAnswer';
 import { addStaff, deskSignInList, signInList } from '../src/main/auth/staff';
+import { recentAudit } from '../src/main/db/audit';
 import { tempDir } from './helpers';
 
 const SYSTEM = { id: null, role: 'system' as const };
@@ -165,6 +166,142 @@ describe('a flagged patient is never called after an unflagged one', () => {
     const c = chamber();
     assert.equal(upNextInChamber(c.db, 'popular', TODAY)?.allFlaggedUnanswered, false);
     assert.equal(upNextInChamber(c.db, 'popular', TODAY)?.flagged, false);
+    c.cleanup();
+  });
+
+  // The desk is shown how many there are, so pressing the way out
+  // reads as working through a known list rather than as a screen that
+  // will not move.
+  test('how many flagged patients the calling order is holding', () => {
+    const c = chamber();
+    assert.equal(upNextInChamber(c.db, 'popular', TODAY)?.flaggedWaiting, 0);
+    flag(c, c.visits[1]!);
+    assert.equal(upNextInChamber(c.db, 'popular', TODAY)?.flaggedWaiting, 1);
+    flag(c, c.visits[2]!);
+    assert.equal(upNextInChamber(c.db, 'popular', TODAY)?.flaggedWaiting, 2);
+    c.cleanup();
+  });
+});
+
+describe('the way out of the priority loop', () => {
+  function flag(c: ReturnType<typeof chamber>, visitId: string) {
+    const intakeId = `i-${visitId}`;
+    c.db.prepare(
+      `INSERT INTO intake (id, visit_id, recorded_by, started_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(intakeId, visitId, c.deskId, nowIso(), nowIso(), nowIso());
+    c.db.prepare(
+      `INSERT INTO red_flag_event (id, intake_id, rule_id, rule_version, fired_at)
+       VALUES (?, ?, 'r', '1', ?)`,
+    ).run(`f-${visitId}`, intakeId, nowIso());
+  }
+  const bypass = (c: ReturnType<typeof chamber>, visitId: string) =>
+    recordPriorityBypass(c.db, {
+      deskRef: `b-${++n}`, visitId, calledBy: c.deskId, calledAt: nowIso(),
+    });
+
+  test('without it, the desk is stuck on flagged patients who are not there', () => {
+    const c = chamber();
+    flag(c, c.visits[1]!);            // serial 2 is flagged
+    nobodyCame(c, c.visits[1]!);
+    // Serial 1 and 3 are waiting with no calls against them, and STILL
+    // the flagged one comes up. That is correct, and it is the trap.
+    assert.equal(upNextInChamber(c.db, 'popular', TODAY)?.serialNo, 2);
+    assert.equal(upNextInChamber(c.db, 'popular', TODAY)?.allFlaggedUnanswered, true);
+    c.cleanup();
+  });
+
+  // Each press is about ONE named patient, so the count comes down one
+  // at a time and the desk can see it happening.
+  test('the count comes down by one for each person said not to be here', () => {
+    const c = chamber();
+    flag(c, c.visits[1]!);
+    flag(c, c.visits[2]!);
+    nobodyCame(c, c.visits[1]!);
+    nobodyCame(c, c.visits[2]!);
+    assert.equal(upNextInChamber(c.db, 'popular', TODAY)?.flaggedWaiting, 2);
+    bypass(c, c.visits[1]!);
+    const mid = upNextInChamber(c.db, 'popular', TODAY);
+    assert.equal(mid?.flaggedWaiting, 1);
+    assert.equal(mid?.serialNo, 3, 'the other flagged patient is still ahead of everybody');
+    bypass(c, c.visits[2]!);
+    const after = upNextInChamber(c.db, 'popular', TODAY);
+    assert.equal(after?.flaggedWaiting, 0);
+    assert.equal(after?.serialNo, 1, 'and now the plain serial order runs');
+    assert.equal(after?.allFlaggedUnanswered, false);
+    c.cleanup();
+  });
+
+  test('a person says "not here", and the desk moves on', () => {
+    const c = chamber();
+    flag(c, c.visits[1]!);
+    nobodyCame(c, c.visits[1]!);
+    bypass(c, c.visits[1]!);
+    assert.equal(upNextInChamber(c.db, 'popular', TODAY)?.serialNo, 1,
+      'the desk still could not get past the flagged patient');
+    assert.equal(deskSignal(c.db, 'popular', TODAY).nextWaiting?.serialNo, 1);
+    c.cleanup();
+  });
+
+  test('and the patient keeps EVERYTHING: flag, place, serial, status', () => {
+    const c = chamber();
+    flag(c, c.visits[1]!);
+    const before_ = c.db.prepare('SELECT * FROM visit WHERE id = ?').get(c.visits[1]!);
+    nobodyCame(c, c.visits[1]!);
+    bypass(c, c.visits[1]!);
+    assert.deepEqual(c.db.prepare('SELECT * FROM visit WHERE id = ?').get(c.visits[1]!), before_,
+      'the visit was changed by a decision that must only change the calling order');
+
+    const row = todaysQueue(c.db, 'popular', TODAY).find((e) => e.visitId === c.visits[1]);
+    assert.equal(row?.status, 'waiting');
+    assert.equal(row?.redFlags.length, 1, 'the flag was dropped');
+    assert.equal(row?.passedOver, true, 'the doctor is not being told');
+    // Still sorted above unflagged patients on the DOCTOR's list.
+    const listed = todaysQueue(c.db, 'popular', TODAY).filter((e) => e.status === 'waiting');
+    assert.equal(listed[0]?.serialNo, 2, 'SEE SOONER stopped winning on the doctor’s list');
+    c.cleanup();
+  });
+
+  test('the doctor can still call them in at any moment', () => {
+    const c = chamber();
+    flag(c, c.visits[1]!);
+    nobodyCame(c, c.visits[1]!);
+    bypass(c, c.visits[1]!);
+    setVisitStatus(c.db, c.visits[1]!, 'in_chamber', c.doctor);
+    assert.equal(deskSignal(c.db, 'popular', TODAY).inChamber?.serialNo, 2);
+    c.cleanup();
+  });
+
+  test('it frees ONE patient, not the rule', () => {
+    const c = chamber();
+    flag(c, c.visits[1]!);
+    flag(c, c.visits[2]!);
+    nobodyCame(c, c.visits[1]!);
+    bypass(c, c.visits[1]!);
+    // The OTHER flagged patient still comes before the unflagged one.
+    assert.equal(upNextInChamber(c.db, 'popular', TODAY)?.serialNo, 3);
+    c.cleanup();
+  });
+
+  test('the same tap twice is one decision', () => {
+    const c = chamber();
+    flag(c, c.visits[1]!);
+    const ref = `once-${++n}`;
+    const a = recordPriorityBypass(c.db, { deskRef: ref, visitId: c.visits[1]!, calledBy: c.deskId, calledAt: nowIso() });
+    const b = recordPriorityBypass(c.db, { deskRef: ref, visitId: c.visits[1]!, calledBy: c.deskId, calledAt: nowIso() });
+    assert.equal(a.alreadyHad, false);
+    assert.equal(b.alreadyHad, true);
+    assert.equal((c.db.prepare('SELECT count(*) n FROM priority_bypass').get() as { n: number }).n, 1);
+    c.cleanup();
+  });
+
+  test('it carries the name of whoever decided', () => {
+    const c = chamber();
+    flag(c, c.visits[1]!);
+    bypass(c, c.visits[1]!);
+    const row = c.db.prepare('SELECT decided_by AS by FROM priority_bypass LIMIT 1').get() as { by: string };
+    assert.equal(row.by, c.deskId);
+    assert.ok(recentAudit(c.db, 100).some((a) => a.action === 'priority_bypassed'));
     c.cleanup();
   });
 });

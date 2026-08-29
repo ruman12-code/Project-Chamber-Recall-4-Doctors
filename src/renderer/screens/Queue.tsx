@@ -392,6 +392,13 @@ function Row(
               called {entry.calledNoAnswer}×, no answer
             </span>
           )}
+          {/* The desk was allowed past this flagged patient because a
+              person said they are not in the room. Their flag, place and
+              serial are all unchanged -- what to do about it is the
+              doctor's judgement, so he is told. */}
+          {entry.passedOver && entry.status === 'waiting' && (
+            <span className="qtag passedover">desk moved on — not in the room</span>
+          )}
           {/* "First visit" is a clinical statement: it says there is no
               history to look for. Against somebody the doctor has been
               treating since 2019 it is false, and stays false for weeks

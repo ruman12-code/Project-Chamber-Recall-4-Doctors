@@ -54,6 +54,13 @@ export interface QueueEntry {
    */
   calledNoAnswer: number;
   /**
+   * Somebody at the desk decided this flagged patient is not here, so
+   * the desk could call others. The flag, the place and the serial are
+   * all unchanged -- this is here so the doctor knows, because what to
+   * do about a flagged patient who is not answering is his judgement.
+   */
+  passedOver: boolean;
+  /**
    * Photographs of the paper this patient brought today.
    *
    * Here so that neither screen has to guess: the tablet stops shoving

@@ -155,17 +155,34 @@ export function receiveDeskArrival(db: Db, arrival: DeskArrival, receivedBy: Act
   const write = db.transaction((): DeskArrivalResult => {
     const patientId = patientForArrival(db, arrival, actor);
 
+    // Was a number actually said out loud to this patient?
+    //
+    // A serial is a positive whole number. Anything else -- absent,
+    // null, zero, a fraction, a negative -- means the tablet did not
+    // announce one, and the only safe reading is to give them the next
+    // free number here.
+    //
+    // This is not hypothetical tidying. The route ahead of this read
+    // `Number(body.serialAnnounced ?? 0)`, so a message with no serial
+    // in it arrived as ZERO -- and zero is never "already taken", so it
+    // was used as the patient's serial. That patient then sorted above
+    // every other patient in the chamber, because zero is the lowest
+    // number there is. A silent queue-jump, from a missing field.
+    const announced = Number.isInteger(arrival.serialAnnounced) && arrival.serialAnnounced > 0
+      ? arrival.serialAnnounced
+      : null;
+
     // The announced number if it is free; otherwise the next one, and
     // the announced one written down so somebody has to tell them.
-    const taken = db.prepare(
+    const taken = announced !== null && db.prepare(
       'SELECT id FROM visit WHERE chamber_id = ? AND visit_date = ? AND serial_no = ?',
-    ).get(arrival.chamberId, visitDate, arrival.serialAnnounced) !== undefined;
+    ).get(arrival.chamberId, visitDate, announced) !== undefined;
 
-    const serialNo = taken
+    const serialNo = (announced === null || taken)
       ? (db.prepare(
           'SELECT COALESCE(max(serial_no), 0) + 1 AS n FROM visit WHERE chamber_id = ? AND visit_date = ?',
         ).get(arrival.chamberId, visitDate) as { n: number }).n
-      : arrival.serialAnnounced;
+      : announced;
 
     const id = newId();
     db.prepare(
@@ -175,7 +192,10 @@ export function receiveDeskArrival(db: Db, arrival: DeskArrival, receivedBy: Act
        VALUES (?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?, ?, ?, ?)`,
     ).run(id, patientId, arrival.chamberId, visitDate, serialNo, serialNo, arrivedAt,
       arrivedAt, actor.id, arrivedAt, arrival.deskRef,
-      taken ? arrival.serialAnnounced : null,
+      // Only recorded when a DIFFERENT number was said out loud, so
+      // somebody has to go and correct the patient. Nothing announced
+      // means nothing to correct.
+      taken ? announced : null,
       arrival.visitKind ?? 'consultation');
 
     recordAudit(db, {

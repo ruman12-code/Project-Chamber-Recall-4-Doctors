@@ -22,7 +22,17 @@
   --warn-line: #d9a441;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; margin: 0; }
+/* THE WHOLE PAGE SCROLLS.
+   It used to be locked to the height of the screen, with the patient
+   list scrolling inside its own box. That is fine until anything else
+   appears above it -- a "laptop not reachable" notice, an offline
+   banner, a serial just given -- because the list is what gives up the
+   room, and on a phone with two notices showing there was nothing of it
+   left to see.
+   Now the page grows and the tablet scrolls it the way it scrolls
+   every other page. The one action that must never scroll away is
+   pinned; see .arrive-actions. */
+html, body { min-height: 100%; margin: 0; }
 body {
   background: var(--page); color: var(--ink);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto,
@@ -31,9 +41,9 @@ body {
   -webkit-user-select: none; user-select: none;
   overscroll-behavior: none;
 }
-#root { height: 100%; }
+#root { min-height: 100%; }
 
-.screen { height: 100%; display: flex; flex-direction: column; padding: 18px 22px 22px; gap: 14px; }
+.screen { min-height: 100%; display: flex; flex-direction: column; padding: 18px 22px 22px; gap: 14px; }
 .topbar { display: flex; align-items: center; gap: 12px; flex: none; }
 .topbar .who { font-size: 17px; font-weight: 700; }
 .topbar .who small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); }
@@ -56,7 +66,7 @@ button { font: inherit; font-family: inherit; cursor: pointer; border-radius: 12
 .prompt .en { font-size: 20px; color: var(--muted); font-weight: 600; margin-top: 4px; }
 .prompt .help { font-size: 16px; color: var(--muted); margin-top: 8px; }
 
-.answers { flex: 1; overflow-y: auto; min-height: 0; display: grid; gap: 12px; align-content: start; }
+.answers { display: grid; gap: 12px; align-content: start; }
 .answers.two { grid-template-columns: 1fr 1fr; }
 .answers.three { grid-template-columns: 1fr 1fr 1fr; }
 
@@ -87,7 +97,21 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 .btn:disabled { opacity: 0.45; }
 .progress { font-size: 15px; color: var(--muted); font-weight: 700; }
 
-.patient-list { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+/* Grows to fit every patient. The PAGE scrolls, not this box, so a
+   notice at the top pushes the list down rather than squashing it. */
+.patient-list { display: flex; flex-direction: column; gap: 10px; }
+/* A patient the desk is about to hand a SECOND number to today. Amber,
+   like every other "a person has to decide this" panel. */
+.already-today {
+  border: 3px solid #d9a441; background: #fdf3e0; color: #6b4708;
+  border-radius: 12px; padding: 18px 20px; text-align: center;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.already-today .serial {
+  font-size: 72px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.already-today .t { font-size: 19px; font-weight: 800; }
+.already-today .d { font-size: 15.5px; line-height: 1.5; }
 .patient {
   display: flex; align-items: center; gap: 16px; width: 100%; text-align: left;
   border: 3px solid var(--line); background: #fff; padding: 14px 18px; min-height: 86px;
@@ -113,6 +137,9 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 .patient.inchamber { border-color: var(--ink); background: #eef3fd; }
 .patient .state.indoc { background: var(--ink); border-color: var(--ink); color: #fff; }
 .patient .state.skipped { background: #fdf3e0; border-color: #d9a441; color: #6b4708; }
+/* Already has a number today, seen while the desk is about to give
+   another one. Same amber as every other "stop and decide". */
+.patient .state.onlist { background: #fdf3e0; border-color: #d9a441; color: #6b4708; }
 
 /* The two things an assistant can actually do. Nothing happens by
    touching the card itself any more, so these have to be unmissable
@@ -232,7 +259,16 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
   width: 100%; font: inherit; font-size: 26px; padding: 16px 18px;
   border: 3px solid var(--line); border-radius: 12px; margin-bottom: 14px;
 }
-.arrive-actions { display: flex; gap: 12px; padding: 14px 0 4px; }
+/* Pinned to the bottom of the screen while the list scrolls past it.
+   Registering an arrival is the thing the desk does most, and a page
+   that scrolls must not be able to hide it. */
+.arrive-actions {
+  position: sticky; bottom: 0; z-index: 5;
+  margin-top: auto;
+  display: flex; gap: 12px; padding: 14px 0 4px;
+  background: var(--page);
+  box-shadow: 0 -10px 14px -6px var(--page);
+}
 .arrive-actions button { flex: 1; font-size: 21px; padding: 18px; }
 .arrive-actions button.quiet { flex: 0 0 32%; background: #fff; color: var(--ink); border: 3px solid var(--line); }
 
@@ -315,9 +351,37 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 .called-in {
   position: fixed; inset: 0; z-index: 200;
   background: var(--page, #f3f5f8);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center;
   gap: 6px; padding: 24px; text-align: center;
+  /* Centred when it fits, SCROLLABLE when it does not.
+     justify-content:center on a fixed panel clips whatever overruns at
+     BOTH ends and no amount of scrolling brings it back -- on a phone
+     that hid the way out of the priority loop below the fold, cut off
+     mid-word, with no way to reach it. The auto margins centre exactly
+     as justify-content:center did while there is room, and give way to
+     the scrollbar when there is not. */
+  overflow-y: auto; overscroll-behavior: contain; justify-content: flex-start;
 }
+.called-in > :first-child { margin-top: auto; }
+.called-in > :last-child { margin-bottom: auto; }
+/* The screen with the amber panel on it has a great deal more to say
+   than the ordinary one. The number is still the biggest thing on it,
+   but it stops being the only thing that fits. */
+.called-in.crowded .lead { font-size: 18px; }
+.called-in.crowded .serial { font-size: min(30vw, 20vh, 190px); }
+.called-in.crowded .name { font-size: 23px; }
+/* Everything else gives up a few points too, so that on a phone-sized
+   screen the whole thing -- number, name, both answers and the way out
+   -- lands inside one screenful and nobody has to know to scroll. The
+   scrolling above is still there; this is so it is not needed. */
+.called-in.crowded { gap: 2px; padding: 14px 16px; }
+.called-in.crowded .acts { margin-top: 10px; gap: 8px; }
+.called-in.crowded .btn { font-size: 18px; padding: 12px 20px; min-height: 54px; }
+.called-in.crowded .again { margin: 4px 0 0; font-size: 15px; padding: 5px 12px; }
+.called-in.crowded .silent-note { font-size: 13px; margin: 2px 0 0; }
+.called-in.crowded .stuck { margin-top: 10px; padding: 12px 14px; font-size: 15px; gap: 6px; }
+.called-in.crowded .stuck .d { font-size: 13.5px; }
+.called-in.crowded .stuck .breaker { font-size: 15px; padding: 11px 12px; min-height: 0; }
 .called-in .lead { font-size: 22px; color: var(--muted); }
 .called-in .serial {
   font-size: min(38vw, 300px); line-height: 1; font-weight: 800;
@@ -352,8 +416,17 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 /* The desk has run out of moves and a person has to decide. Amber,
    because it is a situation to act on, not a failure. */
 .called-in .stuck {
-  max-width: 34rem; margin-top: 14px; padding: 12px 16px; font-size: 16px; line-height: 1.45;
+  max-width: 34rem; margin-top: 14px; padding: 14px 16px; font-size: 16px; line-height: 1.45;
   background: #fdf3e0; border: 2px solid #d9a441; color: #6b4708; border-radius: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.called-in .stuck .t { font-weight: 800; }
+.called-in .stuck .d { font-size: 14.5px; }
+/* The way out. Deliberately not the loudest thing on the screen: it is
+   the rare answer, and sending the patient in is the usual one. */
+.called-in .stuck .breaker {
+  margin: 4px 0 0; min-width: 0; width: 100%; font-size: 16px; padding: 12px 14px;
+  background: #6b4708; color: #fff; border: 3px solid #6b4708;
 }
 .called-in .reassure {
   max-width: 34rem; margin-top: 14px; font-size: 15px; line-height: 1.5; color: var(--muted);
@@ -399,7 +472,18 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
   .topbar .conn { font-size: 12px; padding: 4px 10px; }
   .topbar .lang { font-size: 14px; padding: 6px 12px; }
   .called-in .serial { font-size: min(46vw, 220px); }
+  .called-in.crowded .serial { font-size: min(30vw, 18vh, 150px); }
   .called-in .name { font-size: 22px; }
   .called-in .acts { flex-direction: column; align-items: stretch; }
   .called-in .btn { min-width: 0; width: 100%; }
+
+  /* Two full sentences will not sit side by side in 400 points. Side
+     by side they came out one word per line, which is how a front desk
+     ends up pressing the wrong button. */
+  .arrive-actions { flex-direction: column; align-items: stretch; }
+  .arrive-actions button { font-size: 19px; padding: 15px 16px; }
+  .arrive-actions button.quiet { flex: 0 0 auto; }
+  .already-today { padding: 14px 16px; }
+  .already-today .serial { font-size: 60px; }
+  .already-today .t { font-size: 17.5px; }
 }

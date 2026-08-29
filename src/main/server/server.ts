@@ -33,7 +33,7 @@ import { searchPatients } from '../patients/search';
 import { buildDirectory } from '../patients/directory';
 import { receiveDeskArrival } from '../queue/deskArrival';
 import { deskSignal } from '../queue/deskSignal';
-import { recordNoAnswer } from '../queue/noAnswer';
+import { recordNoAnswer, recordPriorityBypass } from '../queue/noAnswer';
 import { registerPatient } from '../patients/register';
 import { registerArrival } from '../queue/register';
 import { addAttachment, type AttachmentKind } from '../attachments/store';
@@ -424,6 +424,32 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
       const body = (await readBody(request)) as Record<string, unknown>;
       try {
         const got = recordNoAnswer(db, {
+          deskRef: String(body.deskRef ?? ''),
+          visitId: String(body.visitId ?? ''),
+          calledBy: String(body.calledBy ?? ''),
+          calledAt: String(body.calledAt ?? nowIso()),
+        });
+        sendJson(response, 200, got);
+      } catch (error) {
+        sendJson(response, 400, {
+          error: error instanceof ChamberRecallError ? error.userMessage
+            : 'That could not be written down.',
+          whatToDo: error instanceof ChamberRecallError ? error.whatToDo
+            : 'Call the next number from the laptop\'s list instead.',
+        });
+      }
+      return;
+    }
+
+    // "This flagged patient is not here -- let the desk call somebody
+    // else." A person's decision, recorded with their name. It changes
+    // the calling order and nothing else: not the status, not the queue
+    // position, not the serial, not the flag. Read the top of
+    // src/main/db/migrations/018 before touching this.
+    if (path === '/api/queue/priority-bypass') {
+      const body = (await readBody(request)) as Record<string, unknown>;
+      try {
+        const got = recordPriorityBypass(db, {
           deskRef: String(body.deskRef ?? ''),
           visitId: String(body.visitId ?? ''),
           calledBy: String(body.calledBy ?? ''),
