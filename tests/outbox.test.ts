@@ -32,9 +32,15 @@ beforeEach(() => {
   (globalThis as Record<string, unknown>).localStorage = storage;
 });
 
-async function makeOutbox(send: (path: string, body: unknown) => Promise<void>) {
+/** The tablet's own rule: only a LaptopUnreachableError is worth waiting out. */
+class Unreachable extends Error {}
+
+async function makeOutbox(
+  send: (path: string, body: unknown) => Promise<void>,
+  isUnreachable: (e: unknown) => boolean = () => true,
+) {
   const { Outbox } = await import('../src/tablet/outbox');
-  return new Outbox(send);
+  return new Outbox(send, isUnreachable);
 }
 
 describe('when the laptop can be reached', () => {
@@ -164,5 +170,101 @@ describe('when the tablet itself has a problem', () => {
     const outbox = await makeOutbox(async () => undefined);
     storage.full = true;
     assert.throws(() => outbox.add('/api/intake/answers', { a: 1 }), /run out of storage/);
+  });
+});
+
+/**
+ * The failure that is not a wifi failure.
+ *
+ * A laptop that ANSWERS and refuses will refuse for ever. Left at the
+ * head of the queue it blocks every single thing behind it for the
+ * rest of the evening, silently, while the tablet says "laptop not
+ * reachable" about a laptop that is answering. That is work quietly
+ * not arriving with nobody told, which is the one thing this program
+ * must never do.
+ */
+describe('when the laptop answers and says no', () => {
+  const wifi = (e: unknown) => e instanceof Unreachable;
+
+  test('a refusal never blocks what is behind it', async () => {
+    const sent: string[] = [];
+    const outbox = await makeOutbox(async (path) => {
+      if (path === '/api/queue/status') throw new Error('That visit is not on today\u2019s list.');
+      sent.push(path);
+    }, wifi);
+    outbox.add('/api/queue/status', { a: 1 });
+    outbox.add('/api/queue/handoff', { b: 2 });
+    outbox.add('/api/attachments', { c: 3 });
+    await outbox.flush();
+    assert.deepEqual(sent, ['/api/queue/handoff', '/api/attachments'],
+      'a refusal at the head stopped everything behind it');
+    assert.equal(outbox.status().pending, 0);
+  });
+
+  test('and it is kept, in words, for somebody to read', async () => {
+    const outbox = await makeOutbox(async () => {
+      throw new Error('That visit is no longer on the list.');
+    }, wifi);
+    outbox.add('/api/queue/status', { visitId: 'v1' });
+    await outbox.flush();
+    const refused = outbox.status().refused;
+    assert.equal(refused.length, 1);
+    assert.equal(refused[0]!.path, '/api/queue/status');
+    assert.deepEqual(refused[0]!.body, { visitId: 'v1' });
+    assert.equal(refused[0]!.reason, 'That visit is no longer on the list.');
+    assert.equal(outbox.status().pending, 0, 'a refused entry was left in the queue as well');
+  });
+
+  test('it is not retried, however many times the outbox runs', async () => {
+    let tries = 0;
+    const outbox = await makeOutbox(async () => { tries += 1; throw new Error('no'); }, wifi);
+    outbox.add('/api/queue/status', {});
+    await outbox.flush();
+    await outbox.flush();
+    await outbox.flush();
+    assert.equal(tries, 1);
+    assert.equal(outbox.status().refused.length, 1);
+  });
+
+  test('it goes only when a person says they have read it', async () => {
+    const outbox = await makeOutbox(async () => { throw new Error('no'); }, wifi);
+    outbox.add('/api/queue/status', {});
+    await outbox.flush();
+    const [one] = outbox.status().refused;
+    assert.ok(one);
+    await outbox.flush();
+    assert.equal(outbox.status().refused.length, 1, 'a refusal cleared itself');
+    outbox.dismissRefused(one.id);
+    assert.equal(outbox.status().refused.length, 0);
+  });
+
+  test('a refusal does NOT make the tablet say the laptop is unreachable', async () => {
+    const outbox = await makeOutbox(async () => { throw new Error('no'); }, wifi);
+    outbox.add('/api/queue/status', {});
+    await outbox.flush();
+    assert.equal(outbox.status().offlineSince, null,
+      'the tablet blamed the wifi for a laptop that answered');
+  });
+
+  // The other half of the same rule, and getting it wrong the other way
+  // would be worse: an entry set aside for a wifi blip is work that
+  // never arrives.
+  test('being out of reach still waits, and still holds the order', async () => {
+    let reachable = false;
+    const sent: string[] = [];
+    const outbox = await makeOutbox(async (path) => {
+      if (!reachable) throw new Unreachable('the laptop could not be reached');
+      sent.push(path);
+    }, wifi);
+    outbox.add('/api/intake/start', {});
+    outbox.add('/api/intake/answers', {});
+    await outbox.flush();
+    assert.equal(outbox.status().pending, 2, 'a wifi drop threw work away');
+    assert.equal(outbox.status().refused.length, 0);
+    assert.notEqual(outbox.status().offlineSince, null);
+    reachable = true;
+    await outbox.flush();
+    assert.deepEqual(sent, ['/api/intake/start', '/api/intake/answers']);
+    assert.equal(outbox.status().offlineSince, null);
   });
 });

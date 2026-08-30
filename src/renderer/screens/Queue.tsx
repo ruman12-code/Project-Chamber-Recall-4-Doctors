@@ -96,6 +96,22 @@ export function Queue(
     return true;
   }
 
+  /**
+   * The chamber's answer to the front desk.
+   *
+   * Accepting is the only thing here that changes a visit, and it goes
+   * through the same status change as pressing "Call in" would. "Not
+   * now" writes down that it was asked and answered, and touches
+   * nothing else -- the patient does not lose their place, their
+   * serial or their turn.
+   */
+  async function answerHandoff(id: string, decision: 'accepted' | 'declined') {
+    const { failure } = unwrap(await api.queueAnswerHandoff(id, decision));
+    if (failure) { setFailure(failure); return; }
+    setFailure(null);
+    await refresh();
+  }
+
   async function addPatient(patientId: string) {
     const { value, failure } = unwrap(await api.queueRegisterArrival(patientId, false));
     if (failure) { setFailure(failure); setAdding(false); return; }
@@ -287,6 +303,54 @@ export function Queue(
               setClashes((all) => all.filter((c) => c.visitId !== clash.visitId));
             })();
           }}>I have told them</button>
+        </div>
+      ))}
+
+      {/* The front desk has sent somebody in and is waiting to be told
+          it landed.
+
+          A QUESTION, NEVER AN ACTION. Nothing has changed yet: the
+          patient is still waiting, still with their serial, still in
+          the same place. Answering is what moves them, and only
+          somebody at this laptop can answer. A desk in another room
+          must never be able to change what is on this screen while the
+          doctor is reading it.
+
+          It sits above the list rather than over it. A box that
+          covered the screen while he was typing a prescription would
+          be a way to lose work, and this arrives while he is typing
+          nearly every time. */}
+      {view.handoffs.map((h) => (
+        <div className={h.reason === 'priority' ? 'handoff urgent' : 'handoff'} key={h.id}>
+          <div className="hh">
+            <span className="hs">{h.serialNo}</span>
+            <span className="hn">
+              <b>{h.nameBn ?? h.nameEn}</b>
+              <span className="muted">
+                {h.reason === 'priority'
+                  ? `${h.sentByName} at the front desk is asking you to see this patient now`
+                  : `${h.sentByName} has sent them in`}
+              </span>
+            </span>
+          </div>
+          {h.flagged && (
+            <div className="hnote">Their screening raised a warning. They are already ahead of the others.</div>
+          )}
+          {h.roomBusy && (
+            <div className="hnote">Somebody is already with you. Accepting puts two patients in the room.</div>
+          )}
+          <div className="hacts">
+            <button onClick={() => { void answerHandoff(h.id, 'accepted'); }}>
+              {h.reason === 'priority' ? 'Yes, send them in' : 'They are in — start'}
+            </button>
+            <button className="secondary" onClick={() => { void answerHandoff(h.id, 'declined'); }}>
+              Not now
+            </button>
+          </div>
+          <div className="hfoot">
+            "Not now" changes nothing. They stay where they are, with their serial, and you can call
+            them in from the list whenever you are ready.
+          </div>
         </div>
       ))}
 

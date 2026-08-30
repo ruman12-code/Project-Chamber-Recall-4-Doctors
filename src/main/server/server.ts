@@ -34,8 +34,10 @@ import { buildDirectory } from '../patients/directory';
 import { receiveDeskArrival } from '../queue/deskArrival';
 import { deskSignal } from '../queue/deskSignal';
 import { recordNoAnswer, recordPriorityBypass } from '../queue/noAnswer';
+import { recordHandoff, type HandoffReason } from '../queue/handoff';
+import type { Actor } from '../db/audit';
 import { registerPatient } from '../patients/register';
-import { registerArrival } from '../queue/register';
+import { registerArrival, setVisitStatus } from '../queue/register';
 import { addAttachment, type AttachmentKind } from '../attachments/store';
 
 /**
@@ -462,6 +464,92 @@ export function startTabletServer(options: TabletServerOptions): Promise<Running
             : 'That could not be written down.',
           whatToDo: error instanceof ChamberRecallError ? error.whatToDo
             : 'Call the next number from the laptop\'s list instead.',
+        });
+      }
+      return;
+    }
+
+    // "This patient has gone home." / "They have come back."
+    //
+    // The ONE thing the desk may change about a visit, and the two
+    // directions are deliberately the only two. A desk can see the
+    // waiting room and the chamber cannot, so it must be able to say
+    // somebody left -- and must be able to take it back the moment
+    // they walk in again, because the commonest mistake at a busy desk
+    // is tapping the wrong row.
+    //
+    // in_chamber and done are NOT here and must never be. Sending a
+    // patient in is a request the doctor answers (see the hand-off
+    // route below); finishing a consultation is the doctor's, and only
+    // the doctor's.
+    //
+    // A patient marked left keeps their serial and their place. The
+    // calling order skips them because it only ever looks at waiting
+    // patients, so coming back is one tap and they are called again,
+    // after those who have not been called yet.
+    if (path === '/api/queue/status') {
+      const body = (await readBody(request)) as Record<string, unknown>;
+      const wanted = String(body.status ?? '');
+      if (wanted !== 'left' && wanted !== 'waiting') {
+        sendJson(response, 400, {
+          error: 'The front desk can only mark a patient as gone home, or bring them back.',
+          whatToDo: 'Calling a patient in and finishing a consultation are done at the laptop.',
+        });
+        return;
+      }
+      // The assistant who was standing there, not whoever the laptop
+      // has signed in by the time this lands.
+      const who = db.prepare('SELECT id, role FROM app_user WHERE id = ? AND deleted_at IS NULL')
+        .get(String(body.changedBy ?? '')) as { id: string; role: string } | undefined;
+      if (who === undefined) {
+        sendJson(response, 400, {
+          error: 'That name is not in this installation.',
+          whatToDo: 'Sign in on the tablet again so this is recorded against somebody.',
+        });
+        return;
+      }
+      try {
+        setVisitStatus(db, String(body.visitId ?? ''), wanted,
+          { id: who.id, role: who.role } as Actor, String(body.changedAt ?? nowIso()));
+        sendJson(response, 200, { status: wanted });
+      } catch (error) {
+        sendJson(response, 400, {
+          error: error instanceof ChamberRecallError ? error.userMessage
+            : 'That could not be written down.',
+          whatToDo: error instanceof ChamberRecallError ? error.whatToDo
+            : 'Change it on the laptop instead.',
+        });
+      }
+      return;
+    }
+
+    // "I have sent them in." The desk's half of the corridor.
+    //
+    // Above the sign-in check for the same reason as the arrival route
+    // below: the assistant who sent the patient carries their OWN name
+    // on this, taken at the desk, and the laptop may have been closed
+    // and reopened at the other chamber since. Turning this away for
+    // want of a live sign-in would throw away something a person
+    // really did.
+    //
+    // It changes NOTHING by itself. See src/main/queue/handoff.ts.
+    if (path === '/api/queue/handoff') {
+      const body = (await readBody(request)) as Record<string, unknown>;
+      try {
+        const got = recordHandoff(db, {
+          deskRef: String(body.deskRef ?? ''),
+          visitId: String(body.visitId ?? ''),
+          sentBy: String(body.sentBy ?? ''),
+          sentAt: String(body.sentAt ?? nowIso()),
+          reason: (body.reason === 'priority' ? 'priority' : 'ordinary') as HandoffReason,
+        });
+        sendJson(response, 200, got);
+      } catch (error) {
+        sendJson(response, 400, {
+          error: error instanceof ChamberRecallError ? error.userMessage
+            : 'The doctor could not be told.',
+          whatToDo: error instanceof ChamberRecallError ? error.whatToDo
+            : 'Tell the doctor out loud that the patient has gone in.',
         });
       }
       return;

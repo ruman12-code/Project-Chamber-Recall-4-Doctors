@@ -25,6 +25,10 @@ export interface DeskSignal {
     flaggedWaiting: number;
   } | null;
   waiting: number;
+  /** Somebody this desk sent in whom the doctor has not answered about
+   *  yet. While it is set the tablet says nothing: the patient is
+   *  already at the door. */
+  handoffPendingVisitId: string | null;
   at: string;
 }
 
@@ -111,4 +115,10 @@ export const api = {
  * The one outbox for the whole tablet. Everything an assistant does
  * goes in here rather than straight out over the wifi.
  */
-export const outbox = new Outbox(async (path, body) => { await request(path, body); });
+export const outbox = new Outbox(
+  async (path, body) => { await request(path, body); },
+  // "The laptop did not answer" is the ONLY failure worth waiting out.
+  // Anything else is the laptop answering and refusing, which will
+  // never come good by being sent again. See the top of outbox.ts.
+  (error) => error instanceof LaptopUnreachableError,
+);

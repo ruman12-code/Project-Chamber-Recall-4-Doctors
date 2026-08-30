@@ -207,6 +207,58 @@ export function PrescriptionSheet(
             <div className="rg">{head.registration}</div>
           </div>
         </div>
+        {/* WHAT THIS PATIENT WAS ON BEFORE.
+            Below the signature, inside its own box, headed so that it
+            cannot be read as part of today's prescription. It is here
+            for the doctor at the next hospital, who has this sheet and
+            nothing else and whose first question is what the patient
+            has been taking. Every word of it was typed by the doctor
+            who wrote it, at the time he wrote it. */}
+        {view.previousVisits.length > 0 && (
+          <div className="rx-history">
+            {/* The patient's name and today's date again. This block
+                can fall onto a second sheet of paper, and a loose page
+                of medicine names with no patient on it is worse than
+                no page at all. */}
+            <div className="hh">
+              For information only — not to be dispensed
+              <span>
+                {view.patient.nameBn ?? view.patient.nameEn} · {view.visitDate} · serial {view.serialNo}
+              </span>
+            </div>
+            <div className="hs">
+              What this patient was prescribed at their last
+              {view.previousVisits.length === 1 ? ' visit' : ' two visits'}, by the doctor above.
+              Not part of today’s prescription.
+            </div>
+            {view.previousVisits.map((pv, i) => (
+              <div className="pv" key={i}>
+                <div className="pvd">{pv.visitDate} · {pv.chamberName}</div>
+                {pv.medications.length === 0
+                  ? <div className="pvn">No medicine was prescribed.</div>
+                  : (
+                    <ol className="pvm">
+                      {pv.medications.map((m, j) => (
+                        <li key={j}>
+                          <b>{m.drugName}</b>{m.strength !== null && ` ${m.strength}`}
+                          {[m.dose, m.frequency, m.durationDays === null ? null : `${m.durationDays} days`]
+                            .filter((part) => part !== null && part !== '').length > 0 && ' — '}
+                          {[m.dose, m.frequency, m.durationDays === null ? null : `${m.durationDays} days`]
+                            .filter((part) => part !== null && part !== '').join('  ·  ')}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                {pv.investigations.length > 0 && (
+                  <div className="pvi"><span className="k">Tests</span> {pv.investigations.join(' · ')}</div>
+                )}
+                {pv.advice !== null && pv.advice !== '' && (
+                  <div className="pva"><span className="k">Advice</span> {pv.advice}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -99,6 +99,19 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 
 /* Grows to fit every patient. The PAGE scrolls, not this box, so a
    notice at the top pushes the list down rather than squashing it. */
+/* What the laptop would not take. Loud, because the alternative is a
+   desk that thinks it did something it did not do. */
+.notice.bad.refused .refused-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.notice.bad.refused .refused-list li {
+  background: #fff; border: 2px solid currentColor; border-radius: 8px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.notice.bad.refused .refused-list b { font-size: 16px; }
+.notice.bad.refused .refused-list span { font-size: 14px; line-height: 1.4; }
+.notice.bad.refused .refused-list button {
+  align-self: flex-start; margin-top: 4px; font-size: 15px; padding: 8px 14px;
+}
+
 .patient-list { display: flex; flex-direction: column; gap: 10px; }
 /* A patient the desk is about to hand a SECOND number to today. Amber,
    like every other "a person has to decide this" panel. */
@@ -140,11 +153,26 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 /* Already has a number today, seen while the desk is about to give
    another one. Same amber as every other "stop and decide". */
 .patient .state.onlist { background: #fdf3e0; border-color: #d9a441; color: #6b4708; }
+/* Gone home. Quiet rather than alarming -- it is a normal thing that
+   happens, it is not a loss, and it is one tap to undo. */
+.patient.gone { opacity: 0.72; background: #f7f8fa; }
+.patient .state.left { background: #eceef2; border-color: #c3c9d4; color: #4a5262; }
 
 /* The two things an assistant can actually do. Nothing happens by
    touching the card itself any more, so these have to be unmissable
    and have to say what they do before they are pressed. */
 .patient .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+/* The row buttons that change the evening rather than the record.
+   Quieter than the two that take information, because taking the
+   information is what the desk does all night and these are rare. */
+.patient .row-act.quiet { background: #f7f8fa; color: #4a5262; border-color: #c3c9d4; font-weight: 700; }
+/* A patient a rule flagged. The desk is not told why -- only that the
+   doctor wants to see them sooner, which is what the button is for. */
+.patient .row-act.quiet.urgent { background: #fdf3e0; border-color: #d9a441; color: #6b4708; }
+/* The second tap. Said in the colour of the thing it does. */
+.patient .row-act.danger { background: #6b4708; border-color: #6b4708; color: #fff; }
+.patient .row-act.now { background: var(--ink); border-color: var(--ink); color: #fff; }
+.patient .row-act.back { background: var(--ink); border-color: var(--ink); color: #fff; }
 .patient .row-act {
   margin: 0; padding: 10px 14px; font-size: 15px; font-weight: 700;
   background: var(--paper, #fff); color: var(--ink);
@@ -364,24 +392,6 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 }
 .called-in > :first-child { margin-top: auto; }
 .called-in > :last-child { margin-bottom: auto; }
-/* The screen with the amber panel on it has a great deal more to say
-   than the ordinary one. The number is still the biggest thing on it,
-   but it stops being the only thing that fits. */
-.called-in.crowded .lead { font-size: 18px; }
-.called-in.crowded .serial { font-size: min(30vw, 20vh, 190px); }
-.called-in.crowded .name { font-size: 23px; }
-/* Everything else gives up a few points too, so that on a phone-sized
-   screen the whole thing -- number, name, both answers and the way out
-   -- lands inside one screenful and nobody has to know to scroll. The
-   scrolling above is still there; this is so it is not needed. */
-.called-in.crowded { gap: 2px; padding: 14px 16px; }
-.called-in.crowded .acts { margin-top: 10px; gap: 8px; }
-.called-in.crowded .btn { font-size: 18px; padding: 12px 20px; min-height: 54px; }
-.called-in.crowded .again { margin: 4px 0 0; font-size: 15px; padding: 5px 12px; }
-.called-in.crowded .silent-note { font-size: 13px; margin: 2px 0 0; }
-.called-in.crowded .stuck { margin-top: 10px; padding: 12px 14px; font-size: 15px; gap: 6px; }
-.called-in.crowded .stuck .d { font-size: 13.5px; }
-.called-in.crowded .stuck .breaker { font-size: 15px; padding: 11px 12px; min-height: 0; }
 .called-in .lead { font-size: 22px; color: var(--muted); }
 .called-in .serial {
   font-size: min(38vw, 300px); line-height: 1; font-weight: 800;
@@ -413,20 +423,11 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
 /* What the second button will do, before it is pressed. An assistant
    must be able to press it without wondering whether they are about to
    send somebody home. */
-/* The desk has run out of moves and a person has to decide. Amber,
-   because it is a situation to act on, not a failure. */
-.called-in .stuck {
-  max-width: 34rem; margin-top: 14px; padding: 14px 16px; font-size: 16px; line-height: 1.45;
+/* Why the number jumped. Amber, and it says nothing about what the
+   warning was -- only that the doctor is seeing them sooner. */
+.called-in .sooner {
+  max-width: 34rem; margin: 6px 0 2px; padding: 8px 16px; font-size: 17px; font-weight: 700;
   background: #fdf3e0; border: 2px solid #d9a441; color: #6b4708; border-radius: 10px;
-  display: flex; flex-direction: column; gap: 8px;
-}
-.called-in .stuck .t { font-weight: 800; }
-.called-in .stuck .d { font-size: 14.5px; }
-/* The way out. Deliberately not the loudest thing on the screen: it is
-   the rare answer, and sending the patient in is the usual one. */
-.called-in .stuck .breaker {
-  margin: 4px 0 0; min-width: 0; width: 100%; font-size: 16px; padding: 12px 14px;
-  background: #6b4708; color: #fff; border: 3px solid #6b4708;
 }
 .called-in .reassure {
   max-width: 34rem; margin-top: 14px; font-size: 15px; line-height: 1.5; color: var(--muted);
@@ -472,7 +473,6 @@ textarea:focus { outline: 4px solid var(--pick); outline-offset: 1px; border-col
   .topbar .conn { font-size: 12px; padding: 4px 10px; }
   .topbar .lang { font-size: 14px; padding: 6px 12px; }
   .called-in .serial { font-size: min(46vw, 220px); }
-  .called-in.crowded .serial { font-size: min(30vw, 18vh, 150px); }
   .called-in .name { font-size: 22px; }
   .called-in .acts { flex-direction: column; align-items: stretch; }
   .called-in .btn { min-width: 0; width: 100%; }

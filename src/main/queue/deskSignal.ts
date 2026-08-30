@@ -60,6 +60,22 @@ export interface DeskSignal {
     onlyOneWaiting: boolean;
   } | null;
   waiting: number;
+  /**
+   * A patient this desk has sent in, whom nobody at the chamber has
+   * answered about yet.
+   *
+   * The desk has already walked them to the door. Until the doctor
+   * accepts, that patient is still 'waiting', which means "who is
+   * next" still points at them -- and without this the tablet would
+   * put their number across the screen again and the assistant would
+   * call out somebody standing in the doorway. So while this is set,
+   * the tablet says nothing and shows the list.
+   *
+   * It clears the moment the question is answered, either way. If the
+   * doctor says "not now", the patient goes back into the calling
+   * order and their number comes up again, which is exactly right.
+   */
+  handoffPendingVisitId: string | null;
   /** Changes whenever anything above changes, so the tablet can tell a
    *  new call from the same one it has already announced. */
   at: string;
@@ -92,6 +108,18 @@ export function deskSignal(db: Db, chamberId: string, visitDate: string): DeskSi
   const noAnswer = noAnswerCounts(db, chamberId, visitDate);
   const upNext = pickUpNext(waiting, noAnswer);
 
+  // Sent in from the desk, not yet answered at the chamber. Only for
+  // somebody still waiting: once they are in the room the answer has
+  // been given, and once they have gone home there is nothing to ask.
+  const pending = db.prepare(
+    `SELECT h.visit_id AS visitId
+       FROM desk_handoff h JOIN visit v ON v.id = h.visit_id
+      WHERE h.decision IS NULL
+        AND v.chamber_id = ? AND v.visit_date = ?
+        AND v.deleted_at IS NULL AND v.status = 'waiting'
+      ORDER BY h.sent_at DESC LIMIT 1`,
+  ).get(chamberId, visitDate) as { visitId: string } | undefined;
+
   return {
     inChamber: called === null ? null : {
       visitId: called.visitId,
@@ -102,6 +130,7 @@ export function deskSignal(db: Db, chamberId: string, visitDate: string): DeskSi
     },
     nextWaiting: upNext,
     waiting: waiting.length,
+    handoffPendingVisitId: pending?.visitId ?? null,
     // Not a clock reading: a fingerprint of the answer. Two identical
     // situations give the same string, so the tablet announces a change
     // rather than announcing every few seconds.
@@ -113,6 +142,9 @@ export function deskSignal(db: Db, chamberId: string, visitDate: string): DeskSi
       // what moves the screen on -- so the count is part of the
       // fingerprint even though the name has not changed.
       String(upNext?.noAnswer ?? 0),
+      // Answered or not is news in its own right: it is what turns the
+      // tablet's silence back into a number on the screen.
+      pending?.visitId ?? 'none',
     ].join('|'),
   };
 }

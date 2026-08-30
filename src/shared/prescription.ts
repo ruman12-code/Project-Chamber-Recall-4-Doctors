@@ -44,6 +44,33 @@ export interface PrescriptionView {
   confirmedAt: string;
   confirmedByName: string | null;
   timesPrinted: number;
+  /**
+   * The two visits before this one, for a doctor who is not this one.
+   *
+   * The sheet is the only thing that leaves the chamber. A patient who
+   * walks into a hospital at midnight has this in their hand and
+   * nothing else, and "what has he been on" is the first question
+   * anybody asks. So the last two visits go on it: what was prescribed
+   * and what was advised, both in the doctor's own words, typed by him
+   * at the time.
+   *
+   * NOT A PRESCRIPTION. It is printed below the signature, inside a
+   * box that says so, because a pharmacist reading quickly must never
+   * dispense last month's medicines off this month's sheet.
+   *
+   * Only CONFIRMED consultations appear. An unsigned draft is not
+   * something to hand anybody.
+   */
+  previousVisits: PreviousVisit[];
+}
+
+export interface PreviousVisit {
+  visitDate: string;
+  chamberName: string;
+  medications: MedicationInput[];
+  /** The doctor's own wording. Never summarised, never shortened. */
+  advice: string | null;
+  investigations: string[];
 }
 
 export interface PrescriptionStatus {

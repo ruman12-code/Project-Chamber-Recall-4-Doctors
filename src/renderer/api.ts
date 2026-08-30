@@ -29,6 +29,7 @@ interface Api {
   queueSetChamber(chamberId: string): Promise<Result<Record<string, never>>>;
   queueRegisterArrival(patientId: string, allowSecondVisitToday: boolean): Promise<Result<{ serialNo: number; alreadyOnListVisitId: string | null }>>;
   queueSetStatus(visitId: string, status: VisitStatus): Promise<Result<Record<string, never>>>;
+  queueAnswerHandoff(handoffId: string, decision: 'accepted' | 'declined'): Promise<Result<Record<string, never>>>;
   queueMove(visitId: string, direction: 'up' | 'down'): Promise<Result<Record<string, never>>>;
   tabletStatus(): Promise<Result<{ status: TabletStatus }>>;
   tabletRevoke(deviceId: string): Promise<Result<Record<string, never>>>;
@@ -128,6 +129,7 @@ export const api: Api = {
   queueRegisterArrival: (id, allow) => call((a) => a.queueRegisterArrival(id, allow)),
   queueSetStatus: (id, status) => call((a) => a.queueSetStatus(id, status)),
   queueMove: (id, dir) => call((a) => a.queueMove(id, dir)),
+  queueAnswerHandoff: (id, decision) => call((a) => a.queueAnswerHandoff(id, decision)),
   tabletStatus: () => call((a) => a.tabletStatus()),
   tabletRevoke: (id) => call((a) => a.tabletRevoke(id)),
   recallCardFor: (visitId) => call((a) => a.recallCardFor(visitId)),

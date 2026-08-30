@@ -141,6 +141,7 @@ export const CHANNELS = {
   queueSetChamber: 'queue:setChamber',
   queueRegisterArrival: 'queue:registerArrival',
   queueSetStatus: 'queue:setStatus',
+  queueAnswerHandoff: 'queue:answerHandoff',
   queueMove: 'queue:move',
   tabletStatus: 'tablet:status',
   tabletRevoke: 'tablet:revoke',

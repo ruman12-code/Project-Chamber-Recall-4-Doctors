@@ -65,6 +65,8 @@ contextBridge.exposeInMainWorld('chamberRecall', {
     ipcRenderer.invoke('queue:setStatus', visitId, status),
   queueMove: (visitId: string, direction: 'up' | 'down'): Promise<Result<Record<string, never>>> =>
     ipcRenderer.invoke('queue:move', visitId, direction),
+  queueAnswerHandoff: (handoffId: string, decision: 'accepted' | 'declined'): Promise<Result<Record<string, never>>> =>
+    ipcRenderer.invoke('queue:answerHandoff', handoffId, decision),
   tabletStatus: (): Promise<Result<{ status: TabletStatus }>> =>
     ipcRenderer.invoke('tablet:status'),
   tabletRevoke: (deviceId: string): Promise<Result<Record<string, never>>> =>

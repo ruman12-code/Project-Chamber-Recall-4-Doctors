@@ -605,7 +605,7 @@ export function RecallCardScreen(
 
         {/* ---- right: the numbers ---- */}
         <div className="rc-col">
-          <div className="panel">
+          <div className="panel vitals">
             <h3>Vitals <span className="note">today and the two before</span></h3>
             <table className="vitals">
               <thead>
@@ -628,7 +628,7 @@ export function RecallCardScreen(
             </table>
           </div>
 
-          <div className="panel">
+          <div className="panel vitals">
             <h3>Trend <span className="note">every visit</span></h3>
             <BpSparkline points={card.trend.bp} />
             <ValueSparkline label="Weight" unit="kg" points={card.trend.weight} decimals={1} />
@@ -642,7 +642,7 @@ export function RecallCardScreen(
           the screen, so it gets the last strip rather than competing
           with the vitals for the right-hand column. */}
       <div className="rc-foot">
-        <div className="panel">
+        <div className="panel history">
           <h3>All visits <span className="note">{card.totalVisits} in total</span></h3>
           <div className="panel-scroll">
             {card.timeline.map((entry, i) => (
@@ -656,7 +656,7 @@ export function RecallCardScreen(
           </div>
         </div>
 
-        <div className="panel">
+        <div className="panel history">
           <h3>Recurring <span className="note">grouped by exact wording</span></h3>
           <div className="panel-scroll">
             {card.recurringDiagnoses.length === 0
@@ -670,7 +670,7 @@ export function RecallCardScreen(
           </div>
         </div>
 
-        <div className="panel">
+        <div className="panel rx">
           <h3>Current medicines <span className="note">{card.currentMedicationsFrom ?? 'none recorded'}</span></h3>
           <div className="panel-scroll">
             {card.currentMedications.length === 0

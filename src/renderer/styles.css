@@ -197,7 +197,66 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .rc-id button { margin: 0; padding: 7px 14px; font-size: 13px; }
 
 /* 3 - today's intake, walled off from the clinical record. */
+/* ---------------------------------------------------------------
+   COLOUR BY WHAT A SECTION IS
+   ---------------------------------------------------------------
+   Every panel used to be white with a grey heading, and a doctor
+   looking up after speaking to a patient had to READ his way back to
+   where he was. Each kind of section now has its own quiet tint, its
+   own heading colour and a coloured edge, so the place he was looking
+   is found by colour rather than by reading.
+   Three rules, and they are why these particular colours:
+     the tint is pale enough that black text on it stays as legible as
+     black on white, because this is read in a badly lit room;
+     the colour means the SAME thing everywhere -- green is medicine
+     on the Recall Card and on the consultation screen alike;
+     amber and red keep the meanings they already had in this program
+     (stop and decide, and the red flag) and are not spent on
+     decoration.
+   --------------------------------------------------------------- */
+.panel { border-left-width: 4px; }
 .panel.intake { background: #fbf8f1; border-color: #d9c9a3; }
+/* What the desk took, in the patient's words. */
+.panel.intake { border-left-color: #b98900; }
+.panel.intake h3 { color: #8a5a00; }
+/* Measurements. */
+.panel.vitals { background: #f2f8f8; border-color: #bcd6d6; border-left-color: #1a6a6a; }
+.panel.vitals h3 { color: #14595a; }
+/* What the doctor is writing right now. */
+.panel.today { background: #f1f5fc; border-color: #c2d0e8; border-left-color: #1f4e9c; }
+.panel.today h3 { color: #1f4e9c; }
+/* Medicine, here and on the Recall Card. */
+.panel.rx { background: #f1f8f2; border-color: #c3ddc7; border-left-color: #1d6b2f; }
+.panel.rx h3 { color: #1d6b2f; }
+/* Tests asked for. */
+.panel.tests { background: #f6f3fa; border-color: #d2c8e3; border-left-color: #57408a; }
+.panel.tests h3 { color: #4b3579; }
+/* What has happened before: every visit, and what keeps coming back. */
+.panel.history { background: #f4f5f7; border-color: #ccd1da; border-left-color: #46506a; }
+.panel.history h3 { color: #3c465e; }
+
+/* ---------------------------------------------------------------
+   THE FRONT DESK IS ASKING
+   A question from the other room, above the list and never over it.
+   Blue for the ordinary hand-off, amber when a person at the desk has
+   asked for this patient to be seen now -- the same amber as every
+   other "stop and decide" in this program.
+   --------------------------------------------------------------- */
+.handoff {
+  border: 3px solid #1f4e9c; border-radius: 10px; background: #eef3fd;
+  padding: 14px 16px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.handoff.urgent { border-color: #d9a441; background: #fdf3e0; }
+.handoff .hh { display: flex; align-items: center; gap: 14px; }
+.handoff .hs {
+  font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums;
+  line-height: 1; min-width: 2.2ch; text-align: right;
+}
+.handoff .hn { display: flex; flex-direction: column; gap: 2px; }
+.handoff .hn b { font-size: 19px; }
+.handoff .hnote { font-size: 14px; font-weight: 700; color: #6b4708; }
+.handoff .hacts { display: flex; gap: 10px; }
+.handoff .hfoot { font-size: 13px; color: var(--muted); line-height: 1.45; }
 .intake-stamp {
   background: #8a5a00; color: #fff; border-radius: 4px; padding: 3px 7px;
   font-size: 9.5px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
@@ -277,7 +336,10 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .correct-foot button { margin: 0; }
 
 /* 5 - the last visit. The dominant block on the screen. */
-.panel.last { border: 2px solid var(--ink); }
+/* The visit before this one. The doctor's own last words about this
+   patient, so it keeps the heaviest edge on the screen. */
+.panel.last { border: 2px solid var(--ink); border-left-width: 5px; background: #fafbfd; }
+.panel.last h3 { color: var(--ink); }
 .last-when { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
 .last-row { display: flex; gap: 8px; font-size: 13px; line-height: 1.35; margin-bottom: 4px; }
 .last-row .k { flex: none; width: 74px; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px;
@@ -287,7 +349,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .unconfirmed { color: var(--alarm); font-weight: 700; font-size: 11px; }
 
 /* 6 - ordered and never came back. */
-.panel.outstanding { border: 2px solid #b8791a; background: #fffaf0; }
+.panel.outstanding { border: 2px solid #b8791a; border-left-width: 5px; background: #fffaf0; }
 .panel.outstanding h3 { color: #8a5a00; }
 .osi { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; border-bottom: 1px solid #efe0c6; }
 .osi:last-child { border-bottom: none; }
@@ -750,6 +812,31 @@ button.small { margin: 6px 0 0; padding: 6px 10px; font-size: 12px; }
 .rx-block .advice { font-size: 10.5pt; white-space: pre-wrap; }
 .rx-followup { margin-top: 3mm; font-size: 10.5pt; font-weight: 700; }
 
+/* What the patient was on before. A BOX, below the signature, headed
+   in a way that cannot be misread across a pharmacy counter: the
+   heading is the loudest thing in it, and the medicines inside are set
+   smaller than today's prescription so the two can never be confused
+   at a glance. */
+.rx-history {
+  margin-top: 7mm; border: 1pt solid #000; border-radius: 1.5mm; padding: 2.5mm 3mm;
+}
+.rx-history .hh {
+  font-size: 9.5pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4pt;
+  border-bottom: 0.5pt solid #000; padding-bottom: 1mm; margin-bottom: 2mm;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 4mm;
+}
+.rx-history .hh span { font-size: 8pt; font-weight: 600; text-transform: none; letter-spacing: 0; }
+.rx-history .hs { font-size: 8pt; margin-bottom: 2mm; }
+.rx-history .pv { margin-bottom: 2.5mm; }
+.rx-history .pv:last-child { margin-bottom: 0; }
+.rx-history .pvd { font-size: 8.5pt; font-weight: 700; }
+.rx-history .pvm { margin: 0.5mm 0 0; padding-left: 5mm; font-size: 8.5pt; line-height: 1.35; }
+.rx-history .pvn { font-size: 8.5pt; font-style: italic; }
+.rx-history .pvi, .rx-history .pva { font-size: 8.5pt; line-height: 1.35; margin-top: 0.5mm; }
+.rx-history .k {
+  font-size: 7pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3pt; margin-right: 1.5mm;
+}
+
 .rx-foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 6mm; margin-top: 8mm; }
 .rx-foot .note { font-size: 8pt; color: #333; }
 .rx-foot .sig { text-align: center; min-width: 45mm; }
@@ -762,6 +849,14 @@ button.small { margin: 6px 0 0; padding: 6px 10px; font-size: 12px; }
   .rx-bar { display: none !important; }
   .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
   .rx-stamp { color: rgba(197, 48, 48, 0.3); }
+  /* The sheet can now run onto a second page, because it carries the
+     last two visits. Where the break lands matters: a signature on its
+     own page is a signature nobody can tell what it signs, and a
+     history box cut in half reads as two different prescriptions. */
+  .rx-foot { break-inside: avoid; page-break-inside: avoid; }
+  .rx-history { break-inside: avoid; page-break-inside: avoid; }
+  .rx-history .pv { break-inside: avoid; page-break-inside: avoid; }
+  .rx-body { break-inside: avoid; page-break-inside: avoid; }
 }
 
 

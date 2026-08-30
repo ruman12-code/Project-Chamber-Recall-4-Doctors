@@ -209,7 +209,7 @@ export function ChamberScreen(
       <div className="ch-body">
         {/* ---- vitals ---- */}
         <div className="ch-col narrow">
-          <div className="panel">
+          <div className="panel vitals">
             <h3>Vitals <span className="note">{view.vitals.recordedByName ?? 'not taken yet'}</span></h3>
             <div className="vt-grid">
               <VitalBox label="BP upper" unit="mmHg" value={vitals.systolic!} readOnly={readOnly}
@@ -261,7 +261,7 @@ export function ChamberScreen(
 
         {/* ---- the consultation ---- */}
         <div className="ch-col">
-          <div className="panel grow">
+          <div className="panel today grow">
             <h3>This consultation <span className="note">{view.encounter.enteredByName ?? ''}</span></h3>
             <div className="panel-scroll">
               <Field label="Complaint" value={draft.chiefComplaint} readOnly={readOnly}
@@ -289,7 +289,7 @@ export function ChamberScreen(
 
         {/* ---- prescription and tests ---- */}
         <div className="ch-col">
-          <div className="panel grow">
+          <div className="panel rx grow">
             <h3>
               Prescription
               <span className="note">every word typed by you — nothing is suggested</span>
@@ -305,7 +305,7 @@ export function ChamberScreen(
             </div>
           </div>
 
-          <div className="panel">
+          <div className="panel tests">
             <h3>Tests ordered <span className="note">one on each line</span></h3>
             <textarea rows={4} value={tests} readOnly={readOnly}
               aria-label="Tests ordered"

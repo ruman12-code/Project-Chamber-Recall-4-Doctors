@@ -34,6 +34,23 @@ const DRAFT_KEY = 'chamber-recall.draft.v1';
 const LANG_KEY = 'chamber-recall.lang.v1';
 
 /**
+ * What each outbox path WAS, said the way an assistant would say it.
+ *
+ * A refusal has to be readable by the person holding the tablet. "POST
+ * /api/queue/handoff failed" tells them nothing they can act on;
+ * "sending a patient in to the doctor" tells them exactly what to go
+ * and do by hand.
+ */
+const REFUSED_WHAT: Record<string, string> = {
+  '/api/queue/desk-arrival': 'Giving a patient their serial number',
+  '/api/queue/handoff': 'Sending a patient in to the doctor',
+  '/api/queue/status': 'Marking a patient as gone home, or bringing them back',
+  '/api/queue/no-answer': 'Recording that a number was called and nobody came',
+  '/api/queue/priority-bypass': 'Moving the calling order past somebody',
+  '/api/attachments': 'A photograph of a patient’s papers',
+};
+
+/**
  * Bumped whenever the shape of what the tablet keeps changes.
  *
  * The tablet holds a copy of the last session so it can work with no
@@ -154,6 +171,30 @@ export function App() {
   /** The last state of the room this tablet has already announced, so
    *  it announces a change rather than announcing every few seconds. */
   const announced = useRef<string | null>(null);
+  /**
+   * The patient this desk has just sent in.
+   *
+   * When the doctor accepts the hand-off, the room changes -- and the
+   * room changing is exactly what makes this tablet put a serial
+   * across the screen and chime. Without this, the desk would be told
+   * to call out the number of the patient it had just walked to the
+   * door thirty seconds earlier, which is how a waiting room learns to
+   * ignore the tablet.
+   *
+   * Cleared as soon as that patient is in the room, or leaves it.
+   */
+  const handedOver = useRef<string | null>(null);
+  /**
+   * The last patient this tablet announced as being with the doctor.
+   *
+   * The signal changes whenever ANYTHING about the evening changes --
+   * somebody marked as gone home, a number called with no answer -- and
+   * without this, every one of those put the number of the patient
+   * already sitting with the doctor back across the screen, with the
+   * chime, minutes after they walked in. A room learns to ignore a
+   * tablet that does that.
+   */
+  const inChamberSaid = useRef<string | null>(null);
   const [showingPapers, setShowingPapers] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
@@ -343,10 +384,35 @@ export function App() {
           if (announced.current === null) { announced.current = signal.at; return; }
           if (signal.at === announced.current) return;
           announced.current = signal.at;
+          // A patient this desk has already walked to the door, with
+          // the question still on the doctor's screen. They are still
+          // "waiting" until he answers, so who-is-next still points at
+          // them -- and calling their number again over somebody
+          // standing in the doorway is exactly what must not happen.
+          if (signal.handoffPendingVisitId !== null) {
+            setCalled(null);
+            return;
+          }
           if (signal.inChamber !== null) {
+            // The doctor has accepted somebody this desk sent in. That
+            // is not news out here -- the assistant walked them to the
+            // door. Say nothing, make no noise, and show the list.
+            if (handedOver.current === signal.inChamber.visitId) {
+              handedOver.current = null;
+              inChamberSaid.current = signal.inChamber.visitId;
+              setCalled(null);
+              void refresh();
+              return;
+            }
+            // Already announced, and the room has not changed since.
+            // Something ELSE about the evening moved, which is not a
+            // reason to shout this number a second time.
+            if (inChamberSaid.current === signal.inChamber.visitId) return;
+            inChamberSaid.current = signal.inChamber.visitId;
             setCalled(signal.inChamber);
             chime();
           } else if (signal.nextWaiting !== null) {
+            inChamberSaid.current = null;
             // The doctor has finished with somebody and the room is
             // empty. The desk should not have to wait for him to press
             // anything: the next serial comes up by itself, because the
@@ -359,6 +425,7 @@ export function App() {
           } else {
             // Nobody with the doctor and nobody waiting. The evening is
             // caught up.
+            inChamberSaid.current = null;
             setCalled(null);
             void refresh();
           }
@@ -552,27 +619,97 @@ export function App() {
   // offlineDesk clears the moment the real sign-in goes through, so
   // this stops saying it at exactly the right moment.
   /**
-   * The number was called out and nobody stood up.
+   * "I have sent them in."
    *
-   * Written down, never acted on: the patient keeps their status, their
-   * place and their serial, and stays on the doctor's list exactly
-   * where they were. All this does is record that it happened and let
-   * the desk move to whoever has been called fewest times.
+   * The desk's half of the corridor, and the only thing that tells the
+   * laptop a patient has actually stood up and walked to the door.
    *
-   * Through the outbox like everything else, so a wifi drop between the
-   * doctor finishing and the desk calling does not lose the record --
-   * and so the same tap is never counted twice, because the deskRef
-   * goes with it.
+   * It does NOT put them in front of the doctor. It puts a question on
+   * his screen, which he answers. See src/main/queue/handoff.ts for
+   * why the desk cannot change what the chamber is looking at.
+   *
+   * Through the outbox, so the tap works with the laptop out of reach
+   * and lands when it comes back.
    */
-  async function nobodyCame(who: { visitId: string; serialNo: number }): Promise<void> {
+  async function sentIn(
+    who: { visitId: string; serialNo: number }, reason: 'ordinary' | 'priority' = 'ordinary',
+  ): Promise<void> {
     const by = session?.signedIn?.id ?? offlineDesk?.who.id ?? null;
     if (by !== null) {
-      outbox.add('/api/queue/no-answer', {
-        deskRef: `na-${who.visitId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      outbox.add('/api/queue/handoff', {
+        deskRef: `ho-${who.visitId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         visitId: who.visitId,
-        calledBy: by,
-        calledAt: new Date().toISOString(),
+        sentBy: by,
+        sentAt: new Date().toISOString(),
+        reason,
       });
+    }
+    handedOver.current = who.visitId;
+    setCalled(null);
+    try { await outbox.flush(); void refresh(); } catch { /* the next poll sends it */ }
+  }
+
+  /**
+   * A patient the desk can see is not coming back.
+   *
+   * The one thing that DOES take somebody out of the calling order,
+   * and it is a person saying it about a named patient standing in
+   * front of them -- not the software deciding from silence. They are
+   * not deleted, not seen, not finished: they are marked as having
+   * left, and the doctor's list says so with a button to bring them
+   * back the moment they walk in again.
+   */
+  async function markLeft(visitId: string, status: 'left' | 'waiting'): Promise<void> {
+    const by = session?.signedIn?.id ?? offlineDesk?.who.id ?? null;
+    if (by === null) return;
+    outbox.add('/api/queue/status', {
+      deskRef: `st-${visitId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      visitId, status, changedBy: by, changedAt: new Date().toISOString(),
+    });
+    try { await outbox.flush(); } catch { /* the next poll sends it */ }
+    void refresh();
+  }
+
+  /**
+   * The number was called out and nobody stood up.
+   *
+   * ONE TAP, AND THE CALLING ORDER MOVES ON. There used to be two: a
+   * "nobody came" that recorded the fact, and a separate button for
+   * the case where the patient was flagged, because a flagged patient
+   * is never called after an unflagged one and the order could not get
+   * past them on its own. The desk was left tapping the same three
+   * numbers round and round with a full waiting room.
+   *
+   * So this writes down two facts in one tap: they were called and did
+   * not come, and -- when a rule had flagged them -- a person decided
+   * they are not in the room. The second is only ever written for a
+   * flagged patient, because for anybody else there is nothing to move
+   * past and it would put a mark on the doctor's list that means
+   * nothing.
+   *
+   * NOTHING ELSE MOVES. The patient keeps their status, their place,
+   * their serial and their warning on the doctor's screen. A flagged
+   * patient is still called FIRST, ahead of everybody -- just once
+   * each, rather than for ever.
+   *
+   * Through the outbox like everything else, so a wifi drop between
+   * the doctor finishing and the desk calling does not lose the record
+   * -- and so the same tap is never counted twice, because the deskRef
+   * goes with it.
+   */
+  async function nobodyCame(who: { visitId: string; serialNo: number; flagged?: boolean }): Promise<void> {
+    const by = session?.signedIn?.id ?? offlineDesk?.who.id ?? null;
+    if (by !== null) {
+      const at = new Date().toISOString();
+      const ref = `${who.visitId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      outbox.add('/api/queue/no-answer', {
+        deskRef: `na-${ref}`, visitId: who.visitId, calledBy: by, calledAt: at,
+      });
+      if (who.flagged === true) {
+        outbox.add('/api/queue/priority-bypass', {
+          deskRef: `pb-${ref}`, visitId: who.visitId, calledBy: by, calledAt: at,
+        });
+      }
     }
     // Off the screen at once. The desk has a room in front of it and
     // must not wait on the wifi to call the next number; the signal
@@ -588,39 +725,6 @@ export function App() {
         setCalled({ ...signal.nextWaiting, outOfTurn: false, nextUp: true });
       }
     } catch { /* the poll a few seconds from now will do it */ }
-  }
-
-  /**
-   * "This flagged patient is not here — call the next by serial."
-   *
-   * The way out of the priority loop, and the only one. It is recorded
-   * with the assistant's name, it changes the calling order and nothing
-   * else, and the doctor's list shows that it happened. Through the
-   * outbox like every other thing the desk does.
-   */
-  async function notHereMoveOn(who: { visitId: string; serialNo: number }): Promise<void> {
-    const by = session?.signedIn?.id ?? offlineDesk?.who.id ?? null;
-    if (by !== null) {
-      const at = new Date().toISOString();
-      const ref = `${who.visitId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      // Both: they were called and did not come, AND a person decided
-      // to move past their priority. Two facts, written down as two.
-      outbox.add('/api/queue/no-answer', {
-        deskRef: `na-${ref}`, visitId: who.visitId, calledBy: by, calledAt: at,
-      });
-      outbox.add('/api/queue/priority-bypass', {
-        deskRef: `pb-${ref}`, visitId: who.visitId, calledBy: by, calledAt: at,
-      });
-    }
-    setCalled(null);
-    try {
-      await outbox.flush();
-      const signal = await api.deskSignal();
-      if (signal !== null && signal.inChamber === null && signal.nextWaiting !== null) {
-        announced.current = signal.at;
-        setCalled({ ...signal.nextWaiting, outOfTurn: false, nextUp: true });
-      }
-    } catch { /* the poll a couple of seconds from now will do it */ }
   }
 
   const offline = status.offlineSince !== null || offlineDesk !== null || laptopSilent;
@@ -640,21 +744,15 @@ export function App() {
           nextUp={called.nextUp === true}
           noAnswer={called.noAnswer ?? 0}
           onlyOneWaiting={called.onlyOneWaiting === true}
-          stuckOnFlagged={called.allFlaggedUnanswered === true}
-          flaggedWaiting={called.flaggedWaiting ?? 0}
+          flagged={called.flagged === true}
           silent={!chimeIsArmed()}
           bn={bn}
-          onSent={() => setCalled(null)}
+          onSent={() => { void sentIn(called); }}
           // Offered only while the desk is working down the list on its
           // own. A patient the DOCTOR asked for by number who does not
           // appear is news for him, not something for the desk to move
           // past on its own.
           onNoAnswer={called.nextUp === true ? () => { void nobodyCame(called); } : undefined}
-          // Only offered when the calling order is genuinely stuck on
-          // flagged patients who are not answering. It is a decision
-          // about ONE named patient, not a mode the desk turns on.
-          onSkipPriority={called.nextUp === true && called.allFlaggedUnanswered === true
-            ? () => { void notHereMoveOn(called); } : undefined}
         />
       )}
 
@@ -706,6 +804,38 @@ export function App() {
               ? `ল্যাপটপ চালু হলে আপনার নামে নিজে থেকেই সাইন ইন হয়ে যাবে এবং জমে থাকা সব চলে যাবে${status.pending > 0 ? ` (${status.pending}টি)` : ''}।`
               : `When the laptop is next reachable this tablet signs in under your name on its own, and everything waiting here${status.pending > 0 ? ` (${status.pending})` : ''} goes across.`}
           </div>
+        </div>
+      )}
+
+      {/* THE LAPTOP ANSWERED AND SAID NO.
+          Not a wifi problem and not something a retry will fix, so it
+          is never quietly held: it is taken out of the queue -- so
+          everything behind it goes through -- and put here, in words,
+          until a person reads it. Nothing is deleted; the tap simply
+          did not take effect, and somebody has to know that. */}
+      {status.refused.length > 0 && (
+        <div className="notice bad refused">
+          <div className="t">
+            {bn
+              ? `${status.refused.length}টি কাজ ল্যাপটপ নেয়নি।`
+              : `The laptop would not accept ${status.refused.length} ${status.refused.length === 1 ? 'thing' : 'things'}.`}
+          </div>
+          <div className="d">
+            {bn
+              ? 'নিচের কাজগুলো হয়নি। ডাক্তারের ল্যাপটপে হাতে করে নিতে হবে। বাকি সব ঠিকমতো চলে গেছে।'
+              : 'These did not happen. They need doing by hand on the laptop. Everything else has gone across.'}
+          </div>
+          <ul className="refused-list">
+            {status.refused.map((r) => (
+              <li key={r.id}>
+                <b>{REFUSED_WHAT[r.path] ?? r.path}</b>
+                <span>{r.reason}</span>
+                <button onClick={() => outbox.dismissRefused(r.id)}>
+                  {bn ? 'পড়েছি' : 'I have read this'}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -761,6 +891,13 @@ export function App() {
             // hour later must not mean walking back through an intake
             // that was finished at the desk.
             onPapers={(entry) => { startWith(entry); setShowingPapers(true); }}
+            onLeft={(entry, status) => { void markLeft(entry.visitId, status); }}
+            // Marked as a PRIORITY hand-off, so the doctor sees that a
+            // person at the desk asked for this rather than the calling
+            // order producing it.
+            onSendInNow={(entry) => {
+              void sentIn({ visitId: entry.visitId, serialNo: entry.serialNo }, 'priority');
+            }}
           />
           <div className="arrive-actions">
             <button onClick={() => setArriving(true)}>{bn ? 'রোগী এসেছেন' : 'A patient has arrived'}</button>

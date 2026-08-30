@@ -90,4 +90,34 @@ export interface QueueView {
   visitDate: string;
   chambers: Array<{ id: string; name: string }>;
   entries: QueueEntry[];
+  /**
+   * What the front desk has sent in and the chamber has not answered.
+   *
+   * Carried on the ordinary queue read rather than on a channel of its
+   * own, so the doctor's screen learns about it on the same poll that
+   * refreshes the list -- one round trip, and the two can never
+   * disagree about what is happening in the corridor.
+   *
+   * See src/main/queue/handoff.ts. Nothing in here has changed a visit;
+   * every one of them is a question waiting for an answer.
+   */
+  handoffs: OpenHandoff[];
+}
+
+/** One "I have sent them in" from the desk, unanswered. */
+export interface OpenHandoff {
+  id: string;
+  visitId: string;
+  serialNo: number;
+  nameBn: string | null;
+  nameEn: string | null;
+  /** 'priority' means a person at the desk asked for this patient to be
+   *  seen now, rather than it being the next in the calling order. */
+  reason: 'ordinary' | 'priority';
+  sentAt: string;
+  sentByName: string;
+  /** A screening rule fired on this patient. */
+  flagged: boolean;
+  /** Somebody is already with the doctor. */
+  roomBusy: boolean;
 }

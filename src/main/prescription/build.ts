@@ -20,10 +20,10 @@ import { recordAudit, type Actor } from '../db/audit';
 import { recordUsage } from '../db/usage';
 import { ChamberRecallError } from '../../shared/errors';
 import { requireClinicalRole } from '../clinical/access';
-import { encounterFor } from '../clinical/encounter';
+import { encounterFor, medicationsOf } from '../clinical/encounter';
 import { vitalsFor } from '../clinical/vitals';
 import { loadPrescriptionConfig, letterheadFor } from './config';
-import type { PrescriptionView } from '../../shared/prescription';
+import type { PrescriptionView, PreviousVisit } from '../../shared/prescription';
 
 export class PrescriptionError extends ChamberRecallError {}
 
@@ -98,6 +98,7 @@ export function buildPrescription(db: Db, dataDir: string, visitId: string, asOf
   ).get(encounter.id) as { n: number };
 
   return {
+    previousVisits: previousVisitsFor(db, visitId),
     letterhead: {
       doctorNameBn: config.doctor.name.bn,
       doctorNameEn: config.doctor.name.en,
@@ -169,4 +170,49 @@ export function recordPrescriptionPrinted(db: Db, visitId: string, actor: Actor,
     eventType: before.n > 0 ? 'prescription_reprinted' : 'prescription_printed',
     actorId: actor.id, visitId, timestamp: at,
   });
+}
+
+/**
+ * The last two CONFIRMED consultations before this one, for the sheet.
+ *
+ * Read by patient, not by chamber: the same doctor sees the same
+ * patient at Lubana on Tuesday and Popular on Thursday, and a history
+ * that stopped at the chamber door would be a history with holes in
+ * it. The chamber is named on each line so the reader can see where.
+ *
+ * Ordered by date and then by when the visit was created, so two
+ * visits on one day come out in the order they happened.
+ *
+ * Every word is the doctor's own, typed by him at the time. Nothing
+ * here is summarised, shortened, ranked or inferred.
+ */
+function previousVisitsFor(db: Db, visitId: string): PreviousVisit[] {
+  const rows = db.prepare(
+    `SELECT v.id, v.visit_date AS visitDate, c.name AS chamberName, e.id AS encounterId,
+            e.decision_notes AS advice
+       FROM visit v
+       JOIN chamber c ON c.id = v.chamber_id
+       JOIN encounter e ON e.visit_id = v.id AND e.deleted_at IS NULL
+      WHERE v.patient_id = (SELECT patient_id FROM visit WHERE id = ?)
+        AND v.id != ?
+        AND v.deleted_at IS NULL
+        AND e.doctor_confirmed_at IS NOT NULL
+        AND (v.visit_date, v.created_at) <
+            (SELECT visit_date, created_at FROM visit WHERE id = ?)
+      ORDER BY v.visit_date DESC, v.created_at DESC
+      LIMIT 2`,
+  ).all(visitId, visitId, visitId) as Array<{
+    visitDate: string; chamberName: string; encounterId: string; advice: string | null;
+  }>;
+
+  return rows.map((row) => ({
+    visitDate: row.visitDate,
+    chamberName: row.chamberName,
+    medications: medicationsOf(db, row.encounterId),
+    advice: row.advice,
+    investigations: (db.prepare(
+      `SELECT test_name AS testName FROM investigation
+        WHERE encounter_id = ? AND deleted_at IS NULL ORDER BY created_at, rowid`,
+    ).all(row.encounterId) as Array<{ testName: string }>).map((r) => r.testName),
+  }));
 }

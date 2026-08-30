@@ -26,6 +26,7 @@ import { registerArrival, setVisitStatus } from './queue/register';
 import { todaysQueue, moveInQueue, activeChamberId, setActiveChamber, chambers } from './queue/queue';
 import type { QueueView, VisitStatus } from '../shared/queue';
 import { upNextInChamber } from './queue/upNext';
+import { openHandoffs, answerHandoff } from './queue/handoff';
 import { startTabletServer, DEFAULT_PORT, type RunningServer } from './server/server';
 import { pairedDevices, revokeDevice, setDeviceChamber } from './server/pairing';
 import { unassignedActor, laptopRole, setLaptopRole, laptopActor, type UnassignedRole } from './db/users';
@@ -337,6 +338,10 @@ function registerHandlers(): void {
         // cannot tell the doctor and the assistant different things.
         upNextVisitId: chamberId === null ? null
           : upNextInChamber(db, chamberId, sessionDate())?.visitId ?? null,
+        // What the desk has sent in and nobody here has answered. Read
+        // on the same poll as the list, so the corridor and the list
+        // can never tell the doctor two different stories.
+        handoffs: chamberId === null ? [] : openHandoffs(db, chamberId, sessionDate()),
       },
     };
   });
@@ -361,6 +366,18 @@ function registerHandlers(): void {
     setVisitStatus(db, visitId, status, actor);
     return {} as Record<string, never>;
   });
+
+  // The chamber's answer to "I have sent them in". Accepting is what
+  // makes the patient in_chamber; declining changes nothing at all and
+  // only stops the question being asked again every three seconds.
+  handle<Record<string, never>>(
+    CHANNELS.queueAnswerHandoff, (handoffId: string, decision: 'accepted' | 'declined') => {
+      if (db === null) throw new Error('the front desk was answered before the database was unlocked');
+      const who = atTheLaptop();
+      requireClinicalRole(who, 'answer the front desk about a patient being sent in');
+      answerHandoff(db, handoffId, decision === 'accepted' ? 'accepted' : 'declined', who);
+      return {} as Record<string, never>;
+    });
 
   handle<Record<string, never>>(CHANNELS.queueMove, (visitId: string, direction: 'up' | 'down') => {
     if (db === null) throw new Error('the queue was reordered before the database was unlocked');
